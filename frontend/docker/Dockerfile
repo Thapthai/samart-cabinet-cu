@@ -43,8 +43,8 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-# Build args — ตรงกับ .env.example (Smart Cabinet CU)
-ARG NEXT_PUBLIC_API_URL=http://localhost:3000/smart-cabinet-cu/api/v1
+# Build args — ตรงกับ .env.example (Smart Cabinet CU), API path: /api/smart-cabinet-cu/v1
+ARG NEXT_PUBLIC_API_URL=http://localhost:4000/api/smart-cabinet-cu/v1
 ARG NEXT_PUBLIC_BASE_PATH=/smart-cabinet-cu
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}
@@ -71,7 +71,7 @@ ENV PORT=4100
 ENV HOSTNAME=0.0.0.0
 
 # Runtime env (ต้องตรงกับ build time สำหรับ Next.js public vars)
-ARG NEXT_PUBLIC_API_URL=http://localhost:3000/smart-cabinet-cu/api/v1
+ARG NEXT_PUBLIC_API_URL=http://localhost:4000/api/smart-cabinet-cu/v1
 ARG NEXT_PUBLIC_BASE_PATH=/smart-cabinet-cu
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}

@@ -1,10 +1,9 @@
 # ================================
 # Frontend (Next.js) - Production — Smart Cabinet CU
 # ================================
-# ใช้จากโฟลเดอร์ frontend: docker compose -f docker/docker-compose.yml up -d
-# ตัวแปร env ตรงกับ frontend/.env.example (คัดลอกเป็น .env หรือ .env.local)
-# ตัวแปร env ตรงกับ frontend/.env.example (คัดลอกเป็น .env หรือ .env.local)
-# ไม่ใช้ shared network — ตั้ง NEXT_PUBLIC_API_URL เป็น IP โฮสต์ เช่น http://10.11.9.84:4000/smart-cabinet-cu/api/v1
+# ใช้จากโฟลเดอร์ frontend: docker compose -f docker/docker-compose.yml --env-file .env up -d --build
+# ถ้า deploy คนละเครื่องกับ sv map (ออกนอก): ใส่ใน .env ตาม frontend/.env.server.example
+#   NEXTAUTH_URL + NEXT_PUBLIC_API_URL + BACKEND_API_URL = URL ภายนอก (โดเมนที่ชี้ไป sv map)
 
 services:
   frontend:
@@ -13,7 +12,7 @@ services:
       dockerfile: docker/Dockerfile
       target: production
       args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3000/smart-cabinet-cu/api/v1}
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000/api/smart-cabinet-cu/v1}
         - NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH:-/smart-cabinet-cu}
     image: frontend-smart-cabinet:latest
     container_name: smart-cabinet-frontend
@@ -24,9 +23,9 @@ services:
       - NODE_ENV=production
       - PORT=4100
       - HOSTNAME=0.0.0.0
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:3000/smart-cabinet-cu/api/v1}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:4000/api/smart-cabinet-cu/v1}
       - NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH:-/smart-cabinet-cu}
-      - BACKEND_API_URL=${BACKEND_API_URL:-http://host.docker.internal:4000/smart-cabinet-cu/api/v1}
+      - BACKEND_API_URL=${BACKEND_API_URL:-http://host.docker.internal:4000/api/smart-cabinet-cu/v1}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:4100/smart-cabinet-cu}
     healthcheck:
