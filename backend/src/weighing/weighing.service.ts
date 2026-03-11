@@ -141,6 +141,7 @@ export class WeighingService {
    * ดึงรายการ ItemSlotInCabinetDetail แบบแบ่งหน้า ตาม Sign (เบิก = '-', เติม = '+')
    * dateFrom/dateTo: YYYY-MM-DD, กรองตาม ModifyDate (ต้นวัน - ปลายวัน UTC)
    * itemName: ค้นหาจากชื่ออุปกรณ์ (itemname / Alternatename)
+   * แสดงเฉพาะรายการที่ item มี itemname (ไม่ null และไม่ว่าง)
    */
   async findDetailsBySign(
     sign: string,
@@ -158,6 +159,12 @@ export class WeighingService {
     const limit = Math.min(params.limit ?? 50, 10000);
     const skip = (page - 1) * limit;
 
+    // กรองเฉพาะ item ที่มี itemname (ไม่ null และไม่ว่าง)
+    const hasItemNameFilter = {
+      itemname: { not: null },
+      NOT: { itemname: '' },
+    };
+
     const where: {
       Sign: string;
       itemcode?: { contains: string };
@@ -170,13 +177,21 @@ export class WeighingService {
     if (params.itemName?.trim()) {
       const k = params.itemName.trim();
       where.item = {
-        OR: [
-          { itemname: { contains: k } },
-          { Alternatename: { contains: k } },
+        AND: [
+          hasItemNameFilter,
+          {
+            OR: [
+              { itemname: { contains: k } },
+              { Alternatename: { contains: k } },
+            ],
+          },
         ],
       };
     } else if (params.itemcode?.trim()) {
       where.itemcode = { contains: params.itemcode.trim() };
+      where.item = hasItemNameFilter;
+    } else {
+      where.item = hasItemNameFilter;
     }
     if (params.stockId != null && params.stockId > 0) {
       where.StockID = params.stockId;
