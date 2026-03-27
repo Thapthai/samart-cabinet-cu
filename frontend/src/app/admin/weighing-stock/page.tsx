@@ -6,7 +6,9 @@ import { weighingApi, cabinetApi, reportsApi } from '@/lib/api';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
 import { toast } from 'sonner';
-import { Package, Search, X, Download } from 'lucide-react';
+import { Package, Search, X, Download, Settings2 } from 'lucide-react';
+import type { Item } from '@/types/item';
+import UpdateMinMaxDialog from '../items/components/UpdateMinMaxDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -28,7 +30,15 @@ export interface ItemSlotInCabinetRow {
   Sensor: number;
   Qty: number;
   cabinet?: { id: number; cabinet_name: string | null; cabinet_code: string | null; stock_id: number | null } | null;
-  item?: { itemcode: string; itemname: string | null; Alternatename: string | null; Barcode: string | null } | null;
+  item?: {
+    itemcode: string;
+    itemname: string | null;
+    Alternatename: string | null;
+    Barcode: string | null;
+    stock_min?: number | null;
+    stock_max?: number | null;
+  } | null;
+  cabinetItemSetting?: { stock_min: number | null; stock_max: number | null } | null;
   _count?: { itemSlotInCabinetDetail: number };
 }
 
@@ -54,6 +64,8 @@ export default function WeighingPage() {
   const [totalItems, setTotalItems] = useState(0);
   const itemsPerPage = 20;
   const [exportLoading, setExportLoading] = useState<'excel' | 'pdf' | null>(null);
+  const [minMaxOpen, setMinMaxOpen] = useState(false);
+  const [minMaxRow, setMinMaxRow] = useState<ItemSlotInCabinetRow | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -127,6 +139,32 @@ export default function WeighingPage() {
 
   const hasActiveFilters = itemcodeFilter || stockIdFilter;
 
+  const formatMinMax = (v: number | null | undefined) =>
+    v != null && v !== undefined ? String(v) : '—';
+
+  const effectiveMin = (row: ItemSlotInCabinetRow) =>
+    row.cabinetItemSetting?.stock_min ?? row.item?.stock_min;
+  const effectiveMax = (row: ItemSlotInCabinetRow) =>
+    row.cabinetItemSetting?.stock_max ?? row.item?.stock_max;
+
+  const rowToDialogItem = (row: ItemSlotInCabinetRow): Item =>
+    ({
+      itemcode: row.itemcode,
+      itemname: row.item?.itemname ?? row.item?.Alternatename,
+      stock_min: effectiveMin(row) ?? 0,
+      stock_max: effectiveMax(row) ?? 0,
+      stock_balance: row.Qty,
+    }) as Item;
+
+  const openMinMaxDialog = (row: ItemSlotInCabinetRow) => {
+    if (!row.cabinet?.id) {
+      toast.error('ไม่พบข้อมูลตู้สำหรับรายการนี้');
+      return;
+    }
+    setMinMaxRow(row);
+    setMinMaxOpen(true);
+  };
+
   /** สล็อต 1 = ใน, 2 = นอก */
   const formatSlotDisplay = (value: number | null | undefined) =>
     value === 1 ? 'ใน' : value === 2 ? 'นอก' : value != null ? String(value) : '-';
@@ -164,6 +202,19 @@ export default function WeighingPage() {
   return (
     <ProtectedRoute>
       <AppLayout fullWidth>
+        <UpdateMinMaxDialog
+          open={minMaxOpen}
+          onOpenChange={(open) => {
+            setMinMaxOpen(open);
+            if (!open) setMinMaxRow(null);
+          }}
+          item={minMaxRow ? rowToDialogItem(minMaxRow) : null}
+          cabinetId={minMaxRow?.cabinet?.id}
+          minMaxEndpoint="weighing"
+          onSuccess={() => {
+            fetchList();
+          }}
+        />
         <div className="space-y-6 pb-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-blue-100 rounded-xl shadow-sm">
@@ -292,6 +343,9 @@ export default function WeighingPage() {
                           <TableHead className="w-20 text-center font-semibold">ช่อง</TableHead>
                           <TableHead className="w-20 text-center font-semibold">สล็อต</TableHead>
                           <TableHead className="w-24 text-right font-semibold">จำนวน</TableHead>
+                          <TableHead className="w-20 text-center font-semibold">Min</TableHead>
+                          <TableHead className="w-20 text-center font-semibold">Max</TableHead>
+                          <TableHead className="w-[120px] text-center font-semibold">จัดการ</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -311,6 +365,26 @@ export default function WeighingPage() {
                             <TableCell className="text-center">{row.SlotNo ?? '-'}</TableCell>
                             <TableCell className="text-center">{formatSlotDisplay(row.Sensor)}</TableCell>
                             <TableCell className="text-right tabular-nums font-medium">{row.Qty}</TableCell>
+                            <TableCell className="text-center tabular-nums text-muted-foreground">
+                              {formatMinMax(effectiveMin(row))}
+                            </TableCell>
+                            <TableCell className="text-center tabular-nums text-muted-foreground">
+                              {formatMinMax(effectiveMax(row))}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5"
+                                disabled={!row.cabinet?.id}
+                                onClick={() => openMinMaxDialog(row)}
+                                title={!row.cabinet?.id ? 'ไม่มีข้อมูลตู้' : 'ตั้งค่า Min/Max ต่อตู้'}
+                              >
+                                <Settings2 className="h-3.5 w-3.5" />
+                                จัดการ
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>

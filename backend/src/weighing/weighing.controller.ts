@@ -1,9 +1,14 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 import { WeighingService } from './weighing.service';
+import { ItemService } from '../item/item.service';
+import { UpdateItemMinMaxDto } from '../item/dto/update-item-minmax.dto';
 
 @Controller('weighing')
 export class WeighingController {
-  constructor(private readonly weighingService: WeighingService) {}
+  constructor(
+    private readonly weighingService: WeighingService,
+    private readonly itemService: ItemService,
+  ) {}
 
   /**
    * GET /weighing — รายการ ItemSlotInCabinet แบบแบ่งหน้า
@@ -30,6 +35,25 @@ export class WeighingController {
    * GET /weighing/by-sign — รายการ Detail ตาม Sign (เบิก = '-', เติม = '+')
    * Query: sign, page, limit, itemName (ค้นหาชื่ออุปกรณ์), itemcode, stockId, dateFrom, dateTo (YYYY-MM-DD)
    */
+  /**
+   * PATCH /weighing/:itemcode/minmax — กำหนด min/max ต่อตู้ (CabinetItemSetting) สำหรับหน้า Weighing
+   * Query: cabinet_id (จำเป็น) — รวมใน body ก็ได้
+   * Body: { stock_min?, stock_max?, cabinet_id? }
+   */
+  @Patch(':itemcode/minmax')
+  updateItemMinMax(
+    @Param('itemcode') itemcode: string,
+    @Body() body: UpdateItemMinMaxDto,
+    @Query('cabinet_id') cabinetIdQuery?: string,
+  ) {
+    const dto = { ...body };
+    if (dto.cabinet_id == null && cabinetIdQuery != null && cabinetIdQuery !== '') {
+      const id = parseInt(cabinetIdQuery, 10);
+      if (!Number.isNaN(id)) dto.cabinet_id = id;
+    }
+    return this.itemService.updateItemMinMax(itemcode, dto);
+  }
+
   @Get('by-sign')
   findBySign(
     @Query('sign') sign?: string,

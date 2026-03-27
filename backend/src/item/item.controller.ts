@@ -137,8 +137,14 @@ export class ItemController {
   async updateMinMax(
     @Param('itemcode') itemcode: string,
     @Body() updateMinMaxDto: UpdateItemMinMaxDto,
+    @Query('cabinet_id') cabinetIdQuery?: string,
   ) {
-    return this.itemService.updateItemMinMax(itemcode, updateMinMaxDto);
+    const dto = { ...updateMinMaxDto };
+    if (dto.cabinet_id == null && cabinetIdQuery != null && cabinetIdQuery !== '') {
+      const id = parseInt(cabinetIdQuery, 10);
+      if (!Number.isNaN(id)) dto.cabinet_id = id;
+    }
+    return this.itemService.updateItemMinMax(itemcode, dto);
   }
 
   @Delete(':itemcode')

@@ -344,7 +344,7 @@ export default function WeighingDispensePage() {
                       </TableHeader>
                       <TableBody>
                         {items.map((row, index) => (
-                          <TableRow key={row.id} className="hover:bg-slate-50/80">
+                          <TableRow key={`${row.id}-${index}`} className="hover:bg-slate-50/80">
                             <TableCell className="text-center text-muted-foreground tabular-nums">
                               {(currentPage - 1) * itemsPerPage + index + 1}
                             </TableCell>

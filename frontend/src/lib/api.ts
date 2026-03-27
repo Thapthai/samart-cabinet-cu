@@ -4,9 +4,10 @@ import type { ApiResponse, PaginatedResponse, ItemsStats } from '@/types/common'
 import type { AuthResponse, User, RegisterDto, LoginDto } from '@/types/auth';
 import type { Item, CreateItemDto, UpdateItemDto, GetItemsQuery } from '@/types/item';
 
-// Server-side ใช้ BACKEND_API_URL (เช่น host.docker.internal:4000 ใน Docker), client ใช้ NEXT_PUBLIC_API_URL (localhost:4000)
+// ต้องตรงกับ backend main.ts: setGlobalPrefix('api/smart-cabinet-cu/v1') และ PORT (ค่าเริ่มต้น Nest มักเป็น 3000)
+// Server-side ใช้ BACKEND_API_URL, client ใช้ NEXT_PUBLIC_API_URL
 function getApiBaseUrl(): string {
-  const fallback = 'http://localhost:3000/smart-cabinet-cu/api/v1';
+  const fallback = 'http://localhost:3000/api/smart-cabinet-cu/v1';
   if (typeof window !== 'undefined') {
     return process.env.NEXT_PUBLIC_API_URL || fallback;
   }
@@ -253,9 +254,9 @@ export const itemsApi = {
   },
 
   updateMinMax: async (itemcode: string, data: { stock_min?: number; stock_max?: number }, cabinetId?: number): Promise<ApiResponse<Item>> => {
-    const url = cabinetId != null 
-      ? `/items/${itemcode}/minmax?cabinet_id=${cabinetId}`
-      : `/items/${itemcode}/minmax`;
+    const code = encodeURIComponent(itemcode);
+    const url =
+      cabinetId != null ? `/items/${code}/minmax?cabinet_id=${cabinetId}` : `/items/${code}/minmax`;
     const response = await api.patch(url, data);
     return response.data;
   },
@@ -1622,6 +1623,7 @@ export const cabinetDepartmentApi = {
   },
 };
 
+
 // =========================== Weighing API (ItemSlotInCabinet) ===========================
 export const weighingApi = {
   getAll: async (params?: { page?: number; limit?: number; itemName?: string; itemcode?: string; stockId?: number }): Promise<{ success: boolean; data: any[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> => {
@@ -1648,6 +1650,19 @@ export const weighingApi = {
   /** รายการตู้ที่มีสต๊อก Weighing (สำหรับ dropdown หน้า weighing-departments) */
   getCabinets: async (): Promise<{ success: boolean; data: { id: number; cabinet_name: string | null; cabinet_code: string | null; cabinet_status?: string; stock_id: number | null }[] }> => {
     const response = await api.get('/weighing/cabinets/list');
+    return response.data;
+  },
+
+  /** กำหนด min/max ต่อตู้ (CabinetItemSetting) — เทียบเท่า PATCH /items/:itemcode/minmax */
+  updateMinMax: async (
+    itemcode: string,
+    data: { stock_min?: number; stock_max?: number },
+    cabinetId?: number,
+  ): Promise<ApiResponse<Item>> => {
+    const code = encodeURIComponent(itemcode);
+    const url =
+      cabinetId != null ? `/weighing/${code}/minmax?cabinet_id=${cabinetId}` : `/weighing/${code}/minmax`;
+    const response = await api.patch(url, data);
     return response.data;
   },
 };

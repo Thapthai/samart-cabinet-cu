@@ -5,277 +5,159 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ASSETS } from "@/lib/assets";
-import {
-  LayoutDashboard,
-  Package,
-  Menu,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Settings,
-  FileBarChart,
-  ClipboardList,
-  Users,
-  Box,
-  TrendingUp,
-  RotateCcw,
-  Receipt,
-  Network,
-} from "lucide-react";
+import { Menu, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { adminMenuItems, type AdminMenuSubItem } from "@/app/admin/menus";
 
 interface SidebarProps {
   isCollapsed: boolean;
   setIsCollapsed: (value: boolean) => void;
 }
 
-type SubMenuItem = {
-  name: string;
-  href: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  description: string;
-  submenu?: SubMenuItem[];
-};
-
-type MenuItem = {
-  name: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-  submenu?: SubMenuItem[];
-  /** เมื่อเป็น true กดแล้วไม่นำทาง แค่เปิด/ปิด submenu */
-  noHref?: boolean;
-};
-
-
-const mainMenuItems: MenuItem[] = [
-  {
-    name: "Dashboard",
-    href: "/admin/dashboard",
-    icon: LayoutDashboard,
-    description: "ภาพรวมระบบ",
-  },
-  {
-    name: "อุปกรณ์",
-    href: "/admin/items",
-    icon: Box,
-    description: "จัดการอุปกรณ์และสต๊อก",
-    noHref: true,
-    submenu: [
-
-      // {
-      //   name: "จัดการตู้ Cabinet - แผนก",
-      //   href: "/admin/cabinet-departments",
-      //   icon: Network,
-      //   description: "จัดการตู้ Cabinet และเชื่อมโยงกับแผนก",
-      // },
-      // {
-      //   name: "สต๊อกอุปกรณ์ในตู้",
-      //   href: "/admin/items",
-      //   description: "เมนูสต๊อกอุปกรณ์ที่มีในตู้ SmartCabinet",
-      //   icon: Package,
-      // },
-
-      // {
-      //   name: "เบิกอุปกรณ์จากตู้",
-      //   href: "/admin/dispense-from-cabinet",
-      //   description: "การเบิกอุปกรณ์จากตู้ SmartCabinet",
-      //   icon: FileBarChart,
-      // },
-      // {
-      //   name: "เติมอุปกรณ์เข้าตู้",
-      //   href: "/admin/return-to-cabinet-report",
-      //   description: "การเติมอุปกรณ์เข้าตู้ SmartCabinet",
-      //   icon: FileBarChart,
-      // },
-      // {
-      //   name: "เบิกอุปกรณ์กับคนไข้",
-      //   href: "/admin/medical-supplies",
-      //   description: "รายการเบิกอุปกรณ์กับคนไข้",
-      //   icon: ClipboardList,
-      //   submenu: [
-      //     {
-      //       name: "แจ้งอุปกรณ์ที่ไม่ถูกใช้งาน",
-      //       href: "/admin/medical-supplies/return",
-      //       description: "แจ้งอุปกรณ์ที่ไม่ถูกใช้งาน / ชำรุด",
-      //       icon: RotateCcw,
-      //     },
-      //   ],
-      // },
-      // {
-      //   name: "เปรียบเทียบตามเวชภัณฑ์",
-      //   href: "/admin/item-comparison",
-      //   description: "เปรียบเทียบการเบิกกับการใช้งานตามเวชภัณฑ์",
-      //   icon: FileBarChart,
-      // },
-      {
-        name: "จัดการตู้ Weighing - แผนก",
-        href: "/admin/weighing-departments",
-        icon: Network,
-        description: "จัดการตู้ Weighing และเชื่อมโยงกับแผนก",
-      },
-
-      {
-        name: "สต๊อกอุปกรณ์ในตู้ ",
-        href: "/admin/weighing-stock",
-        description: "เมนูสต๊อกอุปกรณ์ที่มีในตู้ Weighing",
-        icon: Package,
-      },
-
-      {
-        name: "เบิกอุปกรณ์จากตู้",
-        href: "/admin/weighing-dispense",
-        description: "การเบิกอุปกรณ์จากตู้ Weighing",
-        icon: FileBarChart,
-      },
-      {
-        name: "เติมอุปกรณ์เข้าตู้",
-        href: "/admin/weighing-refill",
-        description: "การเติมอุปกรณ์เข้าตู้ Weighing",
-        icon: FileBarChart,
-      },
-
-    ],
-  },
-  // {
-  //   name: "รายงาน",
-  //   href: "/reports",
-  //   icon: FileBarChart,
-  //   description: "รายงานและสถิติต่างๆ",
-  //   submenu: [
-  //     {
-  //       name: "รายงาน Vending",
-  //       href: "/admin/reports/vending-reports",
-  //       description: "รายงานการ Mapping และการเบิกอุปกรณ์จาก Vending",
-  //       icon: TrendingUp,
-  //     },
-  //     {
-  //       name: "รายงานยกเลิก Bill",
-  //       href: "/admin/reports/cancel-bill-report",
-  //       description: "รายงานการยกเลิก Bill และใบเสร็จ",
-  //       icon: Receipt,
-  //     },
-  //     {
-  //       name: "คืนเวชภัณฑ์",
-  //       href: "/admin/reports/return-report",
-  //       description: "รายงานอุปกรณ์ที่ไม่ถูกใช้งาน",
-  //       icon: RotateCcw,
-  //     },
-  //   ],
-  // },
-  {
-    name: "การจัดการ",
-    href: "/admin/management",
-    icon: Settings,
-    description: "จัดการระบบ",
-    noHref: true,
-    submenu: [
-      {
-        name: "จัดการตู้ Cabinet",
-        href: "/admin/management/cabinets",
-        icon: Package,
-        description: "จัดการตู้ Cabinet",
-      },
-      // {
-      //   name: "Staff Users",
-      //   href: "/admin/management/staff-users",
-      //   icon: Users,
-      //   description: "จัดการ Staff Users และ Client Credentials",
-      // },
-      // {
-      //   name: "Staff Permission Role",
-      //   href: "/admin/management/permission-role",
-      //   icon: Users,
-      //   description: "จัดการ Staff Permission Role",
-      // },
-    ],
-  },
-  // {
-  //   name: "ประวัติการใช้งาน",
-  //   href: "/admin/logs-history",
-  //   icon: ClipboardList,
-  //   description: "ประวัติการใช้งานระบบ",
-
-  // }
-];
-
-
-
 function isPathActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-function isSubmenuActive(pathname: string, sub: SubMenuItem): boolean {
+function isSubmenuActive(pathname: string, sub: AdminMenuSubItem): boolean {
   if (isPathActive(pathname, sub.href)) return true;
-  return (sub.submenu ?? []).some((s) => isSubmenuActive(pathname, s));
+  const nested = (sub as AdminMenuSubItem & { submenu?: AdminMenuSubItem[] }).submenu;
+  return (nested ?? []).some((s) => isSubmenuActive(pathname, s));
+}
+
+function SubNavLinks({
+  pathname,
+  items,
+  depth = 0,
+  onNavigate,
+}: {
+  pathname: string;
+  items: AdminMenuSubItem[];
+  depth?: number;
+  onNavigate: () => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "mt-1 space-y-0.5 border-l-2 border-sky-200 pl-3",
+        depth > 0 && "ml-2 mt-1 border-sky-200/90"
+      )}
+    >
+      {items.map((sub) => {
+        const SubIcon = sub.icon;
+        const nested = (sub as AdminMenuSubItem & { submenu?: AdminMenuSubItem[] }).submenu;
+        const hasNested = (nested?.length ?? 0) > 0;
+        const subActive = isSubmenuActive(pathname, sub);
+
+        if (hasNested && nested) {
+          return (
+            <div key={sub.href}>
+              <Link
+                href={sub.href}
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center rounded-lg px-3 py-2 text-sm transition-colors",
+                  subActive
+                    ? "border border-sky-300 bg-sky-50/90 font-medium text-slate-800"
+                    : "text-slate-600 hover:bg-sky-100/50 hover:text-slate-900"
+                )}
+              >
+                {SubIcon ? (
+                  <SubIcon className="mr-2 h-4 w-4 flex-shrink-0 text-slate-500" />
+                ) : (
+                  <span className="mr-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-sky-400" />
+                )}
+                <span className="truncate">{sub.name}</span>
+              </Link>
+              <SubNavLinks pathname={pathname} items={nested} depth={depth + 1} onNavigate={onNavigate} />
+            </div>
+          );
+        }
+
+        return (
+          <Link
+            key={sub.href}
+            href={sub.href}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center rounded-lg px-3 py-2 text-sm transition-colors",
+              subActive
+                ? "border border-sky-300 bg-sky-50/90 font-medium text-slate-800"
+                : "text-slate-600 hover:bg-sky-100/50 hover:text-slate-900"
+            )}
+          >
+            {SubIcon ? (
+              <SubIcon className={cn("mr-2 h-4 w-4 flex-shrink-0", subActive ? "text-sky-600" : "text-slate-500")} />
+            ) : (
+              <span className="mr-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-sky-400" />
+            )}
+            <span className="truncate">{sub.name}</span>
+          </Link>
+        );
+      })}
+    </div>
+  );
 }
 
 export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
-  const [openSubmenus, setOpenSubmenus] = React.useState<Record<string, boolean>>({});
+
+  const closeMobile = () => setIsMobileOpen(false);
 
   return (
     <>
-      <div className="lg:hidden fixed top-4 left-4 z-[60]">
+      <div className="fixed left-4 top-4 z-[60] lg:hidden">
         <button
           type="button"
           onClick={() => setIsMobileOpen(!isMobileOpen)}
-          className="bg-white shadow-lg hover:bg-pink-50 border border-pink-200 h-9 w-9 rounded-md flex items-center justify-center"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-sky-200 bg-white shadow-lg transition-colors hover:bg-sky-50"
         >
           {isMobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </button>
       </div>
 
       {isMobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40"
-          onClick={() => setIsMobileOpen(false)}
-        />
+        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={closeMobile} />
       )}
 
       <aside
         className={cn(
-          "fixed top-0 left-0 z-40 h-screen bg-gradient-to-b from-pink-100 via-pink-50 to-rose-100 text-gray-800 shadow-2xl overflow-x-hidden border-r border-pink-200/60",
+          "fixed left-0 top-0 z-40 h-screen overflow-x-hidden border-r border-sky-200/80 bg-gradient-to-b from-sky-50 via-slate-50 to-sky-50/90 text-slate-800 shadow-lg",
           "transition-[width,transform] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
           isCollapsed ? "lg:w-16" : "w-64 lg:w-64",
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        <div className="flex flex-col h-full">
-          <div className={cn("flex items-center justify-between border-b border-pink-200/80 transition-[padding] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] p-4", isCollapsed && "lg:p-2")}>
+        <div className="flex h-full flex-col">
+          <div
+            className={cn(
+              "flex items-center justify-between border-b border-sky-200/90 transition-[padding] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] p-4",
+              isCollapsed && "lg:p-2"
+            )}
+          >
             {!isCollapsed && (
-              <Link
-                href="/admin/dashboard"
-                className="flex items-center space-x-3 flex-1 min-w-0"
-              >
-                <div className="w-45 h-15 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  <img
-                    src={ASSETS.LOGO}
-                    alt="POSE Logo"
-                    className="max-w-full max-h-full w-auto h-auto object-contain"
-                  />
+              <Link href="/admin/dashboard" className="flex min-w-0 flex-1 items-center gap-3" onClick={closeMobile}>
+                <div className="flex h-14 w-[4.5rem] flex-shrink-0 items-center justify-center overflow-hidden rounded-md bg-white shadow-sm">
+                  <img src={ASSETS.LOGO} alt="POSE Logo" className="h-auto max-h-full w-auto max-w-full object-contain" />
                 </div>
-
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-bold text-slate-900">Admin Portal</div>
+                  <div className="truncate text-xs text-slate-500">Smart Cabinet</div>
+                </div>
               </Link>
             )}
             {isCollapsed && (
               <Link
                 href="/admin/dashboard"
-                className="w-50 h-15 flex items-center justify-center mx-auto overflow-hidden"
+                className="mx-auto flex h-14 w-full max-w-[3.5rem] items-center justify-center overflow-hidden rounded-md bg-white p-1 shadow-sm lg:mx-auto"
+                onClick={closeMobile}
               >
-                <img
-                  src={ASSETS.LOGO}
-                  alt="POSE"
-                  className="max-w-full max-h-full w-auto h-auto object-contain"
-                />
+                <img src={ASSETS.LOGO} alt="POSE" className="h-auto max-h-full w-auto max-w-full object-contain" />
               </Link>
             )}
             <button
               type="button"
-              onClick={() =>
-                isMobileOpen ? setIsMobileOpen(false) : setIsCollapsed(!isCollapsed)
-              }
-              className="hidden lg:flex flex-shrink-0 items-center justify-center w-9 h-9 rounded-lg text-gray-600 hover:text-gray-800 hover:bg-pink-200/50 transition-colors duration-200"
+              onClick={() => (isMobileOpen ? setIsMobileOpen(false) : setIsCollapsed(!isCollapsed))}
+              className="hidden h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-sky-100/80 hover:text-slate-800 lg:flex"
             >
               {isCollapsed ? (
                 <ChevronRight className="h-4 w-4 transition-transform duration-200" />
@@ -285,168 +167,107 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }: SidebarProps) {
             </button>
           </div>
 
-          <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto">
-            {mainMenuItems.map((item) => {
+          <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+            {adminMenuItems.map((item) => {
               const Icon = item.icon;
-              const hasSubmenu = item.submenu?.length;
-              const isActive =
-                isPathActive(pathname, item.href) ||
-                (hasSubmenu && item.submenu!.some((s) => isSubmenuActive(pathname, s)));
-              const open = openSubmenus[item.href] ?? true;
+              const hasSubmenu = item.submenu && item.submenu.length > 0;
+              const sectionActive = !!(hasSubmenu && item.submenu!.some((s) => isSubmenuActive(pathname, s)));
+              const linkActive = !hasSubmenu && isPathActive(pathname, item.href);
+
+              if (hasSubmenu && item.noHref) {
+                return (
+                  <div key={item.href} className="space-y-0">
+                    <div
+                      className={cn(
+                        "flex items-center rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                        sectionActive
+                          ? "bg-sky-500 text-white shadow-sm"
+                          : "text-slate-800",
+                        isCollapsed && "lg:justify-center lg:px-2"
+                      )}
+                    >
+                      {Icon ? (
+                        <Icon
+                          className={cn(
+                            "h-5 w-5 flex-shrink-0",
+                            sectionActive ? "text-white" : "text-slate-600",
+                            !isCollapsed ? "mr-3" : "lg:mr-0",
+                            isCollapsed && "lg:mx-auto"
+                          )}
+                        />
+                      ) : null}
+                      <span
+                        className={cn(
+                          "min-w-0 flex-1 truncate transition-opacity duration-200",
+                          isCollapsed && "lg:hidden lg:w-0 lg:min-w-0 lg:overflow-hidden lg:opacity-0"
+                        )}
+                      >
+                        {item.name}
+                      </span>
+                    </div>
+                    {!isCollapsed && (
+                      <SubNavLinks pathname={pathname} items={item.submenu!} onNavigate={closeMobile} />
+                    )}
+                  </div>
+                );
+              }
+
+              if (!Icon) return null;
 
               return (
                 <div key={item.href}>
-                  <div
+                  <Link
+                    href={item.href}
+                    onClick={closeMobile}
                     className={cn(
-                      "flex items-center w-full rounded-xl",
-                      isActive
-                        ? "bg-gradient-to-r from-pink-500 to-rose-400 text-white"
-                        : "text-gray-700 hover:bg-pink-200/60 hover:text-gray-900",
+                      "flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                      linkActive
+                        ? "bg-sky-500 text-white shadow-sm"
+                        : "text-slate-700 hover:bg-sky-100/70 hover:text-slate-900",
                       isCollapsed && "lg:justify-center lg:px-2"
                     )}
                   >
-                    {item.noHref && hasSubmenu ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpenSubmenus((p) => ({ ...p, [item.href]: !open }));
-                          setIsMobileOpen(false);
-                        }}
-                        className={cn(
-                          "flex items-center flex-1 min-w-0 px-3 py-3 text-sm font-medium rounded-xl text-left cursor-pointer",
-                          isActive ? "text-white" : "text-inherit",
-                          isCollapsed && "lg:justify-center lg:px-2"
-                        )}
-                      >
-                        <Icon className={cn("h-5 w-5 flex-shrink-0 transition-all duration-200", isActive ? "text-white" : "text-gray-700", isCollapsed ? "lg:mx-auto" : "mr-3")} />
-                        <span className={cn("flex-1 text-left truncate transition-opacity duration-200", isCollapsed && "lg:opacity-0 lg:w-0 lg:min-w-0 lg:overflow-hidden")}>{item.name}</span>
-                      </button>
-                    ) : (
-                      <Link
-                        href={item.href}
-                        onClick={() => setIsMobileOpen(false)}
-                        className={cn(
-                          "flex items-center flex-1 min-w-0 px-3 py-3 text-sm font-medium rounded-xl",
-                          isActive ? "text-white" : "text-inherit",
-                          isCollapsed && "lg:justify-center lg:px-2"
-                        )}
-                      >
-                        <Icon className={cn("h-5 w-5 flex-shrink-0 transition-all duration-200", isActive ? "text-white" : "text-gray-700", isCollapsed ? "lg:mx-auto" : "mr-3")} />
-                        <span className={cn("flex-1 text-left truncate transition-opacity duration-200", isCollapsed && "lg:opacity-0 lg:w-0 lg:min-w-0 lg:overflow-hidden")}>{item.name}</span>
-                      </Link>
-                    )}
-                    {hasSubmenu && !isCollapsed && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setOpenSubmenus((p) => ({ ...p, [item.href]: !open }));
-                        }}
-                        className={cn(
-                          "flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-inherit transition-colors",
-                          "hover:bg-black/5 focus:outline-none focus-visible:ring-1 focus-visible:ring-pink-400/50",
-                          isActive && "text-white hover:bg-white/15"
-                        )}
-                        aria-expanded={open}
-                        aria-label={open ? "ปิดเมนูย่อย" : "เปิดเมนูย่อย"}
-                      >
-                        <ChevronRight className={cn("h-4 w-4 transition-transform duration-200", open && "rotate-90")} />
-                      </button>
-                    )}
-                  </div>
-                  {hasSubmenu && !isCollapsed && open && (
-                    <div className="ml-4 mt-1 space-y-1 border-l border-pink-200/80 pl-4">
-                      {item.submenu!.map((sub) => {
-                        const SubIcon = sub.icon;
-                        const hasNested = (sub.submenu?.length ?? 0) > 0;
-                        const subActive = isSubmenuActive(pathname, sub);
-                        const nestedKey = `${item.href}__${sub.href}`;
-                        const nestedOpen = openSubmenus[nestedKey] ?? subActive;
-
-                        if (hasNested) {
-                          return (
-                            <div key={sub.href}>
-                              <div
-                                className={cn(
-                                  "flex items-center rounded-lg",
-                                  subActive ? "bg-pink-200/70 text-gray-900 border-l-2 border-pink-500 font-medium" : "text-gray-600 hover:bg-pink-200/50 hover:text-gray-900"
-                                )}
-                              >
-                                <Link
-                                  href={sub.href}
-                                  onClick={() => setIsMobileOpen(false)}
-                                  className="flex flex-1 min-w-0 items-center px-3 py-2 text-sm rounded-lg text-inherit"
-                                >
-                                  {SubIcon ? <SubIcon className="h-4 w-4 mr-2 flex-shrink-0" /> : <span className="w-1.5 h-1.5 rounded-full bg-pink-400 mr-2" />}
-                                  <span className="truncate">{sub.name}</span>
-                                </Link>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    setOpenSubmenus((p) => ({ ...p, [nestedKey]: !nestedOpen }));
-                                  }}
-                                  className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-inherit hover:bg-black/5 focus:outline-none focus-visible:ring-1 focus-visible:ring-pink-400/50 transition-colors"
-                                  aria-expanded={nestedOpen}
-                                  aria-label={nestedOpen ? "ปิดเมนูย่อย" : "เปิดเมนูย่อย"}
-                                >
-                                  <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-200", nestedOpen && "rotate-90")} />
-                                </button>
-                              </div>
-                              {nestedOpen && (
-                                <div className="ml-3 mt-1 space-y-1 border-l border-pink-200 pl-3">
-                                  {sub.submenu!.map((inner) => {
-                                    const InnerIcon = inner.icon;
-                                    const innerActive = isPathActive(pathname, inner.href);
-                                    return (
-                                      <Link
-                                        key={inner.href}
-                                        href={inner.href}
-                                        onClick={() => setIsMobileOpen(false)}
-                                        className={cn(
-                                          "flex items-center px-3 py-2 text-sm rounded-lg",
-                                          innerActive ? "bg-pink-200/70 text-gray-900 border-l-2 border-pink-500 font-medium" : "text-gray-600 hover:bg-pink-200/50 hover:text-gray-900"
-                                        )}
-                                      >
-                                        {InnerIcon ? <InnerIcon className="h-4 w-4 mr-2 flex-shrink-0" /> : <span className="w-1.5 h-1.5 rounded-full bg-pink-400 mr-2" />}
-                                        <span>{inner.name}</span>
-                                      </Link>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <Link
-                            key={sub.href}
-                            href={sub.href}
-                            onClick={() => setIsMobileOpen(false)}
-                            className={cn(
-                              "flex items-center px-3 py-2 text-sm rounded-lg",
-                              subActive ? "bg-pink-200/70 text-gray-900 border-l-2 border-pink-500 font-medium" : "text-gray-600 hover:bg-pink-200/50 hover:text-gray-900"
-                            )}
-                          >
-                            {SubIcon ? <SubIcon className="h-4 w-4 mr-2 flex-shrink-0" /> : <span className="w-1.5 h-1.5 rounded-full bg-pink-400 mr-2" />}
-                            <span>{sub.name}</span>
-                          </Link>
-                        );
-                      })}
-                    </div>
+                    <Icon
+                      className={cn(
+                        "h-5 w-5 flex-shrink-0",
+                        linkActive ? "text-white" : "text-slate-600",
+                        !isCollapsed ? "mr-3" : "lg:mr-0",
+                        isCollapsed && "lg:mx-auto"
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate transition-opacity duration-200",
+                        isCollapsed && "lg:hidden lg:w-0 lg:min-w-0 lg:overflow-hidden lg:opacity-0"
+                      )}
+                    >
+                      {item.name}
+                    </span>
+                  </Link>
+                  {hasSubmenu && !isCollapsed && (
+                    <SubNavLinks pathname={pathname} items={item.submenu!} onNavigate={closeMobile} />
                   )}
                 </div>
               );
             })}
           </nav>
 
-          <div className={cn("p-4 border-t border-pink-200/80 transition-all duration-300", isCollapsed && "lg:px-2")}>
-            <div className={cn("flex items-center gap-2 text-gray-600 overflow-hidden", isCollapsed && "lg:justify-center")}>
-              <img src={ASSETS.LOGO} alt="POSE" width={20} height={20} className="object-contain flex-shrink-0 opacity-90" />
-              <span className={cn("text-[10px] font-medium whitespace-nowrap transition-opacity duration-200", isCollapsed && "lg:opacity-0 lg:w-0 lg:min-w-0 lg:overflow-hidden")}>© 2026 POSE Intelligence</span>
+          <div
+            className={cn(
+              "border-t border-sky-200/90 p-4 transition-all duration-300",
+              isCollapsed && "lg:px-2"
+            )}
+          >
+            <div className={cn("flex items-center gap-2 overflow-hidden text-slate-500", isCollapsed && "lg:justify-center")}>
+              <img src={ASSETS.LOGO} alt="POSE" width={20} height={20} className="flex-shrink-0 object-contain opacity-90" />
+              <span
+                className={cn(
+                  "whitespace-nowrap text-[10px] font-medium transition-opacity duration-200",
+                  isCollapsed && "lg:hidden lg:w-0 lg:min-w-0 lg:overflow-hidden lg:opacity-0"
+                )}
+              >
+                © 2026 POSE Intelligence
+              </span>
             </div>
           </div>
         </div>

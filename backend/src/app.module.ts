@@ -13,6 +13,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { DateTimeModule } from './utils/date-time/date-time.module';
 import { StaffModule } from './staff/staff.module';
 import { WeighingModule } from './weighing/weighing.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { WeighingModule } from './weighing/weighing.module';
     DateTimeModule,
     StaffModule,
     WeighingModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

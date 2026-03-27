@@ -61,6 +61,8 @@ export class WeighingService {
               itemname: true,
               Alternatename: true,
               Barcode: true,
+              stock_min: true,
+              stock_max: true,
             },
           },
         },
@@ -68,9 +70,49 @@ export class WeighingService {
       this.prisma.itemSlotInCabinet.count({ where }),
     ]);
 
+    const pairList: { cabinet_id: number; item_code: string }[] = [];
+    const pairSeen = new Set<string>();
+    for (const row of items) {
+      const cid = row.cabinet?.id;
+      if (cid == null) continue;
+      const pk = JSON.stringify([cid, row.itemcode]);
+      if (pairSeen.has(pk)) continue;
+      pairSeen.add(pk);
+      pairList.push({ cabinet_id: cid, item_code: row.itemcode });
+    }
+
+    let settingMap = new Map<string, { stock_min: number | null; stock_max: number | null }>();
+    if (pairList.length > 0) {
+      const settings = await this.prisma.cabinetItemSetting.findMany({
+        where: {
+          OR: pairList.map((p) => ({ cabinet_id: p.cabinet_id, item_code: p.item_code })),
+        },
+        select: { cabinet_id: true, item_code: true, stock_min: true, stock_max: true },
+      });
+      settingMap = new Map(
+        settings.map((s) => [
+          JSON.stringify([s.cabinet_id, s.item_code]),
+          { stock_min: s.stock_min, stock_max: s.stock_max },
+        ]),
+      );
+    }
+
+    const data = items.map((row) => {
+      const cid = row.cabinet?.id;
+      const key = cid != null ? JSON.stringify([cid, row.itemcode]) : null;
+      const st = key ? settingMap.get(key) : undefined;
+      return {
+        ...row,
+        cabinetItemSetting:
+          st != null
+            ? { stock_min: st.stock_min, stock_max: st.stock_max }
+            : null,
+      };
+    });
+
     return {
       success: true,
-      data: items,
+      data,
       pagination: {
         page,
         limit,
