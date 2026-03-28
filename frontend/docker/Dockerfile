@@ -49,6 +49,9 @@ ARG NEXT_PUBLIC_BASE_PATH=/smart-cabinet-cu
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}
 
+# Next.js 15 build ใช้ RAM สูง — default heap ~512MB ใน container มัก OOM
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # Build Next.js application
 RUN npm run build
 
