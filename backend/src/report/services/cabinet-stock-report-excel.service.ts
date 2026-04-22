@@ -3,14 +3,13 @@ import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
 import { resolveReportLogoPath } from '../config/report.config';
 
-/** แถวรายงาน — โครงเดียวกับตาราง RFID หน้า admin items-stock */
+/** แถวรายงาน — สอดคล้องแถวสรุปตาราง RFID หน้า admin items-stock (ไม่รวมคอลัมน์ขยายรายละเอียด RFID) */
 export interface CabinetStockRow {
   device_name: string;
   expire_date_ymd: string;
   balance_qty: number;
   min_max_display: string;
   status_label: string;
-  rfid_detail: string;
 }
 
 export interface CabinetStockReportData {
@@ -27,8 +26,8 @@ export interface CabinetStockReportData {
   data: CabinetStockRow[];
 }
 
-const LAST_COL = 'F';
-const COL_COUNT = 6;
+const LAST_COL = 'E';
+const COL_COUNT = 5;
 
 const C = {
   ink: 'FF0F172A',
@@ -146,7 +145,7 @@ export class CabinetStockReportExcelService {
 
     worksheet.mergeCells(`A4:${LAST_COL}4`);
     const subCell = worksheet.getCell('A4');
-    const descLine = `ทั้งหมด ${totalRows} รายการจากระบบ · รวม ${totalQty} ชิ้น (IsStock=1) · รายงาน: สต็อกในตู้ (Cabinet / RFID)`;
+    const descLine = `ทั้งหมด ${totalRows} รายการจากระบบ · รวม ${totalQty} แท็ก RFID · จำนวนคงเหลือต่อแถว = จำนวนแถว itemstock ที่มี RfidCode ในตู้ (เท่าคอลัมน์บนหน้าเว็บ)`;
     subCell.value = cabinetLine ? `${cabinetLine}\n${descLine}` : descLine;
     subCell.font = { name: 'Tahoma', size: 11, color: { argb: C.ink } };
     subCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
@@ -158,7 +157,7 @@ export class CabinetStockReportExcelService {
     worksheet.getRow(4).height = cabinetLine ? 40 : 32;
 
     const tableStartRow = 5;
-    const headers = ['ชื่ออุปกรณ์', 'วันหมดอายุ', 'จำนวนคงเหลือ', 'Min / Max', 'สถานะ', 'รายละเอียด RFID'];
+    const headers = ['ชื่ออุปกรณ์', 'วันหมดอายุ', 'จำนวนคงเหลือ', 'Min / Max', 'สถานะ'];
     const headerRow = worksheet.getRow(tableStartRow);
     const headerBorder: Partial<ExcelJS.Borders> = {
       top: { style: 'medium', color: { argb: C.headerBg } },
@@ -190,7 +189,6 @@ export class CabinetStockReportExcelService {
         row.balance_qty,
         row.min_max_display,
         row.status_label,
-        row.rfid_detail,
       ];
       vals.forEach((val, colIndex) => {
         const cell = excelRow.getCell(colIndex + 1);
@@ -204,26 +202,18 @@ export class CabinetStockReportExcelService {
         };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
         cell.alignment = {
-          horizontal:
-            colIndex === 0
-              ? 'left'
-              : colIndex === 5
-                ? 'left'
-                : colIndex === 2
-                  ? 'right'
-                  : 'center',
+          horizontal: colIndex === 0 ? 'left' : colIndex === 2 ? 'right' : 'center',
           vertical: 'top',
           indent: colIndex === 0 ? 1 : 0,
-          wrapText: colIndex === 5 || colIndex === 0,
+          wrapText: colIndex === 0,
         };
         cell.border = thinLine;
         if (colIndex === 2 && typeof val === 'number') {
           cell.numFmt = '#,##0';
         }
       });
-      const lineCount = Math.max(1, row.rfid_detail.split('\n').length);
       const nameLines = Math.max(1, String(row.device_name).split('\n').length);
-      excelRow.height = Math.max(24, Math.max(lineCount, nameLines) * 15 + 8);
+      excelRow.height = Math.max(24, nameLines * 15 + 8);
       dataRowIndex++;
     });
 
@@ -258,12 +248,11 @@ export class CabinetStockReportExcelService {
       }
     }
 
-    worksheet.getColumn(1).width = 40;
-    worksheet.getColumn(2).width = 20;
-    worksheet.getColumn(3).width = 20;
-    worksheet.getColumn(4).width = 20;
-    worksheet.getColumn(5).width = 15;
-    worksheet.getColumn(6).width = 48;
+    worksheet.getColumn(1).width = 48;
+    worksheet.getColumn(2).width = 18;
+    worksheet.getColumn(3).width = 18;
+    worksheet.getColumn(4).width = 18;
+    worksheet.getColumn(5).width = 14;
 
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);

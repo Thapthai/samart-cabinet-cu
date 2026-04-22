@@ -2,21 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, PackageSearch, Settings2 } from 'lucide-react';
+import { AlertTriangle, Loader2, PackageSearch, Settings2 } from 'lucide-react';
 import { weighingApi } from '@/lib/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import Pagination from '@/components/Pagination';
 import StockStatusChips, { type StockStatusChipDef } from './StockStatusChips';
 import type { ItemSlotInCabinetRow, StockStatusFilter } from '../items-stock-shared';
-import {
-  effectiveMax,
-  effectiveMin,
-  formatMinMax,
-  formatSlotDisplay,
-  matchesStatusChip,
-  STOCK_TABLE_FRAME,
-} from '../items-stock-shared';
+import { matchesStatusChip, rowFlags, STOCK_TABLE_FRAME } from '../items-stock-shared';
+import { WeighingSlotPill } from './WeighingSlotPill';
 
 export interface WeighingListStats {
   systemTotal: number;
@@ -246,12 +240,6 @@ export default function WeighingStockTable({
                 <TableHead className="w-28 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   จำนวน
                 </TableHead>
-                <TableHead className="w-20 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Min
-                </TableHead>
-                <TableHead className="w-20 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Max
-                </TableHead>
                 <TableHead className="w-[110px] text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   จัดการ
                 </TableHead>
@@ -260,6 +248,7 @@ export default function WeighingStockTable({
             <TableBody>
               {displayedRows.map((row, index) => {
                 const name = row.item?.itemname || row.item?.Alternatename || '—';
+                const { low } = rowFlags(row);
                 return (
                   <TableRow key={row.id} className="border-b border-border/50 transition-colors hover:bg-muted/40">
                     <TableCell className="text-center text-muted-foreground tabular-nums">
@@ -269,13 +258,18 @@ export default function WeighingStockTable({
                       {name}
                     </TableCell>
                     <TableCell className="text-center">{row.SlotNo ?? '—'}</TableCell>
-                    <TableCell className="text-center">{formatSlotDisplay(row.Sensor)}</TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">{row.Qty}</TableCell>
-                    <TableCell className="text-center tabular-nums text-muted-foreground">
-                      {formatMinMax(effectiveMin(row))}
+                    <TableCell className="text-center">
+                      <WeighingSlotPill sensor={row.Sensor} />
                     </TableCell>
-                    <TableCell className="text-center tabular-nums text-muted-foreground">
-                      {formatMinMax(effectiveMax(row))}
+                    <TableCell className="text-right tabular-nums font-medium">
+                      <span className="inline-flex items-center justify-end gap-1.5">
+                        {low && (
+                          <span className="inline-flex shrink-0" title="จำนวนต่ำกว่า Min">
+                            <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden />
+                          </span>
+                        )}
+                        {row.Qty}
+                      </span>
                     </TableCell>
                     <TableCell className="text-center">
                       <Button

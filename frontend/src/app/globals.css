@@ -77,6 +77,11 @@
   --sidebar-accent-foreground: oklch(0.35 0.08 350);
   --sidebar-border: oklch(0.9 0.05 350);
   --sidebar-ring: oklch(0.55 0.22 350);
+  /* Weighing สล็อต: ฟ้า (นอก) / เขียว (ใน) — โทนกลมกลืนธีมชมพู (chroma พอดี ไม่แย่ง primary) */
+  --slot-out-bg: oklch(0.44 0.09 258);
+  --slot-out-fg: oklch(0.99 0.005 258);
+  --slot-in-bg: oklch(0.46 0.11 168);
+  --slot-in-fg: oklch(0.99 0.01 168);
 }
 
 .dark {
@@ -111,6 +116,10 @@
   --sidebar-accent-foreground: oklch(0.95 0 0);
   --sidebar-border: oklch(0.35 0.06 350);
   --sidebar-ring: oklch(0.65 0.2 350);
+  --slot-out-bg: oklch(0.56 0.1 258);
+  --slot-out-fg: oklch(0.99 0.01 258);
+  --slot-in-bg: oklch(0.54 0.11 172);
+  --slot-in-fg: oklch(0.99 0.01 172);
 }
 
 @layer base {

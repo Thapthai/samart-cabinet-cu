@@ -11,6 +11,15 @@ export interface DashboardDetailRow {
   userCabinet?: {
     legacyUser?: { employee?: { FirstName: string | null; LastName: string | null } | null } | null;
   } | null;
+  /** จาก GET /dashboard/overview → findDetailsBySign include */
+  itemSlotInCabinet?: {
+    cabinet?: {
+      id: number;
+      cabinet_name: string | null;
+      cabinet_code: string | null;
+      stock_id: number | null;
+    } | null;
+  } | null;
 }
 
 export interface DashboardSummary {

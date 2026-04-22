@@ -138,11 +138,11 @@ export class WeighingDispenseReportPdfService {
         const itemHeight = 28;
         const cellPadding = 4;
         const totalTableWidth = contentWidth;
-        const colPct = [0.08, 0.35, 0.22, 0.12, 0.23];
+        const colPct = [0.07, 0.28, 0.16, 0.17, 0.09, 0.11];
         const colWidths = colPct.map((p) => Math.floor(totalTableWidth * p));
         let sumW = colWidths.reduce((a, b) => a + b, 0);
         if (sumW < totalTableWidth) colWidths[1] += totalTableWidth - sumW;
-        const headers = ['ลำดับ', 'ชื่อสินค้า', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
+        const headers = ['ลำดับ', 'ชื่อสินค้า', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
 
         const drawTableHeader = (y: number) => {
           doc.fontSize(13).font(finalFontBoldName);
@@ -181,6 +181,7 @@ export class WeighingDispenseReportPdfService {
             const cellTexts = [
               String(row.seq ?? idx + 1),
               String(row.item_name ?? '-'),
+              String(row.cabinet_label ?? '-'),
               String(row.operator_name ?? '-'),
               String(row.qty ?? 0),
               String(row.modify_date ?? '-'),
@@ -204,14 +205,14 @@ export class WeighingDispenseReportPdfService {
             const rowY = doc.y;
             const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8F9FA';
             let xPos = margin;
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < 6; i++) {
               const cw = colWidths[i];
               const w = Math.max(4, cw - cellPadding * 2);
               doc.rect(xPos, rowY, cw, rowHeight).fillAndStroke(bg, '#DEE2E6');
               doc.fontSize(13).font(finalFontName).fillColor('#000000');
               doc.text(cellTexts[i] ?? '-', xPos + cellPadding, rowY + cellPadding, {
                 width: w,
-                align: i === 1 || i === 2 ? 'left' : 'center',
+                align: i === 1 || i === 2 || i === 3 ? 'left' : 'center',
               });
               xPos += cw;
             }

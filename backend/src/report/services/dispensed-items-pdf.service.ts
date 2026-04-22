@@ -1,47 +1,40 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import * as fs from 'fs';
-import * as path from 'path';
 import { DispensedItemsReportData } from './dispensed-items-excel.service';
-import { ReportConfig } from '../config/report.config';
-import { resolveReportLogoPath } from '../config/report.config';
+import { ReportConfig, resolveReportLogoPath, getReportThaiFontPaths } from '../config/report.config';
 
-function formatReportDate(value?: string) {
+function formatReportDateYmd(value?: string) {
   if (!value) return '-';
   const base = new Date(value);
   const corrected =
     typeof value === 'string' && value.endsWith('Z')
       ? new Date(base.getTime() - 7 * 60 * 60 * 1000)
       : base;
-  return corrected.toLocaleDateString(ReportConfig.locale, {
+  if (Number.isNaN(corrected.getTime())) return '-';
+  return corrected.toLocaleDateString('en-CA', {
     timeZone: ReportConfig.timezone,
-    ...ReportConfig.dateFormat.date,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   });
+}
+
+function rfidCabinetLabel(item: { cabinetName?: string; cabinetCode?: string }): string {
+  const cn = (item.cabinetName ?? '').toString().trim();
+  const cc = (item.cabinetCode ?? '').toString().trim();
+  if (cn && cc) return `${cn} (${cc})`;
+  return cn || cc || '-';
 }
 
 @Injectable()
 export class DispensedItemsPdfService {
   private async registerThaiFont(doc: PDFKit.PDFDocument): Promise<boolean> {
     try {
-      const possiblePaths = [
-        path.join(__dirname, '../../assets/fonts'),
-        path.join(__dirname, '../../../apps/report-service/assets/fonts'),
-        path.join(__dirname, '../../apps/report-service/assets/fonts'),
-        path.join(process.cwd(), 'apps/report-service/assets/fonts'),
-      ];
-      let basePath: string | null = null;
-      for (const testPath of possiblePaths) {
-        const testFile = path.join(testPath, 'THSarabunNew.ttf');
-        if (fs.existsSync(testFile)) {
-          basePath = testPath;
-          break;
-        }
-      }
-      if (!basePath) return false;
-      const regularFont = path.join(basePath, 'THSarabunNew.ttf');
-      const boldFont = path.join(basePath, 'THSarabunNew Bold.ttf');
-      doc.registerFont('ThaiFont', regularFont);
-      doc.registerFont('ThaiFontBold', fs.existsSync(boldFont) ? boldFont : regularFont);
+      const fonts = getReportThaiFontPaths();
+      if (!fonts || !fs.existsSync(fonts.regular)) return false;
+      doc.registerFont('ThaiFont', fonts.regular);
+      doc.registerFont('ThaiFontBold', fonts.bold);
       return true;
     } catch {
       return false;
@@ -59,10 +52,6 @@ export class DispensedItemsPdfService {
   }
 
   async generateReport(data: DispensedItemsReportData): Promise<Buffer> {
-    if (!data || !data.data || !Array.isArray(data.data)) {
-      throw new Error('Invalid data structure: data.data must be an array');
-    }
-
     const doc = new PDFDocument({
       size: 'A4',
       layout: 'portrait',
@@ -80,7 +69,6 @@ export class DispensedItemsPdfService {
       if (hasThai) {
         finalFontName = 'ThaiFont';
         finalFontBoldName = 'ThaiFontBold';
-        // prime ฟอนต์บน page แรก เพื่อให้ PDFKit embed font ใน resource ของ page 1
         doc.font(finalFontBoldName).fontSize(13);
         doc.font(finalFontName).fontSize(13);
       }
@@ -96,6 +84,8 @@ export class DispensedItemsPdfService {
       timeZone: 'Asia/Bangkok',
     });
 
+    const rows = data?.data && Array.isArray(data.data) ? data.data : [];
+
     return new Promise((resolve, reject) => {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
@@ -105,13 +95,10 @@ export class DispensedItemsPdfService {
         const pageWidth = doc.page.width;
         const pageHeight = doc.page.height;
         const contentWidth = pageWidth - margin * 2;
-        const rows = data.data ?? [];
 
-        // ---- Header block with logo ----
         const headerTop = 35;
         const headerHeight = 48;
-        doc.rect(margin, headerTop, contentWidth, headerHeight)
-          .fillAndStroke('#F8F9FA', '#DEE2E6');
+        doc.rect(margin, headerTop, contentWidth, headerHeight).fillAndStroke('#F8F9FA', '#DEE2E6');
 
         if (logoBuffer && logoBuffer.length > 0) {
           try {
@@ -126,7 +113,7 @@ export class DispensedItemsPdfService {
         }
 
         doc.fontSize(16).font(finalFontBoldName).fillColor('#1A365D');
-        doc.text('รายงานการเบิกอุปกรณ์', margin, headerTop + 6, {
+        doc.text('รายการเบิกอุปกรณ์จากตู้ (RFID)', margin, headerTop + 6, {
           width: contentWidth,
           align: 'center',
         });
@@ -138,7 +125,6 @@ export class DispensedItemsPdfService {
         doc.fillColor('#000000');
         doc.y = headerTop + headerHeight + 14;
 
-        // วันที่รายงาน
         doc.fontSize(11).font(finalFontName).fillColor('#6C757D');
         doc.text(`วันที่รายงาน: ${reportDate}`, margin, doc.y, {
           width: contentWidth,
@@ -147,48 +133,20 @@ export class DispensedItemsPdfService {
         doc.fillColor('#000000');
         doc.y += 6;
 
-        // ---- ตาราง Filter Summary (1 แถว 4 ช่อง) ----
-        const filters = data.filters ?? {};
-        const filterRowHeight = 34;
-        const filterY = doc.y;
-        const filterCells = [
-          { label: 'แผนก', value: filters.departmentName ?? (filters.departmentId ? filters.departmentId : 'ทั้งหมด') },
-          { label: 'ตู้ Cabinet', value: filters.cabinetName ?? (filters.cabinetId ? filters.cabinetId : 'ทั้งหมด') },
-          { label: 'วันที่เริ่ม', value: filters.startDate ?? 'ทั้งหมด' },
-          { label: 'วันที่สิ้นสุด', value: filters.endDate ?? 'ทั้งหมด' },
-        ];
-        const filterColWidth = Math.floor(contentWidth / filterCells.length);
-        let fx = margin;
-        filterCells.forEach((fc, i) => {
-          const cw = i === filterCells.length - 1
-            ? contentWidth - filterColWidth * (filterCells.length - 1)
-            : filterColWidth;
-          doc.rect(fx, filterY, cw, filterRowHeight).fillAndStroke('#E8EDF2', '#DEE2E6');
-          doc.fontSize(11).font(finalFontBoldName).fillColor('#444444');
-          doc.text(fc.label, fx + 3, filterY + 4, { width: cw - 6, align: 'center' });
-          doc.fontSize(13).font(finalFontName).fillColor('#1A365D');
-          doc.text(fc.value, fx + 3, filterY + 16, { width: cw - 6, align: 'center' });
-          fx += cw;
-        });
-        doc.fillColor('#000000');
-        doc.y = filterY + filterRowHeight + 8;
-
-        // ---- ตารางข้อมูล ----
         const itemHeight = 28;
         const cellPadding = 4;
         const totalTableWidth = contentWidth;
-        // ลำดับ, รหัสอุปกรณ์, ชื่ออุปกรณ์, วันที่เบิก, ชื่อผู้เบิก, แผนก, ตู้
-        const colPct = [0.06, 0.13, 0.20, 0.1, 0.19, 0.10, 0.08];
+        const colPct = [0.07, 0.28, 0.16, 0.17, 0.09, 0.11];
         const colWidths = colPct.map((p) => Math.floor(totalTableWidth * p));
         let sumW = colWidths.reduce((a, b) => a + b, 0);
-        if (sumW < totalTableWidth) colWidths[2] += totalTableWidth - sumW;
-        const headers = ['ลำดับ', 'รหัสอุปกรณ์', 'ชื่ออุปกรณ์', 'วันที่เบิก', 'ชื่อผู้เบิก', 'แผนก', 'ตู้'];
+        if (sumW < totalTableWidth) colWidths[1] += totalTableWidth - sumW;
+        const headers = ['ลำดับ', 'ชื่อสินค้า', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
 
         const drawTableHeader = (y: number) => {
-          let x = margin;
           doc.fontSize(13).font(finalFontBoldName);
           doc.rect(margin, y, totalTableWidth, itemHeight).fill('#1A365D');
           doc.fillColor('#FFFFFF');
+          let x = margin;
           headers.forEach((h, i) => {
             doc.text(h, x + cellPadding, y + 8, {
               width: Math.max(2, colWidths[i] - cellPadding * 2),
@@ -221,18 +179,15 @@ export class DispensedItemsPdfService {
         } else {
           for (let idx = 0; idx < rows.length; idx++) {
             const item = rows[idx];
-
             const cellTexts = [
               String(idx + 1),
-              item?.itemcode ?? '-',
-              item?.itemname ?? '-',
-              formatReportDate(item?.modifyDate as string),
-              item?.cabinetUserName ?? 'ไม่ระบุ',
-              item?.departmentName ?? '-',
-              item?.cabinetName ?? item?.cabinetCode ?? '-',
+              String(item?.itemname ?? '-'),
+              rfidCabinetLabel(item),
+              String(item?.cabinetUserName ?? 'ไม่ระบุ'),
+              String(item?.qty ?? 0),
+              formatReportDateYmd(item?.modifyDate as string),
             ];
 
-            // คำนวณความสูงแถวตามข้อความที่อาจขึ้นบรรทัดใหม่
             doc.fontSize(13).font(finalFontName);
             const cellHeights = cellTexts.map((text, i) => {
               const w = Math.max(4, colWidths[i] - cellPadding * 2);
@@ -246,21 +201,20 @@ export class DispensedItemsPdfService {
               const newHeaderY = doc.y;
               drawTableHeader(newHeaderY);
               doc.y = newHeaderY + itemHeight;
-              // reset font กลับเป็น regular หลัง drawTableHeader
               doc.fontSize(13).font(finalFontName).fillColor('#000000');
             }
 
             const rowY = doc.y;
             const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8F9FA';
             let xPos = margin;
-            for (let i = 0; i < 7; i++) {
+            for (let i = 0; i < 6; i++) {
               const cw = colWidths[i];
               const w = Math.max(4, cw - cellPadding * 2);
               doc.rect(xPos, rowY, cw, rowHeight).fillAndStroke(bg, '#DEE2E6');
               doc.fontSize(13).font(finalFontName).fillColor('#000000');
               doc.text(cellTexts[i] ?? '-', xPos + cellPadding, rowY + cellPadding, {
                 width: w,
-                align: i === 1 || i === 2 || i === 4 ? 'left' : 'center',
+                align: i === 1 || i === 2 || i === 3 ? 'left' : 'center',
               });
               xPos += cw;
             }
@@ -268,9 +222,8 @@ export class DispensedItemsPdfService {
           }
         }
 
-        // footer note
         doc.fontSize(11).font(finalFontName).fillColor('#6C757D');
-        doc.text(`จำนวนรายการทั้งหมด: ${data.summary?.total_records ?? 0} รายการ`, margin, doc.y + 6, {
+        doc.text('เอกสารนี้สร้างจากระบบรายงานอัตโนมัติ', margin, doc.y + 6, {
           width: contentWidth,
           align: 'center',
         });

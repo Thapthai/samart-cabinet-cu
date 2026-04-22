@@ -25,3 +25,14 @@ export function formatActorName(row: DashboardDetailRow) {
   if (!emp) return '-';
   return [emp.FirstName, emp.LastName].filter(Boolean).join(' ') || '-';
 }
+
+export function formatRecentRowCabinet(row: DashboardDetailRow) {
+  const c = row.itemSlotInCabinet?.cabinet;
+  if (c) {
+    const name = (c.cabinet_name ?? '').trim();
+    const code = (c.cabinet_code ?? '').trim();
+    if (name || code) return name || code;
+  }
+  if (row.StockID != null && row.StockID > 0) return `Stock ${row.StockID}`;
+  return '—';
+}

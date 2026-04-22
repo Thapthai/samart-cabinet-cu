@@ -21,6 +21,8 @@ import { CancelBillReportPdfService } from './services/cancel-bill-report-pdf.se
 import { ReturnToCabinetReportExcelService, ReturnToCabinetReportData } from './services/return-to-cabinet-report-excel.service';
 import { ReturnToCabinetReportPdfService } from './services/return-to-cabinet-report-pdf.service';
 import { DispensedItemsExcelService, DispensedItemsReportData } from './services/dispensed-items-excel.service';
+import { DispensedAllExcelService } from './services/dispensed-all-excel.service';
+import { RefillAllExcelService } from './services/refill-all-excel.service';
 import { DispensedItemsPdfService } from './services/dispensed-items-pdf.service';
 import {
   CabinetStockReportExcelService,
@@ -38,6 +40,10 @@ import {
   WeighingStockReportExcelService,
   WeighingStockReportData,
 } from './services/weighing-stock-report-excel.service';
+import {
+  ItemsStockCombinedExcelService,
+  ItemsStockCombinedRfidRow,
+} from './services/items-stock-combined-excel.service';
 import { WeighingStockReportPdfService } from './services/weighing-stock-report-pdf.service';
 import {
   DispensedItemsForPatientsExcelService,
@@ -134,22 +140,6 @@ function cabinetSummaryStatusLabel(
   return 'OK';
 }
 
-/** สถานะต่อแท็ก RFID — ตรง rfidLineBadge */
-function cabinetTagStatusLabel(expireRaw: Date | string | null | undefined): 'EXPIRED' | 'SOON' | 'OK' {
-  if (expireRaw == null) return 'OK';
-  const exp = typeof expireRaw === 'string' ? new Date(expireRaw) : expireRaw;
-  if (Number.isNaN(exp.getTime())) return 'OK';
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const ed = new Date(exp);
-  ed.setHours(0, 0, 0, 0);
-  if (ed < today) return 'EXPIRED';
-  const limit = new Date(today);
-  limit.setDate(limit.getDate() + CABINET_STOCK_NEAR_EXPIRY_DAYS);
-  if (ed <= limit) return 'SOON';
-  return 'OK';
-}
-
 function formatMinMaxCell(min: number | null | undefined, max: number | null | undefined): string {
   const a = min != null && min !== undefined ? String(min) : '—';
   const b = max != null && max !== undefined ? String(max) : '—';
@@ -162,6 +152,25 @@ function weighingStockRowMatchesStatusFilter(row: any, chip: string | undefined)
   const qty = Number(row?.Qty) || 0;
   if (chip === 'low') return min != null && Number(min) > 0 && qty < Number(min);
   return false;
+}
+
+/** สอดคล้อง `cabinetStockTableMode` ฝั่ง frontend (admin/items-stock) */
+function cabinetEntityStockTableMode(c: {
+  cabinet_type?: string | null;
+  cabinetTypeDef?: { code?: string | null; show_rfid_code?: boolean | null } | null;
+}): 'WEIGHING' | 'RFID' {
+  const def = c.cabinetTypeDef;
+  if (def?.code) {
+    const code = def.code.trim().toUpperCase();
+    if (code === 'WEIGHING') return 'WEIGHING';
+    if (code === 'RFID') return 'RFID';
+    if (def.show_rfid_code === true) return 'RFID';
+    return 'WEIGHING';
+  }
+  const raw = (c.cabinet_type ?? '').toString().trim().toUpperCase();
+  if (raw === 'WEIGHING') return 'WEIGHING';
+  if (raw === 'RFID') return 'RFID';
+  return 'WEIGHING';
 }
 
 @Injectable()
@@ -188,6 +197,8 @@ export class ReportServiceService {
     private readonly returnToCabinetReportExcelService: ReturnToCabinetReportExcelService,
     private readonly returnToCabinetReportPdfService: ReturnToCabinetReportPdfService,
     private readonly dispensedItemsExcelService: DispensedItemsExcelService,
+    private readonly dispensedAllExcelService: DispensedAllExcelService,
+    private readonly refillAllExcelService: RefillAllExcelService,
     private readonly dispensedItemsPdfService: DispensedItemsPdfService,
     private readonly cabinetStockReportExcelService: CabinetStockReportExcelService,
     private readonly cabinetStockReportPdfService: CabinetStockReportPdfService,
@@ -200,6 +211,7 @@ export class ReportServiceService {
     private readonly weighingService: WeighingService,
     private readonly dispensedItemsForPatientsExcelService: DispensedItemsForPatientsExcelService,
     private readonly dispensedItemsForPatientsPdfService: DispensedItemsForPatientsPdfService,
+    private readonly itemsStockCombinedExcelService: ItemsStockCombinedExcelService,
   ) {}
 
   /**
@@ -2150,6 +2162,26 @@ export class ReportServiceService {
     }
   }
 
+  /** ชื่อตู้จาก relation itemSlotInCabinet (รายงาน Weighing เบิก/เติม) */
+  private weighingRowCabinetLabel(r: any): string {
+    const c = r?.itemSlotInCabinet?.cabinet;
+    const name = (c?.cabinet_name ?? '').toString().trim();
+    const code = (c?.cabinet_code ?? '').toString().trim();
+    if (name && code) return `${name} (${code})`;
+    return name || code || '-';
+  }
+
+  /** วันที่แก้ไขแบบสั้น YYYY-MM-DD สำหรับคอลัมน์รายงาน */
+  private reportModifyDateYmd(d: string | Date | null | undefined): string {
+    if (d == null || d === '') return '-';
+    const date = typeof d === 'string' ? new Date(d) : d;
+    if (Number.isNaN(date.getTime())) return '-';
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
   /**
    * Generate Dispensed Items Report in Excel format
    */
@@ -2208,6 +2240,229 @@ export class ReportServiceService {
       console.error('[Report Service] Error generating Dispensed Items Excel:', error);
       const errorMessage = error?.message || error?.toString() || 'Unknown error';
       throw new Error(`Failed to generate Dispensed Items Excel report: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * รายงานเบิกรวม — Excel หลายชีต: Weighing กับ RFID
+   */
+  async generateDispensedAllExcel(params: {
+    weighing?: {
+      stockId?: number;
+      itemName?: string;
+      itemcode?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    };
+    rfid?: {
+      keyword?: string;
+      startDate?: string;
+      endDate?: string;
+      page?: number;
+      limit?: number;
+      departmentId?: string;
+      cabinetId?: string;
+    };
+  }): Promise<{ buffer: Buffer; filename: string }> {
+    try {
+      const w = params?.weighing ?? {};
+      const r = params?.rfid ?? {};
+
+      const [weighingRes, rfidResult] = await Promise.all([
+        this.weighingService.findDetailsBySign('-', {
+          page: 1,
+          limit: 10000,
+          itemName: w?.itemName?.trim() || undefined,
+          itemcode: w?.itemcode?.trim() || undefined,
+          stockId: w?.stockId,
+          dateFrom: w?.dateFrom?.trim() || undefined,
+          dateTo: w?.dateTo?.trim() || undefined,
+        }),
+        this.medicalSuppliesService.getDispensedItems({
+          keyword: r.keyword,
+          startDate: r.startDate,
+          endDate: r.endDate,
+          page: r.page || 1,
+          limit: r.limit || 10000,
+          departmentId: r.departmentId,
+          cabinetId: r.cabinetId,
+        }),
+      ]);
+
+      const rows = Array.isArray((weighingRes as any)?.data) ? (weighingRes as any).data : [];
+      const totalQty = rows.reduce((sum: number, row: any) => sum + (Number(row?.Qty) || 0), 0);
+      const employeeName = (row: any) => {
+        const emp = row?.userCabinet?.legacyUser?.employee;
+        if (!emp) return '-';
+        const parts = [emp.FirstName, emp.LastName].filter(Boolean);
+        return parts.length ? parts.join(' ') : '-';
+      };
+      const weighingReportData: WeighingDispenseReportData = {
+        filters: {
+          stockId: w?.stockId,
+          itemName: w?.itemName,
+          itemcode: w?.itemcode,
+          dateFrom: w?.dateFrom,
+          dateTo: w?.dateTo,
+        },
+        summary: { total_rows: rows.length, total_qty: totalQty },
+        data: rows.map((row: any, i: number) => ({
+          seq: i + 1,
+          item_name: row?.item?.itemname || row?.item?.Alternatename || row?.itemcode || '-',
+          cabinet_label: this.weighingRowCabinetLabel(row),
+          operator_name: employeeName(row),
+          qty: Number(row?.Qty) || 0,
+          modify_date: this.reportModifyDateYmd(row?.ModifyDate),
+        })),
+      };
+
+      const dispensedItems =
+        rfidResult && (rfidResult as any).data
+          ? (rfidResult as any).data
+          : Array.isArray(rfidResult)
+            ? rfidResult
+            : [];
+      if (!Array.isArray(dispensedItems)) {
+        throw new Error('Failed to fetch dispensed items data');
+      }
+      const labels = await this.getCabinetDepartmentLabels(r.cabinetId, r.departmentId);
+      const rfidReportData: DispensedItemsReportData = {
+        filters: {
+          keyword: r.keyword,
+          startDate: r.startDate,
+          endDate: r.endDate,
+          departmentId: r.departmentId,
+          cabinetId: r.cabinetId,
+          departmentName: labels.departmentName,
+          cabinetName: labels.cabinetName,
+        } as DispensedItemsReportData['filters'],
+        summary: {
+          total_records: (rfidResult as any)?.total ?? dispensedItems.length,
+          total_qty: dispensedItems.reduce((sum: number, item: any) => sum + (item.qty || 0), 0),
+        },
+        data: dispensedItems,
+      };
+
+      const buffer = await this.dispensedAllExcelService.generateReport({
+        weighing: weighingReportData,
+        rfid: rfidReportData,
+      });
+      const dateStr = new Date().toISOString().split('T')[0];
+      const filename = `dispensed_all_report_${dateStr}.xlsx`;
+      return { buffer, filename };
+    } catch (error) {
+      console.error('[Report Service] Error generating Dispensed All Excel:', error);
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
+      throw new Error(`Failed to generate Dispensed All Excel report: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * รายงานเติม/คืนรวม — Excel หลายชีต: Weighing เติม กับ RFID คืนเข้าตู้
+   */
+  async generateRefillAllExcel(params: {
+    weighing?: {
+      stockId?: number;
+      itemName?: string;
+      itemcode?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    };
+    returnToCabinet?: {
+      keyword?: string;
+      itemTypeId?: number;
+      startDate?: string;
+      endDate?: string;
+      page?: number;
+      limit?: number;
+      departmentId?: string;
+      cabinetId?: string;
+    };
+  }): Promise<{ buffer: Buffer; filename: string }> {
+    try {
+      const w = params?.weighing ?? {};
+      const rtc = params?.returnToCabinet ?? {};
+
+      const [refillRes, returnedData] = await Promise.all([
+        this.weighingService.findDetailsBySign('+', {
+          page: 1,
+          limit: 10000,
+          itemName: w?.itemName?.trim() || undefined,
+          itemcode: w?.itemcode?.trim() || undefined,
+          stockId: w?.stockId,
+          dateFrom: w?.dateFrom?.trim() || undefined,
+          dateTo: w?.dateTo?.trim() || undefined,
+        }),
+        this.getReturnToCabinetReportData({
+          keyword: rtc.keyword,
+          itemTypeId: rtc.itemTypeId,
+          startDate: rtc.startDate,
+          endDate: rtc.endDate,
+          page: rtc.page || 1,
+          limit: rtc.limit || 10000,
+          departmentId: rtc.departmentId,
+          cabinetId: rtc.cabinetId,
+        }),
+      ]);
+
+      const rows = Array.isArray((refillRes as any)?.data) ? (refillRes as any).data : [];
+      const totalQty = rows.reduce((sum: number, row: any) => sum + (Number(row?.Qty) || 0), 0);
+      const employeeName = (row: any) => {
+        const emp = row?.userCabinet?.legacyUser?.employee;
+        if (!emp) return '-';
+        const parts = [emp.FirstName, emp.LastName].filter(Boolean);
+        return parts.length ? parts.join(' ') : '-';
+      };
+      const weighingReportData: WeighingDispenseReportData = {
+        filters: {
+          stockId: w?.stockId,
+          itemName: w?.itemName,
+          itemcode: w?.itemcode,
+          dateFrom: w?.dateFrom,
+          dateTo: w?.dateTo,
+        },
+        summary: { total_rows: rows.length, total_qty: totalQty },
+        data: rows.map((row: any, i: number) => ({
+          seq: i + 1,
+          item_name: row?.item?.itemname || row?.item?.Alternatename || row?.itemcode || '-',
+          cabinet_label: this.weighingRowCabinetLabel(row),
+          operator_name: employeeName(row),
+          qty: Number(row?.Qty) || 0,
+          modify_date: this.reportModifyDateYmd(row?.ModifyDate),
+        })),
+      };
+
+      const labels = await this.getCabinetDepartmentLabels(rtc.cabinetId, rtc.departmentId);
+      const returnData = returnedData?.data ?? [];
+      const returnReportData: ReturnToCabinetReportData = {
+        filters: {
+          keyword: rtc.keyword,
+          itemTypeId: rtc.itemTypeId,
+          startDate: rtc.startDate,
+          endDate: rtc.endDate,
+          departmentId: rtc.departmentId,
+          cabinetId: rtc.cabinetId,
+          departmentName: labels.departmentName,
+          cabinetName: labels.cabinetName,
+        },
+        summary: {
+          total_records: returnedData?.total ?? returnData.length,
+          total_qty: returnData.reduce((sum: number, record: any) => sum + (record.qty || 0), 0) || 0,
+        },
+        data: returnData,
+      };
+
+      const buffer = await this.refillAllExcelService.generateReport({
+        weighing: weighingReportData,
+        returnToCabinet: returnReportData,
+      });
+      const dateStr = new Date().toISOString().split('T')[0];
+      const filename = `refill_all_report_${dateStr}.xlsx`;
+      return { buffer, filename };
+    } catch (error) {
+      console.error('[Report Service] Error generating Refill All Excel:', error);
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
+      throw new Error(`Failed to generate Refill All Excel report: ${errorMessage}`);
     }
   }
 
@@ -2299,7 +2554,8 @@ export class ReportServiceService {
             i.itemcode AS item_code,
             i.itemname AS item_name,
             MAX(i.Alternatename) AS alternatename,
-            COALESCE(SUM(CASE WHEN ist.IsStock = 1 OR ist.IsStock = true THEN 1 ELSE 0 END), 0) AS balance_qty,
+            /** ตรง RfidStockTable: Qty = item.itemStocks.length (แถว itemstock ที่มี RfidCode ในตู้ — ไม่กรอง IsStock) */
+            COALESCE(COUNT(*), 0) AS balance_qty,
             i.stock_max,
             i.stock_min,
             MIN(ist.ExpireDate) AS earliest_expire_date,
@@ -2330,7 +2586,7 @@ export class ReportServiceService {
             i.itemcode AS item_code,
             i.itemname AS item_name,
             MAX(i.Alternatename) AS alternatename,
-            COALESCE(SUM(CASE WHEN ist.IsStock = 1 OR ist.IsStock = true THEN 1 ELSE 0 END), 0) AS balance_qty,
+            COALESCE(COUNT(*), 0) AS balance_qty,
             i.stock_max,
             i.stock_min,
             MIN(ist.ExpireDate) AS earliest_expire_date,
@@ -2358,69 +2614,12 @@ export class ReportServiceService {
 
       const rows = await query;
 
-      let stockIdsForTags: number[] = [];
-      if (hasCabinet) {
-        if (params.cabinetId != null) {
-          const c = await this.prisma.cabinet.findUnique({
-            where: { id: params.cabinetId },
-            select: { stock_id: true },
-          });
-          if (c?.stock_id != null) stockIdsForTags = [c.stock_id];
-        } else if (params.cabinetCode?.trim()) {
-          const c = await this.prisma.cabinet.findFirst({
-            where: { cabinet_code: params.cabinetCode.trim() },
-            select: { stock_id: true },
-          });
-          if (c?.stock_id != null) stockIdsForTags = [c.stock_id];
-        }
-      } else if (hasDept) {
-        const sidRows = await this.prisma.$queryRaw<{ stock_id: number }[]>`
-          SELECT DISTINCT c.stock_id AS stock_id
-          FROM app_microservice_cabinets c
-          INNER JOIN app_microservice_cabinet_departments cd
-            ON cd.cabinet_id = c.id AND cd.status = 'ACTIVE' AND cd.department_id = ${params!.departmentId!}
-          WHERE c.stock_id IS NOT NULL
-        `;
-        stockIdsForTags = sidRows.map((r) => r.stock_id).filter((id): id is number => id != null);
-      }
-
-      const itemCodes = [...new Set((rows as any[]).map((r) => r.item_code).filter(Boolean))] as string[];
-      const rfidLinesByItem = new Map<string, string>();
-      if (stockIdsForTags.length > 0 && itemCodes.length > 0) {
-        const tags = await this.prisma.itemStock.findMany({
-          where: {
-            StockID: { in: stockIdsForTags },
-            ItemCode: { in: itemCodes },
-            RfidCode: { not: '' },
-          },
-          select: { ItemCode: true, RfidCode: true, ExpireDate: true },
-        });
-        const byCode = new Map<string, { rfid: string; ymd: string; st: string }[]>();
-        for (const t of tags) {
-          const code = t.ItemCode?.trim();
-          const rfid = t.RfidCode?.trim();
-          if (!code || !rfid) continue;
-          const ymd = formatYmdReport(t.ExpireDate);
-          const st = cabinetTagStatusLabel(t.ExpireDate);
-          const list = byCode.get(code) ?? [];
-          list.push({ rfid, ymd, st });
-          byCode.set(code, list);
-        }
-        byCode.forEach((list, code) => {
-          rfidLinesByItem.set(
-            code,
-            list.map((x) => `${x.rfid} | ${x.ymd} | ${x.st}`).join('\n'),
-          );
-        });
-      }
-
       type CabinetWorkRow = {
         device_name: string;
         expire_date_ymd: string;
         balance_qty: number;
         min_max_display: string;
         status_label: 'EXPIRED' | 'SOON' | 'LOW' | 'OK';
-        rfid_detail: string;
         _stock_min: number | null;
         _item_code: string;
       };
@@ -2432,6 +2631,7 @@ export class ReportServiceService {
         const smax = row.stock_max != null ? Number(row.stock_max) : null;
         const name = String(row.item_name ?? '').trim();
         const alt = String(row.alternatename ?? '').trim();
+        /** ลำดับเดียวกับหน้าเว็บ: itemname ก่อน แล้ว Alternatename */
         const deviceName = name || alt || String(row.item_code ?? '—');
         const earliest = row.earliest_expire_date ?? null;
         work.push({
@@ -2440,7 +2640,6 @@ export class ReportServiceService {
           balance_qty: balanceQty,
           min_max_display: formatMinMaxCell(smin, smax),
           status_label: cabinetSummaryStatusLabel(earliest, balanceQty, smin),
-          rfid_detail: rfidLinesByItem.get(String(row.item_code ?? '')) ?? '—',
           _stock_min: smin,
           _item_code: String(row.item_code ?? ''),
         });
@@ -2489,7 +2688,6 @@ export class ReportServiceService {
         balance_qty: dataRow.balance_qty,
         min_max_display: dataRow.min_max_display,
         status_label: dataRow.status_label,
-        rfid_detail: dataRow.rfid_detail,
       }));
 
       const totalQty = data.reduce((s, r) => s + r.balance_qty, 0);
@@ -2608,17 +2806,6 @@ export class ReportServiceService {
       });
       const rows = Array.isArray((res as any)?.data) ? (res as any).data : [];
       const totalQty = rows.reduce((sum: number, r: any) => sum + (Number(r?.Qty) || 0), 0);
-      const formatDate = (d: string) => {
-        if (!d) return '-';
-        const date = new Date(d);
-        const y = date.getUTCFullYear();
-        const m = String(date.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(date.getUTCDate()).padStart(2, '0');
-        const h = String(date.getUTCHours()).padStart(2, '0');
-        const min = String(date.getUTCMinutes()).padStart(2, '0');
-        const sec = String(date.getUTCSeconds()).padStart(2, '0');
-        return `${y}-${m}-${day} ${h}:${min}:${sec}`;
-      };
       const employeeName = (r: any) => {
         const emp = r?.userCabinet?.legacyUser?.employee;
         if (!emp) return '-';
@@ -2631,9 +2818,10 @@ export class ReportServiceService {
         data: rows.map((r: any, i: number) => ({
           seq: i + 1,
           item_name: r?.item?.itemname || r?.item?.Alternatename || r?.itemcode || '-',
+          cabinet_label: this.weighingRowCabinetLabel(r),
           operator_name: employeeName(r),
           qty: Number(r?.Qty) || 0,
-          modify_date: formatDate(r?.ModifyDate),
+          modify_date: this.reportModifyDateYmd(r?.ModifyDate),
         })),
       };
       const buffer = await this.weighingDispenseReportExcelService.generateReport(reportData);
@@ -2669,17 +2857,6 @@ export class ReportServiceService {
       });
       const rows = Array.isArray((res as any)?.data) ? (res as any).data : [];
       const totalQty = rows.reduce((sum: number, r: any) => sum + (Number(r?.Qty) || 0), 0);
-      const formatDate = (d: string) => {
-        if (!d) return '-';
-        const date = new Date(d);
-        const y = date.getUTCFullYear();
-        const m = String(date.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(date.getUTCDate()).padStart(2, '0');
-        const h = String(date.getUTCHours()).padStart(2, '0');
-        const min = String(date.getUTCMinutes()).padStart(2, '0');
-        const sec = String(date.getUTCSeconds()).padStart(2, '0');
-        return `${y}-${m}-${day} ${h}:${min}:${sec}`;
-      };
       const employeeName = (r: any) => {
         const emp = r?.userCabinet?.legacyUser?.employee;
         if (!emp) return '-';
@@ -2692,9 +2869,10 @@ export class ReportServiceService {
         data: rows.map((r: any, i: number) => ({
           seq: i + 1,
           item_name: r?.item?.itemname || r?.item?.Alternatename || r?.itemcode || '-',
+          cabinet_label: this.weighingRowCabinetLabel(r),
           operator_name: employeeName(r),
           qty: Number(r?.Qty) || 0,
-          modify_date: formatDate(r?.ModifyDate),
+          modify_date: this.reportModifyDateYmd(r?.ModifyDate),
         })),
       };
       const buffer = await this.weighingDispenseReportPdfService.generateReport(reportData);
@@ -2724,17 +2902,6 @@ export class ReportServiceService {
       });
       const rows = Array.isArray((res as any)?.data) ? (res as any).data : [];
       const totalQty = rows.reduce((sum: number, r: any) => sum + (Number(r?.Qty) || 0), 0);
-      const formatDate = (d: string) => {
-        if (!d) return '-';
-        const date = new Date(d);
-        const y = date.getUTCFullYear();
-        const m = String(date.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(date.getUTCDate()).padStart(2, '0');
-        const h = String(date.getUTCHours()).padStart(2, '0');
-        const min = String(date.getUTCMinutes()).padStart(2, '0');
-        const sec = String(date.getUTCSeconds()).padStart(2, '0');
-        return `${y}-${m}-${day} ${h}:${min}:${sec}`;
-      };
       const employeeName = (r: any) => {
         const emp = r?.userCabinet?.legacyUser?.employee;
         if (!emp) return '-';
@@ -2747,9 +2914,10 @@ export class ReportServiceService {
         data: rows.map((r: any, i: number) => ({
           seq: i + 1,
           item_name: r?.item?.itemname || r?.item?.Alternatename || r?.itemcode || '-',
+          cabinet_label: this.weighingRowCabinetLabel(r),
           operator_name: employeeName(r),
           qty: Number(r?.Qty) || 0,
-          modify_date: formatDate(r?.ModifyDate),
+          modify_date: this.reportModifyDateYmd(r?.ModifyDate),
         })),
       };
       const buffer = await this.weighingRefillReportExcelService.generateReport(reportData);
@@ -2779,17 +2947,6 @@ export class ReportServiceService {
       });
       const rows = Array.isArray((res as any)?.data) ? (res as any).data : [];
       const totalQty = rows.reduce((sum: number, r: any) => sum + (Number(r?.Qty) || 0), 0);
-      const formatDate = (d: string) => {
-        if (!d) return '-';
-        const date = new Date(d);
-        const y = date.getUTCFullYear();
-        const m = String(date.getUTCMonth() + 1).padStart(2, '0');
-        const day = String(date.getUTCDate()).padStart(2, '0');
-        const h = String(date.getUTCHours()).padStart(2, '0');
-        const min = String(date.getUTCMinutes()).padStart(2, '0');
-        const sec = String(date.getUTCSeconds()).padStart(2, '0');
-        return `${y}-${m}-${day} ${h}:${min}:${sec}`;
-      };
       const employeeName = (r: any) => {
         const emp = r?.userCabinet?.legacyUser?.employee;
         if (!emp) return '-';
@@ -2802,9 +2959,10 @@ export class ReportServiceService {
         data: rows.map((r: any, i: number) => ({
           seq: i + 1,
           item_name: r?.item?.itemname || r?.item?.Alternatename || r?.itemcode || '-',
+          cabinet_label: this.weighingRowCabinetLabel(r),
           operator_name: employeeName(r),
           qty: Number(r?.Qty) || 0,
-          modify_date: formatDate(r?.ModifyDate),
+          modify_date: this.reportModifyDateYmd(r?.ModifyDate),
         })),
       };
       const buffer = await this.weighingRefillReportPdfService.generateReport(reportData);
@@ -2913,6 +3071,101 @@ export class ReportServiceService {
       console.error('[Report Service] Error generating Weighing Stock PDF:', error);
       const errorMessage = error?.message || error?.toString() || 'Unknown error';
       throw new Error(`Failed to generate Weighing Stock PDF report: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * รายงานรวมหน้า admin/items-stock — Excel 2 ชีต: Weighing (ทุกตู้) + RFID รวมทุกตู้
+   */
+  async generateItemsStockCombinedExcel(params: {
+    itemName?: string;
+    itemcode?: string;
+    statusFilter?: string;
+  }): Promise<{ buffer: Buffer; filename: string }> {
+    try {
+      const chip = params?.statusFilter?.trim() || 'all';
+
+      const res = await this.weighingService.findAll({
+        page: 1,
+        limit: 10000,
+        itemName: params?.itemName?.trim() || undefined,
+        itemcode: params?.itemcode?.trim() || undefined,
+        stockId: undefined,
+      });
+      const rawRows = Array.isArray((res as any)?.data) ? (res as any).data : [];
+      const rows = rawRows.filter((r: any) => weighingStockRowMatchesStatusFilter(r, chip));
+      const totalQty = rows.reduce((sum: number, r: any) => sum + (Number(r?.Qty) || 0), 0);
+      const cabinetName = (r: any) =>
+        r?.cabinet ? r.cabinet.cabinet_name || r.cabinet.cabinet_code || '-' : '-';
+      const slotDisplay = (v: any) => (v === 1 ? 'ใน' : v === 2 ? 'นอก' : v != null ? String(v) : '-');
+      const weighingReportData: WeighingStockReportData = {
+        filters: { stockId: undefined, itemName: params?.itemName, itemcode: params?.itemcode },
+        summary: { total_rows: rows.length, total_qty: totalQty },
+        data: rows.map((r: any, i: number) => ({
+          seq: i + 1,
+          item_name: r?.item?.itemname || r?.item?.Alternatename || r?.itemcode || '-',
+          cabinet_name: cabinetName(r),
+          slot_no: Number(r?.SlotNo) ?? 0,
+          sensor: Number(r?.Sensor) ?? 0,
+          channel_display: r?.SlotNo != null ? String(r.SlotNo) : '-',
+          slot_display: slotDisplay(r?.Sensor),
+          qty: Number(r?.Qty) || 0,
+        })),
+      };
+
+      // สอดคล้องรายการตู้บนหน้า items-stock (getAllCabinets ไม่กรอง cabinet_status)
+      const cabinets = await this.prisma.cabinet.findMany({
+        where: {
+          stock_id: { not: null, gt: 0 },
+        },
+        select: {
+          id: true,
+          cabinet_name: true,
+          cabinet_code: true,
+          cabinet_type: true,
+          cabinetTypeDef: { select: { code: true, show_rfid_code: true } },
+        },
+        orderBy: [{ cabinet_name: 'asc' }],
+      });
+      const rfidCabinets = cabinets.filter((c) => cabinetEntityStockTableMode(c) === 'RFID');
+
+      const keyword = params?.itemName?.trim() || undefined;
+      const rfidRows: ItemsStockCombinedRfidRow[] = [];
+      let seq = 1;
+      for (const c of rfidCabinets) {
+        const reportData = await this.getCabinetStockData({
+          cabinetId: c.id,
+          keyword,
+          statusFilter: chip,
+        });
+        const label = (c.cabinet_name || c.cabinet_code || `ตู้ #${c.id}`).trim();
+        for (const d of reportData.data) {
+          rfidRows.push({
+            seq: seq++,
+            cabinet_label: label,
+            device_name: d.device_name,
+            expire_date_ymd: d.expire_date_ymd,
+            balance_qty: d.balance_qty,
+            min_max_display: d.min_max_display,
+            status_label: d.status_label,
+          });
+        }
+      }
+
+      const buffer = await this.itemsStockCombinedExcelService.generateReport({
+        weighing: weighingReportData,
+        rfid: {
+          rows: rfidRows,
+          filters: { keyword, statusFilter: chip !== 'all' ? chip : undefined },
+        },
+      });
+      const dateStr = new Date().toISOString().split('T')[0];
+      const filename = `items_stock_combined_report_${dateStr}.xlsx`;
+      return { buffer, filename };
+    } catch (error) {
+      console.error('[Report Service] Error generating Items Stock Combined Excel:', error);
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
+      throw new Error(`Failed to generate Items Stock Combined Excel: ${errorMessage}`);
     }
   }
 

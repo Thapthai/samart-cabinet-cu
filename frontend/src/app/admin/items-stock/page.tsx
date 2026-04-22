@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { Download, Package } from 'lucide-react';
 import type { Item } from '@/types/item';
 import UpdateMinMaxDialog from '../items/components/UpdateMinMaxDialog';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import CabinetStockTabs, {
   cabinetStockTableMode,
@@ -42,7 +42,7 @@ export default function ItemsStockPage() {
     rawOnPage: 0,
     visibleCount: 0,
   });
-  const [exportLoading, setExportLoading] = useState<'excel' | 'pdf' | null>(null);
+  const [exportLoading, setExportLoading] = useState<'excel' | 'pdf' | 'combined' | null>(null);
   const [minMaxOpen, setMinMaxOpen] = useState(false);
   const [minMaxRow, setMinMaxRow] = useState<ItemSlotInCabinetRow | null>(null);
   const [statusFilter, setStatusFilter] = useState<StockStatusFilter>('all');
@@ -250,6 +250,22 @@ export default function ItemsStockPage() {
     }
   };
 
+  const handleDownloadItemsStockCombinedExcel = async () => {
+    try {
+      setExportLoading('combined');
+      await reportsApi.downloadItemsStockCombinedExcel({
+        itemName: appliedItemName.trim() || undefined,
+        statusFilter,
+      });
+      toast.success('ดาวน์โหลดรายงานรวม (Excel) สำเร็จ');
+    } catch (e) {
+      console.error(e);
+      toast.error('ดาวน์โหลดรายงานรวมไม่สำเร็จ');
+    } finally {
+      setExportLoading(null);
+    }
+  };
+
   return (
     <ProtectedRoute>
       <AppLayout fullWidth>
@@ -267,17 +283,15 @@ export default function ItemsStockPage() {
           }}
         />
         <div className="w-full max-w-full space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="rounded-lg bg-blue-100 p-2">
-                <Package className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">สต๊อกอุปกรณ์ตามตู้</h1>
-                <p className="text-sm text-gray-500">
-                  เลือกตู้ — ตู้ชั่งแสดงช่อง/สล็อต ตู้ RFID แสดงวันหมดอายุและแท็ก
-                </p>
-              </div>
+          <div className="flex items-center space-x-3">
+            <div className="rounded-lg bg-blue-100 p-2">
+              <Package className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">สต๊อกอุปกรณ์ตามตู้</h1>
+              <p className="text-sm text-gray-500">
+                เลือกตู้ — ตู้ชั่งแสดงช่อง/สล็อต ตู้ RFID แสดงวันหมดอายุและแท็ก
+              </p>
             </div>
           </div>
 
@@ -302,71 +316,110 @@ export default function ItemsStockPage() {
             listLoading={listLoading}
           />
 
-          <Card className="rounded-xl border-slate-200/80 shadow-sm">
-            <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0 pb-2">
-              <div className="space-y-1.5">
-                <CardTitle>
-                  {tableMode === 'RFID' ? 'รายการในตู้ (RFID)' : 'รายการในตู้ (Weighing)'}
-                </CardTitle>
-                <CardDescription>
-                  ทั้งหมด {listStats.systemTotal} รายการจากระบบ
-                  {tableMode === 'WEIGHING' && (
-                    <span className="hidden sm:inline"> · รายงาน: สต๊อกตู้ชั่ง (Weighing)</span>
+          <Card className="shadow-sm border-gray-200/80 overflow-hidden">
+            <CardHeader className="space-y-2 border-b bg-slate-50/50 pb-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 space-y-1">
+                  <CardTitle className="text-lg leading-tight">
+                    {tableMode === 'RFID' ? 'รายการในตู้ (RFID)' : 'รายการในตู้ (Weighing)'}
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {tableMode === 'WEIGHING'
+                      ? 'รายการสต๊อกในตู้ Weighing (ช่อง / สล็อต) ตามตู้และคำค้นที่เลือก'
+                      : 'รายการสต๊อกในตู้ RFID (สรุปต่อรายการ / วันหมดอายุ) ตามตู้ที่เลือก'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">ทั้งหมด {listStats.systemTotal} รายการจากระบบ</p>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  {tableMode === 'WEIGHING' ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadWeighingStockExcel}
+                        disabled={exportLoading !== null}
+                        className="shadow-sm"
+                      >
+                        <Download className="h-4 w-4 mr-1.5" />
+                        {exportLoading === 'excel' ? 'กำลังโหลด...' : 'Excel'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadWeighingStockPdf}
+                        disabled={exportLoading !== null}
+                        className="shadow-sm"
+                      >
+                        <Download className="h-4 w-4 mr-1.5" />
+                        {exportLoading === 'pdf' ? 'กำลังโหลด...' : 'PDF'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadItemsStockCombinedExcel}
+                        disabled={exportLoading !== null}
+                        className="shadow-sm whitespace-nowrap"
+                      >
+                        <Download className="h-4 w-4 mr-1.5" />
+                        {exportLoading === 'combined' ? 'กำลังโหลด...' : 'Excel รวม'}
+                      </Button>
+                    </>
+                  ) : tableMode === 'RFID' && selectedCabinetId != null ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadCabinetStockExcel}
+                        disabled={exportLoading !== null}
+                        className="shadow-sm"
+                      >
+                        <Download className="h-4 w-4 mr-1.5" />
+                        {exportLoading === 'excel' ? 'กำลังโหลด...' : 'Excel'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadCabinetStockPdf}
+                        disabled={exportLoading !== null}
+                        className="shadow-sm"
+                      >
+                        <Download className="h-4 w-4 mr-1.5" />
+                        {exportLoading === 'pdf' ? 'กำลังโหลด...' : 'PDF'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadItemsStockCombinedExcel}
+                        disabled={exportLoading !== null}
+                        className="shadow-sm whitespace-nowrap"
+                      >
+                        <Download className="h-4 w-4 mr-1.5" />
+                        {exportLoading === 'combined' ? 'กำลังโหลด...' : 'Excel รวม'}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadItemsStockCombinedExcel}
+                      disabled={exportLoading !== null}
+                      className="shadow-sm whitespace-nowrap"
+                    >
+                      <Download className="h-4 w-4 mr-1.5" />
+                      {exportLoading === 'combined' ? 'กำลังโหลด...' : 'Excel รวม'}
+                    </Button>
                   )}
-                  {tableMode === 'RFID' && (
-                    <span className="hidden sm:inline"> · รายงาน: สต๊อกในตู้ (Cabinet / RFID)</span>
-                  )}
-                </CardDescription>
+                </div>
               </div>
-              {tableMode === 'WEIGHING' ? (
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDownloadWeighingStockExcel}
-                    disabled={exportLoading !== null}
-                  >
-                    <Download className="mr-1.5 h-4 w-4" />
-                    {exportLoading === 'excel' ? 'กำลังโหลด...' : 'Excel ตู้ชั่ง'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDownloadWeighingStockPdf}
-                    disabled={exportLoading !== null}
-                  >
-                    <Download className="mr-1.5 h-4 w-4" />
-                    {exportLoading === 'pdf' ? 'กำลังโหลด...' : 'PDF ตู้ชั่ง'}
-                  </Button>
-                </div>
-              ) : tableMode === 'RFID' && selectedCabinetId != null ? (
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDownloadCabinetStockExcel}
-                    disabled={exportLoading !== null}
-                  >
-                    <Download className="mr-1.5 h-4 w-4" />
-                    {exportLoading === 'excel' ? 'กำลังโหลด...' : 'Excel ตู้ RFID'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDownloadCabinetStockPdf}
-                    disabled={exportLoading !== null}
-                  >
-                    <Download className="mr-1.5 h-4 w-4" />
-                    {exportLoading === 'pdf' ? 'กำลังโหลด...' : 'PDF ตู้ RFID'}
-                  </Button>
-                </div>
-              ) : null}
             </CardHeader>
-            <CardContent className="px-4">
+            <CardContent className="p-4 sm:p-5">
               {tableMode === 'WEIGHING' ? (
                 <WeighingStockTable
                   stockId={stockIdParsed}

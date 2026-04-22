@@ -333,6 +333,18 @@ export class WeighingService {
               Barcode: true,
             },
           },
+          itemSlotInCabinet: {
+            select: {
+              cabinet: {
+                select: {
+                  id: true,
+                  cabinet_name: true,
+                  cabinet_code: true,
+                  stock_id: true,
+                },
+              },
+            },
+          },
           userCabinet: {
             include: {
               legacyUser: {

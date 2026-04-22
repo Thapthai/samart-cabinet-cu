@@ -23,6 +23,8 @@ import { CancelBillReportPdfService } from './services/cancel-bill-report-pdf.se
 import { ReturnToCabinetReportExcelService } from './services/return-to-cabinet-report-excel.service';
 import { ReturnToCabinetReportPdfService } from './services/return-to-cabinet-report-pdf.service';
 import { DispensedItemsExcelService } from './services/dispensed-items-excel.service';
+import { DispensedAllExcelService } from './services/dispensed-all-excel.service';
+import { RefillAllExcelService } from './services/refill-all-excel.service';
 import { DispensedItemsPdfService } from './services/dispensed-items-pdf.service';
 import { CabinetStockReportExcelService } from './services/cabinet-stock-report-excel.service';
 import { CabinetStockReportPdfService } from './services/cabinet-stock-report-pdf.service';
@@ -32,6 +34,7 @@ import { WeighingRefillReportExcelService } from './services/weighing-refill-rep
 import { WeighingRefillReportPdfService } from './services/weighing-refill-report-pdf.service';
 import { WeighingStockReportExcelService } from './services/weighing-stock-report-excel.service';
 import { WeighingStockReportPdfService } from './services/weighing-stock-report-pdf.service';
+import { ItemsStockCombinedExcelService } from './services/items-stock-combined-excel.service';
 import { DispensedItemsForPatientsExcelService } from './services/dispensed-items-for-patients-excel.service';
 import { DispensedItemsForPatientsPdfService } from './services/dispensed-items-for-patients-pdf.service';
 @Module({
@@ -58,6 +61,8 @@ import { DispensedItemsForPatientsPdfService } from './services/dispensed-items-
     ReturnToCabinetReportExcelService,
     ReturnToCabinetReportPdfService,
     DispensedItemsExcelService,
+    DispensedAllExcelService,
+    RefillAllExcelService,
     DispensedItemsPdfService,
     CabinetStockReportExcelService,
     CabinetStockReportPdfService,
@@ -67,6 +72,7 @@ import { DispensedItemsForPatientsPdfService } from './services/dispensed-items-
     WeighingRefillReportPdfService,
     WeighingStockReportExcelService,
     WeighingStockReportPdfService,
+    ItemsStockCombinedExcelService,
     DispensedItemsForPatientsExcelService,
     DispensedItemsForPatientsPdfService,
   ],

@@ -6,6 +6,12 @@ import {
 } from './weighing-stock-report-excel.service';
 import { resolveReportLogoPath, getReportThaiFontPaths } from '../config/report.config';
 
+/** สล็อต Sensor: 1 = ใน (เขียว), 2 = นอก (ฟ้า) — โทนใกล้ globals.css --slot-in / --slot-out (โหมดสว่าง) */
+const SLOT_PILL = {
+  ใน: { bg: '#2f8f72', fg: '#f8fafc' },
+  นอก: { bg: '#3d5c8c', fg: '#f8fafc' },
+} as const;
+
 @Injectable()
 export class WeighingStockReportPdfService {
   private async registerThaiFont(doc: PDFKit.PDFDocument): Promise<boolean> {
@@ -176,7 +182,11 @@ export class WeighingStockReportPdfService {
             doc.fontSize(13).font(finalFontName);
             const cellHeights = cellTexts.map((text, i) => {
               const w = Math.max(4, colWidths[i] - cellPadding * 2);
-              return doc.heightOfString(text ?? '-', { width: w });
+              const t = text ?? '-';
+              if (i === 4 && (t === 'ใน' || t === 'นอก')) {
+                return 22 + cellPadding * 2;
+              }
+              return doc.heightOfString(t, { width: w });
             });
             const rowHeight = Math.max(itemHeight, Math.max(...cellHeights) + cellPadding * 2);
 
@@ -196,11 +206,35 @@ export class WeighingStockReportPdfService {
               const cw = colWidths[i];
               const w = Math.max(4, cw - cellPadding * 2);
               doc.rect(xPos, rowY, cw, rowHeight).fillAndStroke(bg, '#DEE2E6');
-              doc.fontSize(13).font(finalFontName).fillColor('#000000');
-              doc.text(cellTexts[i] ?? '-', xPos + cellPadding, rowY + cellPadding, {
-                width: w,
-                align: i === 1 || i === 2 ? 'left' : 'center',
-              });
+              const raw = String(cellTexts[i] ?? '-').trim();
+              if (i === 4 && (raw === 'ใน' || raw === 'นอก')) {
+                const pal = SLOT_PILL[raw as keyof typeof SLOT_PILL];
+                const fs = 11;
+                doc.fontSize(fs).font(finalFontBoldName);
+                const tw = doc.widthOfString(raw);
+                const pillPadX = 10;
+                const pillH = Math.min(22, rowHeight - 6);
+                const pillW = Math.min(w, tw + pillPadX * 2);
+                const bx = xPos + (cw - pillW) / 2;
+                const by = rowY + (rowHeight - pillH) / 2;
+                const radius = pillH / 2;
+                doc.save();
+                doc.roundedRect(bx, by, pillW, pillH, radius).fill(pal.bg);
+                doc.restore();
+                doc.fillColor(pal.fg);
+                doc.text(raw, bx, by + (pillH - fs) / 2 - 0.5, {
+                  width: pillW,
+                  align: 'center',
+                  lineBreak: false,
+                });
+                doc.fillColor('#000000');
+              } else {
+                doc.fontSize(13).font(finalFontName).fillColor('#000000');
+                doc.text(raw || '-', xPos + cellPadding, rowY + cellPadding, {
+                  width: w,
+                  align: i === 1 || i === 2 ? 'left' : 'center',
+                });
+              }
               xPos += cw;
             }
             doc.y = rowY + rowHeight;

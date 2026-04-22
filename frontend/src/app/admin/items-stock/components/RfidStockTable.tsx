@@ -12,9 +12,6 @@ import { cn } from '@/lib/utils';
 import StockStatusChips, { type StockStatusChipDef } from './StockStatusChips';
 import type { ItemSlotInCabinetRow, RfidStockLine, StockStatusFilter } from '../items-stock-shared';
 import {
-  effectiveMax,
-  effectiveMin,
-  formatMinMax,
   formatYmd,
   matchesStatusChip,
   rfidLineBadge,
@@ -348,9 +345,6 @@ export default function RfidStockTable({
                 <TableHead className="w-36 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   จำนวนคงเหลือ
                 </TableHead>
-                <TableHead className="w-28 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Min / Max
-                </TableHead>
                 <TableHead className="w-[100px] text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   สถานะ
                 </TableHead>
@@ -372,7 +366,7 @@ export default function RfidStockTable({
                 : soon
                   ? 'text-amber-700 font-medium'
                   : 'text-foreground font-medium';
-              const warnQty = expired || low;
+              const warnQtyBelowMin = low;
               const open = expandedIds.has(row.id);
               const lines = rfidByItemcode[row.itemcode] ?? [];
 
@@ -387,14 +381,13 @@ export default function RfidStockTable({
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       <span className="inline-flex items-center justify-end gap-1.5 font-medium">
-                        {warnQty && (
-                          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+                        {warnQtyBelowMin && (
+                          <span className="inline-flex shrink-0" title="จำนวนต่ำกว่า Min">
+                            <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden />
+                          </span>
                         )}
                         {row.Qty}
                       </span>
-                    </TableCell>
-                    <TableCell className="text-center tabular-nums text-muted-foreground text-sm">
-                      {formatMinMax(effectiveMin(row))} / {formatMinMax(effectiveMax(row))}
                     </TableCell>
                     <TableCell className="text-center">
                       <span
@@ -444,7 +437,7 @@ export default function RfidStockTable({
                   </TableRow>
                   {open && (
                     <TableRow className="border-0 hover:bg-transparent">
-                      <TableCell colSpan={7} className="border-b border-border/60 bg-muted/25 p-0">
+                      <TableCell colSpan={6} className="border-b border-border/60 bg-muted/25 p-0">
                         <div className="px-4 py-4 sm:px-5">
                           {lines.length === 0 ? (
                             <p className="text-sm text-muted-foreground">ไม่พบแท็ก RFID ใน itemstock</p>

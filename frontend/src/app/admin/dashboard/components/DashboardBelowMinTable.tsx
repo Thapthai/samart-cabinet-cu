@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ExternalLink, Loader2, TrendingDown } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Loader2, TrendingDown } from 'lucide-react';
 import type { DashboardBelowMinRow } from '../types';
 
 interface DashboardBelowMinTableProps {
@@ -50,8 +50,6 @@ export function DashboardBelowMinTable({
                 <th className="px-4 py-2.5">ชื่ออุปกรณ์</th>
                 <th className="min-w-[140px] px-4 py-2.5">ตู้จัดเก็บ</th>
                 <th className="whitespace-nowrap px-4 py-2.5 text-right">จำนวนในตู้</th>
-                <th className="whitespace-nowrap px-4 py-2.5 text-right">Min</th>
-                <th className="whitespace-nowrap px-4 py-2.5 text-right">Max</th>
                 <th className="w-32 px-4 py-2.5 text-center">สถานะ</th>
               </tr>
             </thead>
@@ -62,10 +60,13 @@ export function DashboardBelowMinTable({
                     {row.itemName}
                   </td>
                   <td className="px-4 py-3 text-slate-600">{row.cabinetLabel}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-slate-800">{row.currentQty}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-slate-800">{row.stockMin}</td>
-                  <td className="px-4 py-3 text-right tabular-nums text-slate-600">
-                    {row.stockMax != null ? row.stockMax : '—'}
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-800">
+                    <span className="inline-flex items-center justify-end gap-1.5 font-medium">
+                      <span className="inline-flex shrink-0" title="จำนวนต่ำกว่า Min">
+                        <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden />
+                      </span>
+                      {row.currentQty}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className="inline-block rounded-full bg-orange-100 px-2.5 py-0.5 text-[11px] font-semibold text-orange-800">

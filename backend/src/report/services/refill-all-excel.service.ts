@@ -2,6 +2,22 @@ import { Injectable } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
 import { resolveReportLogoPath, ReportConfig } from '../config/report.config';
+import type { WeighingDispenseReportData } from './weighing-dispense-report-excel.service';
+import type { ReturnToCabinetReportData } from './return-to-cabinet-report-excel.service';
+
+export interface RefillAllReportData {
+  weighing: WeighingDispenseReportData;
+  returnToCabinet: ReturnToCabinetReportData;
+}
+
+type SixColRow = {
+  seq: number;
+  item: string;
+  cabinet: string;
+  operator: string;
+  qty: number;
+  date: string;
+};
 
 function formatReportDateYmd(value?: string) {
   if (!value) return '-';
@@ -26,50 +42,69 @@ function rfidCabinetLabel(item: { cabinetName?: string; cabinetCode?: string }):
   return cn || cc || '-';
 }
 
-export interface ReturnToCabinetReportData {
-  filters?: {
-    keyword?: string;
-    itemTypeId?: number;
-    startDate?: string;
-    endDate?: string;
-    departmentId?: string;
-    cabinetId?: string;
-    departmentName?: string;
-    cabinetName?: string;
-  };
-  summary: {
-    total_records: number;
-    total_qty: number;
-  };
-  data: Array<{
-    RowID: number;
-    itemcode?: string;
-    itemname: string;
-    modifyDate: string;
-    qty: number;
-    itemType?: string;
-    itemCategory?: string;
-    itemtypeID?: number;
-    RfidCode?: string;
-    StockID?: number;
-    Istatus_rfid?: number;
-    IsStock?: boolean | number;
-    cabinetUserName?: string;
-    departmentName?: string;
-    cabinetName?: string;
-    cabinetCode?: string;
-  }>;
-}
-
 @Injectable()
-export class ReturnToCabinetReportExcelService {
-  async generateReport(data: ReturnToCabinetReportData): Promise<Buffer> {
-    const rows = data?.data && Array.isArray(data.data) ? data.data : [];
-
+export class RefillAllExcelService {
+  async generateReport(data: RefillAllReportData): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Report Service';
     workbook.created = new Date();
-    const worksheet = workbook.addWorksheet('รายการคืน RFID', {
+
+    let logoImageId: number | undefined;
+    const logoPath = resolveReportLogoPath();
+    if (logoPath && fs.existsSync(logoPath)) {
+      try {
+        logoImageId = workbook.addImage({ filename: logoPath, extension: 'png' });
+      } catch {
+        // skip logo
+      }
+    }
+
+    const weighingRows: SixColRow[] = (data.weighing?.data ?? []).map((r) => ({
+      seq: r.seq,
+      item: r.item_name,
+      cabinet: r.cabinet_label ?? '-',
+      operator: r.operator_name,
+      qty: r.qty,
+      date: r.modify_date,
+    }));
+
+    const returnItems = data.returnToCabinet?.data ?? [];
+    const returnRows: SixColRow[] = returnItems.map((item, idx) => ({
+      seq: idx + 1,
+      item: item.itemname ?? '-',
+      cabinet: rfidCabinetLabel(item),
+      operator: item.cabinetUserName ?? 'ไม่ระบุ',
+      qty: item.qty,
+      date: formatReportDateYmd(item.modifyDate),
+    }));
+
+    this.appendSheet(
+      workbook,
+      'รายการเติม Weighing',
+      'รายการเติมอุปกรณ์เข้าตู้ Weighing\nWeighing Refill Report',
+      weighingRows,
+      logoImageId,
+    );
+    this.appendSheet(
+      workbook,
+      'รายการคืน RFID',
+      'รายการคืนอุปกรณ์เข้าตู้ (RFID)\nReturn To Cabinet Report',
+      returnRows,
+      logoImageId,
+    );
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
+  }
+
+  private appendSheet(
+    workbook: ExcelJS.Workbook,
+    sheetName: string,
+    titleValue: string,
+    rows: SixColRow[],
+    logoImageId?: number,
+  ): void {
+    const worksheet = workbook.addWorksheet(sheetName, {
       pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true },
       properties: { defaultRowHeight: 20 },
     });
@@ -95,16 +130,11 @@ export class ReturnToCabinetReportExcelService {
       fgColor: { argb: 'FFF8F9FA' },
     };
     worksheet.getCell('A1').border = thinBorder;
-    const logoPath = resolveReportLogoPath();
-    if (logoPath && fs.existsSync(logoPath)) {
+    if (logoImageId != null) {
       try {
-        const imageId = workbook.addImage({
-          filename: logoPath,
-          extension: 'png',
-        });
-        worksheet.addImage(imageId, 'A1:A2');
+        worksheet.addImage(logoImageId, 'A1:A2');
       } catch {
-        // skip logo on error
+        // skip
       }
     }
     worksheet.getRow(1).height = 20;
@@ -113,7 +143,7 @@ export class ReturnToCabinetReportExcelService {
 
     worksheet.mergeCells('B1:F2');
     const headerCell = worksheet.getCell('B1');
-    headerCell.value = 'รายการคืนอุปกรณ์เข้าตู้ (RFID)\nReturn To Cabinet Report';
+    headerCell.value = titleValue;
     headerCell.font = { name: 'Tahoma', size: 14, bold: true, color: { argb: 'FF1A365D' } };
     headerCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     headerCell.fill = {
@@ -145,17 +175,10 @@ export class ReturnToCabinetReportExcelService {
     headerRow.height = 26;
 
     let dataRowIndex = tableStartRow + 1;
-    rows.forEach((item, idx) => {
+    rows.forEach((row, idx) => {
       const excelRow = worksheet.getRow(dataRowIndex);
       const bg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8F9FA';
-      const rowValues = [
-        idx + 1,
-        item.itemname ?? '-',
-        rfidCabinetLabel(item),
-        item.cabinetUserName ?? 'ไม่ระบุ',
-        item.qty,
-        formatReportDateYmd(item.modifyDate),
-      ];
+      const rowValues = [row.seq, row.item, row.cabinet, row.operator, row.qty, row.date];
       rowValues.forEach((val, colIndex) => {
         const cell = excelRow.getCell(colIndex + 1);
         cell.value = val as any;
@@ -194,8 +217,5 @@ export class ReturnToCabinetReportExcelService {
     worksheet.getColumn(4).width = 25;
     worksheet.getColumn(5).width = 10;
     worksheet.getColumn(6).width = 20;
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
   }
 }

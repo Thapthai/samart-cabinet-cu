@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, ChevronDown, ChevronRight, Loader2, Package } from "lucide-react";
 import { weighingApi } from "@/lib/api";
 import { toast } from "sonner";
+import { WeighingSlotPill } from "../../items-stock/components/WeighingSlotPill";
 
 interface CabinetDepartment {
   id: number;
@@ -60,10 +61,6 @@ export default function MappingTable({ mappings, onEdit, onDelete }: MappingTabl
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentMappings = mappings.slice(startIndex, endIndex);
-
-  /** สล็อต 1 = ใน, 2 = นอก */
-  const formatSlotDisplay = (value: number | null | undefined) =>
-    value === 1 ? "ใน" : value === 2 ? "นอก" : value != null ? String(value) : "-";
 
   const handleDropdownToggle = async (e: React.MouseEvent, mapping: CabinetDepartment) => {
     e.stopPropagation();
@@ -156,9 +153,9 @@ export default function MappingTable({ mappings, onEdit, onDelete }: MappingTabl
                   <span className="text-gray-500">ช่อง:</span>
                   <span className="ml-2 font-medium">{row.SlotNo}</span>
                 </div>
-                <div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-gray-500">สล็อต:</span>
-                  <span className="ml-2 font-medium">{formatSlotDisplay(row.Sensor)}</span>
+                  <WeighingSlotPill sensor={row.Sensor} />
                 </div>
                 <div>
                   <span className="text-gray-500">จำนวน:</span>

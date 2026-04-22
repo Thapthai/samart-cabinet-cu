@@ -119,6 +119,67 @@ export class ReportServiceController {
     }
   }
 
+  @Post('refill-all/excel')
+  async generateRefillAllExcel(
+    @Body()
+    data: {
+      weighing?: {
+        stockId?: number;
+        itemName?: string;
+        itemcode?: string;
+        dateFrom?: string;
+        dateTo?: string;
+      };
+      returnToCabinet?: {
+        keyword?: string;
+        itemTypeId?: number;
+        startDate?: string;
+        endDate?: string;
+        page?: number;
+        limit?: number;
+        departmentId?: string;
+        cabinetId?: string;
+      };
+    },
+  ) {
+    try {
+      const result = await this.reportServiceService.generateRefillAllExcel(data ?? {});
+      return toFileResponse(result.buffer, result.filename, EXCEL_CONTENT);
+    } catch (error: any) {
+      return { success: false, error: error?.message };
+    }
+  }
+
+  @Post('dispensed-all/excel')
+  async generateDispensedAllExcel(
+    @Body()
+    data: {
+      weighing?: {
+        stockId?: number;
+        itemName?: string;
+        itemcode?: string;
+        dateFrom?: string;
+        dateTo?: string;
+      };
+      rfid?: {
+        keyword?: string;
+        startDate?: string;
+        endDate?: string;
+        page?: number;
+        limit?: number;
+        departmentId?: string;
+        cabinetId?: string;
+      };
+    },
+  ) {
+    try {
+      const result = await this.reportServiceService.generateDispensedAllExcel(data ?? {});
+      return toFileResponse(result.buffer, result.filename, EXCEL_CONTENT);
+    } catch (error: any) {
+      return { success: false, error: error?.message };
+    }
+  }
+
   @Post('dispensed-items/pdf')
   async generateDispensedItemsPDF(@Body() data: {
     keyword?: string;
@@ -476,9 +537,24 @@ export class ReportServiceController {
   }
 
   @Post('weighing-stock/excel')
-  async generateWeighingStockExcel(@Body() data: { stockId?: number; itemName?: string; itemcode?: string }) {
+  async generateWeighingStockExcel(@Body() data: {
+    stockId?: number;
+    itemName?: string;
+    itemcode?: string;
+    statusFilter?: string;
+  }) {
     try {
       const result = await this.reportServiceService.generateWeighingStockExcel(data);
+      return toFileResponse(result.buffer, result.filename, EXCEL_CONTENT);
+    } catch (error: any) {
+      return { success: false, error: error?.message };
+    }
+  }
+
+  @Post('items-stock-combined/excel')
+  async generateItemsStockCombinedExcel(@Body() data: { itemName?: string; itemcode?: string; statusFilter?: string }) {
+    try {
+      const result = await this.reportServiceService.generateItemsStockCombinedExcel(data);
       return toFileResponse(result.buffer, result.filename, EXCEL_CONTENT);
     } catch (error: any) {
       return { success: false, error: error?.message };

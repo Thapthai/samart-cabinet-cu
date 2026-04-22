@@ -6,7 +6,7 @@ import { weighingApi, cabinetApi, reportsApi } from '@/lib/api';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
 import { toast } from 'sonner';
-import { Package, Download, Settings2 } from 'lucide-react';
+import { AlertTriangle, Download, Package, Settings2 } from 'lucide-react';
 import type { Item } from '@/types/item';
 import UpdateMinMaxDialog from '../items/components/UpdateMinMaxDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import Pagination from '@/components/Pagination';
 import WeighingStockFilterSection from './components/WeighingStockFilterSection';
+import { WeighingSlotPill } from '../items-stock/components/WeighingSlotPill';
+import { rowFlags } from '../items-stock/items-stock-shared';
 
 export interface ItemSlotInCabinetRow {
   id: number;
@@ -168,10 +170,6 @@ export default function WeighingPage() {
     setMinMaxOpen(true);
   };
 
-  /** สล็อต 1 = ใน, 2 = นอก */
-  const formatSlotDisplay = (value: number | null | undefined) =>
-    value === 1 ? 'ใน' : value === 2 ? 'นอก' : value != null ? String(value) : '-';
-
   const handleDownloadWeighingStockExcel = async () => {
     try {
       setExportLoading('excel');
@@ -323,7 +321,9 @@ export default function WeighingPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {items.map((row, index) => (
+                        {items.map((row, index) => {
+                          const { low } = rowFlags(row);
+                          return (
                           <TableRow key={row.id} className="hover:bg-slate-50/80">
                             <TableCell className="text-center text-muted-foreground tabular-nums">
                               {(currentPage - 1) * itemsPerPage + index + 1}
@@ -337,8 +337,19 @@ export default function WeighingPage() {
                                 : row.StockID}
                             </TableCell>
                             <TableCell className="text-center">{row.SlotNo ?? '-'}</TableCell>
-                            <TableCell className="text-center">{formatSlotDisplay(row.Sensor)}</TableCell>
-                            <TableCell className="text-right tabular-nums font-medium">{row.Qty}</TableCell>
+                            <TableCell className="text-center">
+                              <WeighingSlotPill sensor={row.Sensor} />
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums font-medium">
+                              <span className="inline-flex items-center justify-end gap-1.5">
+                                {low && (
+                                  <span className="inline-flex shrink-0" title="จำนวนต่ำกว่า Min">
+                                    <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden />
+                                  </span>
+                                )}
+                                {row.Qty}
+                              </span>
+                            </TableCell>
                             <TableCell className="text-center tabular-nums text-muted-foreground">
                               {formatMinMax(effectiveMin(row))}
                             </TableCell>
@@ -360,7 +371,8 @@ export default function WeighingPage() {
                               </Button>
                             </TableCell>
                           </TableRow>
-                        ))}
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>

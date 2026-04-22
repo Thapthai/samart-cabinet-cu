@@ -62,8 +62,8 @@ export class CabinetStockReportPdfService {
   async generateReport(data: CabinetStockReportData): Promise<Buffer> {
     const doc = new PDFDocument({
       size: 'A4',
-      layout: 'landscape',
-      margin: 48,
+      layout: 'portrait',
+      margin: 40,
       bufferPages: true,
     });
 
@@ -97,7 +97,7 @@ export class CabinetStockReportPdfService {
       doc.on('error', reject);
 
       try {
-        const margin = 48;
+        const margin = 40;
         /** ขนาดตัวอักษรหลัก = 17pt (ตาราง + กล่องสรุป) */
         const F = {
           title: 26,
@@ -109,7 +109,6 @@ export class CabinetStockReportPdfService {
           pageNum: 11,
         } as const;
         const pageWidth = doc.page.width;
-        const pageHeight = doc.page.height;
         const contentWidth = pageWidth - margin * 2;
         const summary = data?.summary ?? { total_rows: 0, total_qty: 0 };
         const rows = data?.data && Array.isArray(data.data) ? data.data : [];
@@ -122,7 +121,7 @@ export class CabinetStockReportPdfService {
           : filters.departmentName
             ? `แผนก: ${filters.departmentName}`
             : '';
-        const descLine = `ทั้งหมด ${totalRows} รายการจากระบบ · รวม ${totalQty} ชิ้น (IsStock=1) · รายงาน: สต็อกในตู้ (Cabinet / RFID)`;
+        const descLine = `ทั้งหมด ${totalRows} รายการจากระบบ · รวม ${totalQty} แท็ก RFID · จำนวนคงเหลือต่อแถว = จำนวนแถว itemstock ที่มี RfidCode ในตู้ (เท่าคอลัมน์บนหน้าเว็บ)`;
         const subtitleBlock = scopeLine ? `${scopeLine}\n${descLine}` : descLine;
 
         const headerTop = 40;
@@ -192,14 +191,15 @@ export class CabinetStockReportPdfService {
         doc.fillColor(PALETTE.ink);
         doc.y = subY + subH + 12;
 
-        const itemHeight = 40;
-        const cellPadding = 8;
+        const itemHeight = 36;
+        const cellPadding = 6;
         const totalTableWidth = contentWidth;
-        const colPct = [0.22, 0.085, 0.085, 0.1, 0.085, 0.425];
+        /** แนวตั้ง — คอลัมน์แคบ เน้นชื่ออุปกรณ์ซ้าย */
+        const colPct = [0.38, 0.15, 0.12, 0.17, 0.18];
         const colWidths = colPct.map((p) => Math.floor(totalTableWidth * p));
         let sumW = colWidths.reduce((a, b) => a + b, 0);
-        if (sumW < totalTableWidth) colWidths[5]! += totalTableWidth - sumW;
-        const headers = ['ชื่ออุปกรณ์', 'วันหมดอายุ', 'จำนวนคงเหลือ', 'Min / Max', 'สถานะ', 'รายละเอียด RFID'];
+        if (sumW < totalTableWidth) colWidths[0]! += totalTableWidth - sumW;
+        const headers = ['ชื่ออุปกรณ์', 'วันหมดอายุ', 'จำนวนคงเหลือ', 'Min / Max', 'สถานะ'];
 
         const drawTableHeader = (y: number) => {
           let x = margin;
@@ -247,7 +247,6 @@ export class CabinetStockReportPdfService {
               bal.toLocaleString('th-TH'),
               String(row.min_max_display ?? '—'),
               String(row.status_label ?? '—'),
-              String(row.rfid_detail ?? '—'),
             ];
 
             doc.fontSize(F.table).font(finalFontName);
@@ -257,9 +256,10 @@ export class CabinetStockReportPdfService {
             });
             const rowHeight = Math.max(itemHeight - 2, Math.max(...cellHeights) + cellPadding * 2);
 
-            const bottomSafe = 60;
-            if (doc.y + rowHeight > pageHeight - bottomSafe) {
-              doc.addPage({ size: 'A4', layout: 'landscape', margin: 48 });
+            const bottomSafe = 52;
+            const pageH = doc.page.height;
+            if (doc.y + rowHeight > pageH - margin - bottomSafe) {
+              doc.addPage({ size: 'A4', layout: 'portrait', margin });
               doc.y = margin;
               const newHeaderY = doc.y;
               drawTableHeader(newHeaderY);
@@ -271,7 +271,7 @@ export class CabinetStockReportPdfService {
             const bg = pdfRowBgForStatus(row.status_label ?? '', idx % 2 === 1);
             let xPos = margin;
             const colCount = Math.min(headers.length, colWidths.length, cellTexts.length);
-            const aligns: ('left' | 'center' | 'right')[] = ['left', 'center', 'right', 'center', 'center', 'left'];
+            const aligns: ('left' | 'center' | 'right')[] = ['left', 'center', 'right', 'center', 'center'];
             for (let i = 0; i < colCount; i++) {
               const cw = colWidths[i]!;
               const w = Math.max(4, cw - cellPadding * 2);
@@ -297,7 +297,7 @@ export class CabinetStockReportPdfService {
 
         doc.fontSize(F.footer).font(finalFontName).fillColor(PALETTE.footer);
         doc.text(
-          'หมายเหตุ: จำนวนคงเหลือ = RFID ที่ IsStock=1 · Min/Max จากรายการอุปกรณ์ · สอดคล้องหน้ารายการในตู้ (RFID)',
+          'หมายเหตุ: จำนวนคงเหลือ = จำนวนแท็ก RFID (แถว itemstock ที่มี RfidCode ในตู้) เหมือนคอลัมน์บนหน้าเว็บ · Min/Max จากรายการอุปกรณ์',
           margin,
           doc.y,
           {
@@ -310,9 +310,12 @@ export class CabinetStockReportPdfService {
         const range = doc.bufferedPageRange();
         for (let p = 0; p < range.count; p++) {
           doc.switchToPage(range.start + p);
+          const ph = doc.page.height;
+          const pw = doc.page.width;
+          const cw = pw - margin * 2;
           doc.fontSize(9).font(finalFontName).fillColor(PALETTE.footer);
-          doc.text(`หน้า ${p + 1} / ${range.count}`, margin, pageHeight - 36, {
-            width: contentWidth,
+          doc.text(`หน้า ${p + 1} / ${range.count}`, margin, ph - margin - 20, {
+            width: cw,
             align: 'center',
           });
         }

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ChevronRight, Loader2, type LucideIcon } from 'lucide-react';
 import type { DashboardDetailRow } from '../types';
-import { formatActorName, formatDashboardDate, formatItemLabel } from '../utils';
+import { formatActorName, formatDashboardDate, formatItemLabel, formatRecentRowCabinet } from '../utils';
 
 function recentDetailRowKey(row: DashboardDetailRow, index: number) {
   return `${row.id}-${row.StockID}-${row.SlotNo}-${row.Sensor}-${row.itemcode}-${String(row.ModifyDate)}-${index}`;
@@ -49,10 +49,11 @@ export function DashboardRecentTable({
         ) : rows.length === 0 ? (
           <p className="py-10 text-center text-sm text-slate-500">{emptyMessage}</p>
         ) : (
-          <table className="w-full min-w-[320px] text-sm">
+          <table className="w-full min-w-[420px] text-sm">
             <thead>
               <tr className="border-b border-slate-100 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <th className="px-4 py-2.5">รายการ</th>
+                <th className="min-w-[100px] px-4 py-2.5">ตู้</th>
                 <th className="px-4 py-2.5">ผู้ทำรายการ</th>
                 <th className="px-4 py-2.5 text-right">จำนวน</th>
                 <th className="hidden px-4 py-2.5 sm:table-cell">เวลา</th>
@@ -62,6 +63,9 @@ export function DashboardRecentTable({
               {rows.map((row, index) => (
                 <tr key={recentDetailRowKey(row, index)} className="hover:bg-sky-50/40">
                   <td className="max-w-[140px] truncate px-4 py-3 font-medium text-slate-900">{formatItemLabel(row)}</td>
+                  <td className="max-w-[160px] truncate px-4 py-3 text-slate-600" title={formatRecentRowCabinet(row)}>
+                    {formatRecentRowCabinet(row)}
+                  </td>
                   <td className="px-4 py-3 text-slate-600">{formatActorName(row)}</td>
                   <td className="px-4 py-3 text-right tabular-nums text-slate-800">{row.Qty}</td>
                   <td className="hidden whitespace-nowrap px-4 py-3 text-xs text-slate-500 sm:table-cell">

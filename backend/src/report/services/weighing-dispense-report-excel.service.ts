@@ -6,6 +6,7 @@ import { resolveReportLogoPath } from '../config/report.config';
 export interface WeighingDispenseRow {
   seq: number;
   item_name: string;
+  cabinet_label: string;
   operator_name: string;
   qty: number;
   modify_date: string;
@@ -59,7 +60,7 @@ export class WeighingDispenseReportExcelService {
     worksheet.getRow(2).height = 20;
     worksheet.getColumn(1).width = 12;
 
-    worksheet.mergeCells('B1:E2');
+    worksheet.mergeCells('B1:F2');
     const headerCell = worksheet.getCell('B1');
     headerCell.value = 'รายการเบิกอุปกรณ์จากตู้ Weighing\nWeighing Dispense Report';
     headerCell.font = { name: 'Tahoma', size: 14, bold: true, color: { argb: 'FF1A365D' } };
@@ -71,7 +72,7 @@ export class WeighingDispenseReportExcelService {
     };
     headerCell.border = thinBorder;
 
-    worksheet.mergeCells('A3:E3');
+    worksheet.mergeCells('A3:F3');
     const dateCell = worksheet.getCell('A3');
     dateCell.value = `วันที่รายงาน: ${reportDate}`;
     dateCell.font = { name: 'Tahoma', size: 12, color: { argb: 'FF6C757D' } };
@@ -117,7 +118,7 @@ export class WeighingDispenseReportExcelService {
 
     // const tableStartRow = 6;
     const tableStartRow = 4;
-    const headers = ['ลำดับ', 'ชื่อสินค้า', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
+    const headers = ['ลำดับ', 'ชื่อสินค้า', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
     const headerRow = worksheet.getRow(tableStartRow);
     headers.forEach((h, i) => {
       const cell = headerRow.getCell(i + 1);
@@ -133,14 +134,14 @@ export class WeighingDispenseReportExcelService {
     data.data.forEach((row, idx) => {
       const excelRow = worksheet.getRow(dataRowIndex);
       const bg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8F9FA';
-      const rowValues = [row.seq, row.item_name, row.operator_name, row.qty, row.modify_date];
+      const rowValues = [row.seq, row.item_name, row.cabinet_label ?? '-', row.operator_name, row.qty, row.modify_date];
       rowValues.forEach((val, colIndex) => {
         const cell = excelRow.getCell(colIndex + 1);
         cell.value = val;
         cell.font = { name: 'Tahoma', size: 12, color: { argb: 'FF212529' } };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
         cell.alignment = {
-          horizontal: colIndex === 1 || colIndex === 2 ? 'left' : 'center',
+          horizontal: colIndex === 1 || colIndex === 2 || colIndex === 3 ? 'left' : 'center',
           vertical: 'middle',
           wrapText: true,
         };
@@ -153,13 +154,13 @@ export class WeighingDispenseReportExcelService {
     if (data.data.length > 0) {
       worksheet.autoFilter = {
         from: { row: tableStartRow, column: 1 },
-        to: { row: dataRowIndex - 1, column: 5 },
+        to: { row: dataRowIndex - 1, column: 6 },
       };
     }
 
     worksheet.addRow([]);
     const footerRow = dataRowIndex + 1;
-    worksheet.mergeCells(`A${footerRow}:E${footerRow}`);
+    worksheet.mergeCells(`A${footerRow}:F${footerRow}`);
     const footerCell = worksheet.getCell(`A${footerRow}`);
     footerCell.value = 'เอกสารนี้สร้างจากระบบรายงานอัตโนมัติ';
     footerCell.font = { name: 'Tahoma', size: 11, color: { argb: 'FFADB5BD' } };
@@ -168,10 +169,11 @@ export class WeighingDispenseReportExcelService {
     worksheet.getRow(footerRow).height = 18;
 
     worksheet.getColumn(1).width = 13;
-    worksheet.getColumn(2).width = 55;
-    worksheet.getColumn(3).width = 20;
-    worksheet.getColumn(4).width = 10;
-    worksheet.getColumn(5).width = 25;
+    worksheet.getColumn(2).width = 48;
+    worksheet.getColumn(3).width = 30;
+    worksheet.getColumn(4).width = 25;
+    worksheet.getColumn(5).width = 10;
+    worksheet.getColumn(6).width = 20;
 
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);

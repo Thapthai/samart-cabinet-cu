@@ -206,7 +206,7 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Firebase Login Button */}
-            <div className="space-y-3">
+            {/* <div className="space-y-3">
               <Button
                 type="button"
                 variant="outline"
@@ -240,7 +240,7 @@ export default function LoginPage() {
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-white px-4 text-gray-500 font-medium">หรือ</span>
               </div>
-            </div>
+            </div> */}
 
             {/* Email/Password Login Form */}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">

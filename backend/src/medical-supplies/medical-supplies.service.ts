@@ -2675,6 +2675,7 @@ export class MedicalSuppliesService {
           ist.CabinetUserID,
           COALESCE(CONCAT(employee.FirstName, ' ', employee.LastName), 'ไม่ระบุ') AS cabinetUserName,
           app_microservice_cabinets.cabinet_name AS cabinetName,
+          app_microservice_cabinets.cabinet_code AS cabinetCode,
           department.DepName AS departmentName
         FROM itemstock ist
         INNER JOIN item i ON ist.ItemCode = i.itemcode

@@ -60,6 +60,8 @@ export class WeighingRefillReportPdfService {
       timeZone: 'Asia/Bangkok',
     });
 
+    const rows = data?.data && Array.isArray(data.data) ? data.data : [];
+
     return new Promise((resolve, reject) => {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
@@ -69,8 +71,6 @@ export class WeighingRefillReportPdfService {
         const pageWidth = doc.page.width;
         const pageHeight = doc.page.height;
         const contentWidth = pageWidth - margin * 2;
-        const summary = data?.summary ?? { total_rows: 0, total_qty: 0 };
-        const rows = data?.data && Array.isArray(data.data) ? data.data : [];
 
         const headerTop = 35;
         const headerHeight = 48;
@@ -98,51 +98,14 @@ export class WeighingRefillReportPdfService {
         doc.fillColor('#000000');
         doc.y += 6;
 
-        // const filters = data.filters ?? {};
-        // const filterRowHeight = 34;
-        // const filterY = doc.y;
-        // const filterCells = [
-        //   { label: 'ตู้ (StockID)', value: filters.stockId != null ? String(filters.stockId) : 'ทั้งหมด' },
-        //   { label: 'รหัสสินค้า', value: filters.itemcode ?? 'ทั้งหมด' },
-        //   { label: 'จำนวนรายการ', value: `${summary.total_rows} รายการ` },
-        // ];
-        // const filterColWidth = Math.floor(contentWidth / filterCells.length);
-        // let fx = margin;
-        // filterCells.forEach((fc, i) => {
-        //   const cw = i === filterCells.length - 1 ? contentWidth - filterColWidth * (filterCells.length - 1) : filterColWidth;
-        //   doc.rect(fx, filterY, cw, filterRowHeight).fillAndStroke('#E8EDF2', '#DEE2E6');
-        //   doc.fontSize(11).font(finalFontBoldName).fillColor('#444444');
-        //   doc.text(fc.label, fx + 3, filterY + 4, { width: cw - 6, align: 'center' });
-        //   doc.fontSize(13).font(finalFontName).fillColor('#1A365D');
-        //   doc.text(fc.value, fx + 3, filterY + 16, { width: cw - 6, align: 'center' });
-        //   fx += cw;
-        // });
-        // doc.fillColor('#000000');
-        // doc.y = filterY + filterRowHeight + 4;
-
-        // const dateFilterY = doc.y;
-        // const halfW = Math.floor(contentWidth / 2);
-        // doc.rect(margin, dateFilterY, halfW, filterRowHeight).fillAndStroke('#E8EDF2', '#DEE2E6');
-        // doc.fontSize(11).font(finalFontBoldName).fillColor('#444444');
-        // doc.text('วันที่เริ่มต้น', margin + 3, dateFilterY + 4, { width: halfW - 6, align: 'center' });
-        // doc.fontSize(13).font(finalFontName).fillColor('#1A365D');
-        // doc.text(filters.dateFrom ?? '-', margin + 3, dateFilterY + 16, { width: halfW - 6, align: 'center' });
-        // doc.rect(margin + halfW, dateFilterY, contentWidth - halfW, filterRowHeight).fillAndStroke('#E8EDF2', '#DEE2E6');
-        // doc.fontSize(11).font(finalFontBoldName).fillColor('#444444');
-        // doc.text('วันที่สิ้นสุด', margin + halfW + 3, dateFilterY + 4, { width: halfW - 6, align: 'center' });
-        // doc.fontSize(13).font(finalFontName).fillColor('#1A365D');
-        // doc.text(filters.dateTo ?? '-', margin + halfW + 3, dateFilterY + 16, { width: halfW - 6, align: 'center' });
-        // doc.fillColor('#000000');
-        // doc.y = dateFilterY + filterRowHeight + 8;
-
         const itemHeight = 28;
         const cellPadding = 4;
         const totalTableWidth = contentWidth;
-        const colPct = [0.08, 0.35, 0.22, 0.12, 0.23];
+        const colPct = [0.07, 0.28, 0.16, 0.17, 0.09, 0.11];
         const colWidths = colPct.map((p) => Math.floor(totalTableWidth * p));
         let sumW = colWidths.reduce((a, b) => a + b, 0);
         if (sumW < totalTableWidth) colWidths[1] += totalTableWidth - sumW;
-        const headers = ['ลำดับ', 'ชื่อสินค้า', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
+        const headers = ['ลำดับ', 'ชื่อสินค้า', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
 
         const drawTableHeader = (y: number) => {
           doc.fontSize(13).font(finalFontBoldName);
@@ -152,7 +115,7 @@ export class WeighingRefillReportPdfService {
           headers.forEach((h, i) => {
             doc.text(h, x + cellPadding, y + 8, {
               width: Math.max(2, colWidths[i] - cellPadding * 2),
-              align: i === 1 || i === 2 ? 'center' : 'center',
+              align: 'center',
             });
             if (i < headers.length - 1) {
               doc.save();
@@ -181,6 +144,7 @@ export class WeighingRefillReportPdfService {
             const cellTexts = [
               String(row.seq ?? idx + 1),
               String(row.item_name ?? '-'),
+              String(row.cabinet_label ?? '-'),
               String(row.operator_name ?? '-'),
               String(row.qty ?? 0),
               String(row.modify_date ?? '-'),
@@ -204,14 +168,14 @@ export class WeighingRefillReportPdfService {
             const rowY = doc.y;
             const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8F9FA';
             let xPos = margin;
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < 6; i++) {
               const cw = colWidths[i];
               const w = Math.max(4, cw - cellPadding * 2);
               doc.rect(xPos, rowY, cw, rowHeight).fillAndStroke(bg, '#DEE2E6');
               doc.fontSize(13).font(finalFontName).fillColor('#000000');
               doc.text(cellTexts[i] ?? '-', xPos + cellPadding, rowY + cellPadding, {
                 width: w,
-                align: i === 1 || i === 2 ? 'left' : 'center',
+                align: i === 1 || i === 2 || i === 3 ? 'left' : 'center',
               });
               xPos += cw;
             }
