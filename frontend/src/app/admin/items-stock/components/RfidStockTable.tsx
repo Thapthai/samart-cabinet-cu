@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import StockStatusChips, { type StockStatusChipDef } from './StockStatusChips';
 import type { ItemSlotInCabinetRow, RfidStockLine, StockStatusFilter } from '../items-stock-shared';
 import {
+  formatExpireRelativeLabel,
   formatYmd,
   rfidLineBadge,
   rowBadge,
@@ -35,6 +36,11 @@ interface RfidStockTableProps {
   statusFilter: StockStatusFilter;
   chipDefs: StockStatusChipDef[];
   onStatusFilterChange: (value: StockStatusFilter) => void;
+  stockExpiryAfterDay?: string;
+  onStockExpiryAfterDayChange?: (value: string) => void;
+  onClearStockExpiryDate?: () => void;
+  /** แสดงช่องกรองวันหมดอายุในแถบชิป */
+  showExpiryDateRange?: boolean;
   currentPage: number;
   itemsPerPage: number;
   onPageChange: (page: number) => void;
@@ -114,6 +120,10 @@ export default function RfidStockTable({
   statusFilter,
   chipDefs,
   onStatusFilterChange,
+  stockExpiryAfterDay = '',
+  onStockExpiryAfterDayChange,
+  onClearStockExpiryDate,
+  showExpiryDateRange = false,
   currentPage,
   itemsPerPage,
   onPageChange,
@@ -157,12 +167,14 @@ export default function RfidStockTable({
         setLoading(true);
         onLoadingChangeRef.current?.(true);
         const kw = appliedItemName.trim() || undefined;
+        const ef = stockExpiryAfterDay?.trim() || undefined;
         const res = await itemsApi.getAll({
           page: currentPage,
           limit: itemsPerPage,
           keyword: kw,
           cabinet_id: cabinetId,
           stock_status: statusFilter === 'all' ? undefined : statusFilter,
+          expire_from: ef,
         });
         if (cancelled) return;
 
@@ -227,6 +239,7 @@ export default function RfidStockTable({
     currentPage,
     itemsPerPage,
     statusFilter,
+    stockExpiryAfterDay,
   ]);
 
   const totalPages = serverLastPage;
@@ -272,6 +285,10 @@ export default function RfidStockTable({
         chipDefs={chipDefs}
         statusFilter={statusFilter}
         onStatusFilterChange={onStatusFilterChange}
+        showExpiryDateRange={showExpiryDateRange}
+        expiryAfterDay={stockExpiryAfterDay}
+        onExpiryAfterDayChange={onStockExpiryAfterDayChange}
+        onClearExpiryDate={onClearStockExpiryDate}
       />
     </div>
   );
@@ -348,6 +365,7 @@ export default function RfidStockTable({
             {pageRows.map((row) => {
               const name = row.item?.itemname || row.item?.Alternatename || '—';
               const { expired, soon, low } = rowFlags(row);
+              const expireRel = formatExpireRelativeLabel(row.nearestExpireDate);
               const badge = rowBadge(row);
               const nameDateClass = expired
                 ? 'text-red-600 font-medium'
@@ -365,7 +383,23 @@ export default function RfidStockTable({
                       {name}
                     </TableCell>
                     <TableCell className={cn('tabular-nums', nameDateClass)}>
-                      {formatYmd(row.nearestExpireDate)}
+                      <div className="flex flex-col gap-0.5">
+                        <span>{formatYmd(row.nearestExpireDate)}</span>
+                        {expireRel && (
+                          <span
+                            className={cn(
+                              'text-xs font-normal',
+                              expired
+                                ? 'text-red-600/90'
+                                : soon
+                                  ? 'text-amber-700/85'
+                                  : 'text-muted-foreground',
+                            )}
+                          >
+                            {expireRel}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       <span className="inline-flex items-center justify-end gap-1.5 font-medium">
@@ -447,7 +481,7 @@ export default function RfidStockTable({
                                         รหัส RFID
                                       </th>
                                       <th className="h-10 px-3 py-2 text-left align-middle text-xs font-semibold text-gray-500">
-                                        วันหมดอายุ
+                                        วันหมดอายุ / เหลือ
                                       </th>
                                       <th className="h-10 px-3 py-2 text-center align-middle text-xs font-semibold text-gray-500">
                                         สถานะ
@@ -457,12 +491,19 @@ export default function RfidStockTable({
                                   <tbody>
                                     {lines.map((line) => {
                                       const lb = rfidLineBadge(line.expireDate);
+                                      const rel = formatExpireRelativeLabel(line.expireDate);
                                       const expCls =
                                         lb.key === 'EXPIRED'
                                           ? 'text-red-600 font-medium'
                                           : lb.key === 'SOON'
                                             ? 'text-amber-700 font-medium'
                                             : 'text-gray-900';
+                                      const relCls =
+                                        lb.key === 'EXPIRED'
+                                          ? 'text-red-600/90'
+                                          : lb.key === 'SOON'
+                                            ? 'text-amber-700/85'
+                                            : 'text-gray-500';
                                       return (
                                         <tr
                                           key={`${line.rowId}-${line.rfidCode}`}
@@ -477,7 +518,12 @@ export default function RfidStockTable({
                                               expCls,
                                             )}
                                           >
-                                            {formatYmd(line.expireDate)}
+                                            <div className="flex flex-col gap-0.5">
+                                              <span>{formatYmd(line.expireDate)}</span>
+                                              {rel && (
+                                                <span className={cn('text-xs font-normal', relCls)}>{rel}</span>
+                                              )}
+                                            </div>
                                           </td>
                                           <td className="min-w-0 px-3 py-2.5 align-middle text-center">
                                             <span

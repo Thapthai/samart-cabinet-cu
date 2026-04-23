@@ -45,6 +45,48 @@ export function formatYmd(value: string | Date | null | undefined): string {
   return `${y}-${m}-${day}`;
 }
 
+/** จำนวนวันเต็มระหว่างวันนี้กับวันหมดอายุ (ตามปฏิทิน) — บวก = ยังเหลือ, ลบ = เกินแล้ว */
+export function expireDayDeltaFromToday(value: string | Date | null | undefined): number | null {
+  if (value == null) return null;
+  const d = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return null;
+  const today = startOfDay(new Date());
+  const ed = startOfDay(d);
+  return Math.round((ed.getTime() - today.getTime()) / 86_400_000);
+}
+
+/** ข้อความสั้น ๆ นับจากวันนี้ — ใช้คู่กับ formatYmd */
+export function formatExpireRelativeLabel(value: string | Date | null | undefined): string | null {
+  const n = expireDayDeltaFromToday(value);
+  if (n == null) return null;
+  if (n > 0) return `อีก ${n} วัน`;
+  if (n === 0) return 'วันนี้';
+  return `เกิน ${-n} วัน`;
+}
+
+const YMD_STRICT = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** จำนวนวันเต็มจากวันที่ YYYY-MM-DD ถึงวันนี้ (บวก = วันนี้อยู่หลังวันนั้น, ลบ = วันนี้อยู่ก่อน) */
+export function calendarDaysFromYmdToToday(ymd: string): number | null {
+  const t = (ymd ?? '').trim();
+  const m = YMD_STRICT.exec(t);
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (Number.isNaN(d.getTime())) return null;
+  const from = startOfDay(d);
+  const today = startOfDay(new Date());
+  return Math.round((today.getTime() - from.getTime()) / 86_400_000);
+}
+
+/** คำอธิบายจำนวนวันนับจากวันที่เลือกถึงวันนี้ — ใช้ใต้ช่องกรองวันที่ */
+export function formatDaysFromSelectedYmdToTodayHint(ymd: string): string | null {
+  const n = calendarDaysFromYmdToToday(ymd);
+  if (n == null) return null;
+  if (n === 0) return 'นับจากวันที่เลือกถึงวันนี้: 0 วัน (วันเดียวกัน)';
+  if (n > 0) return `นับจากวันที่เลือกถึงวันนี้: ${n} วัน`;
+  return `วันนี้อยู่ก่อนวันที่เลือกอีก ${-n} วัน`;
+}
+
 /** สล็อต 1 = ใน, 2 = นอก */
 export function formatSlotDisplay(value: number | null | undefined): string {
   return value === 1 ? 'ใน' : value === 2 ? 'นอก' : value != null ? String(value) : '—';

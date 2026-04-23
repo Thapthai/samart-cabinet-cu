@@ -87,6 +87,8 @@ export class ItemController {
     @Query('department_id') department_id?: string,
     @Query('status') status?: string,
     @Query('stock_status') stock_status?: string,
+    @Query('expire_from') expire_from?: string,
+    @Query('expire_to') expire_to?: string,
   ) {
     const cabinetId = cabinet_id ? parseInt(cabinet_id, 10) : undefined;
     const departmentId = department_id ? parseInt(department_id, 10) : undefined;
@@ -100,6 +102,8 @@ export class ItemController {
       departmentId,
       status,
       stock_status,
+      expire_from,
+      expire_to,
     );
   }
 

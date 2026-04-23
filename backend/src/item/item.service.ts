@@ -57,6 +57,10 @@ export class ItemService {
     status?: string,
     /** กรองสต๊อกหน้า items-stock: all | expired | soon | low — ใช้หลัง sort ก่อน slice */
     stock_status?: string,
+    /** วันหมดอายุเร็วสุดต้องอยู่หลังวันนี้ (ไม่รวม YYYY-MM-DD) — RFID / cabinet_id */
+    expire_from?: string,
+    /** วันหมดอายุเร็วสุดถึงวันนี้รวม (YYYY-MM-DD) */
+    expire_to?: string,
   ) {
     try {
       const where: any = {};
@@ -341,11 +345,36 @@ export class ItemService {
         return codeA.localeCompare(codeB);
       });
 
+      const ymdRe = /^(\d{4})-(\d{2})-(\d{2})$/;
+      const toYmdLocal = (d: Date): string => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+      const fromStr = (expire_from ?? '').trim();
+      const toStr = (expire_to ?? '').trim();
+      let afterExpireMeta = sortedMeta;
+      if (fromStr || toStr) {
+        afterExpireMeta = sortedMeta.filter((x) => {
+          const raw = x.earliestExpireDate as Date | null | undefined;
+          if (raw == null) return false;
+          const t = new Date(raw).getTime();
+          if (Number.isNaN(t)) return false;
+          const itemYmd = toYmdLocal(new Date(raw));
+          // ตั้งแต่ = วันหมดอายุเร็วสุดอยู่หลังวันนั้น (ไม่รวมวันที่เลือก)
+          if (fromStr && ymdRe.test(fromStr) && itemYmd <= fromStr) return false;
+          // ถึง = รวมถึงวันสิ้นสุด (ตามปฏิทิน)
+          if (toStr && ymdRe.test(toStr) && itemYmd > toStr) return false;
+          return true;
+        });
+      }
+
       const chip = (stock_status ?? 'all').trim().toLowerCase();
       const filteredMeta =
         !chip || chip === 'all'
-          ? sortedMeta
-          : sortedMeta.filter((x) => {
+          ? afterExpireMeta
+          : afterExpireMeta.filter((x) => {
               if (chip === 'expired') return x.hasExpired;
               if (chip === 'soon') return x.hasNearExpire && !x.hasExpired;
               if (chip === 'low') return x.isLowStock;

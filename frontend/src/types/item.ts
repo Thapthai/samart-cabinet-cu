@@ -233,6 +233,10 @@ export interface GetItemsQuery {
   keyword?: string;
   /** กรองชิปสถานะหน้า items-stock (all | expired | soon | low) — backend กรองก่อนแบ่งหน้า */
   stock_status?: string;
+  /** กรองวันหมดอายุเร็วสุด — หลังวันนี้ (ไม่รวม YYYY-MM-DD) — RFID + cabinet_id */
+  expire_from?: string;
+  /** กรองถึงวันนี้รวม (YYYY-MM-DD) */
+  expire_to?: string;
   /** กรอง itemStocks ตาม stock_id ของตู้ — ใช้หน้าสต๊อก RFID */
   cabinet_id?: number;
   department_id?: number;

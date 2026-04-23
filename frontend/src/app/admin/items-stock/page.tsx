@@ -46,10 +46,12 @@ export default function ItemsStockPage() {
   const [minMaxOpen, setMinMaxOpen] = useState(false);
   const [minMaxRow, setMinMaxRow] = useState<ItemSlotInCabinetRow | null>(null);
   const [statusFilter, setStatusFilter] = useState<StockStatusFilter>('all');
+  /** กรองวันหมดอายุเร็วสุดหลังวันนี้ (ไม่รวม) — GET /items expire_from RFID */
+  const [stockExpiryAfterDay, setStockExpiryAfterDay] = useState('');
 
   const rfidExpandResetKey = useMemo(
-    () => `${selectedCabinetId ?? ''}:${currentPage}:${refetchTick}`,
-    [selectedCabinetId, currentPage, refetchTick],
+    () => `${selectedCabinetId ?? ''}:${currentPage}:${refetchTick}:${stockExpiryAfterDay}`,
+    [selectedCabinetId, currentPage, refetchTick, stockExpiryAfterDay],
   );
 
   useEffect(() => {
@@ -122,7 +124,11 @@ export default function ItemsStockPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter]);
+  }, [statusFilter, stockExpiryAfterDay]);
+
+  useEffect(() => {
+    setStockExpiryAfterDay('');
+  }, [selectedCabinetId]);
 
   const chipDefs = useMemo(() => {
     const base: { id: StockStatusFilter; label: string }[] = [{ id: 'all', label: 'ทั้งหมด' }];
@@ -449,6 +455,10 @@ export default function ItemsStockPage() {
                   statusFilter={statusFilter}
                   chipDefs={chipDefs}
                   onStatusFilterChange={setStatusFilter}
+                  stockExpiryAfterDay={stockExpiryAfterDay}
+                  onStockExpiryAfterDayChange={setStockExpiryAfterDay}
+                  onClearStockExpiryDate={() => setStockExpiryAfterDay('')}
+                  showExpiryDateRange
                   currentPage={currentPage}
                   itemsPerPage={itemsPerPage}
                   onPageChange={handlePageChange}
