@@ -86,6 +86,7 @@ export class ItemController {
     @Query('cabinet_id') cabinet_id?: string,
     @Query('department_id') department_id?: string,
     @Query('status') status?: string,
+    @Query('stock_status') stock_status?: string,
   ) {
     const cabinetId = cabinet_id ? parseInt(cabinet_id, 10) : undefined;
     const departmentId = department_id ? parseInt(department_id, 10) : undefined;
@@ -98,6 +99,7 @@ export class ItemController {
       cabinetId,
       departmentId,
       status,
+      stock_status,
     );
   }
 

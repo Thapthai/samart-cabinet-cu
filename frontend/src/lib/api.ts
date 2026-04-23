@@ -1857,7 +1857,14 @@ export const cabinetDepartmentApi = {
 
 // =========================== Weighing API (ItemSlotInCabinet) ===========================
 export const weighingApi = {
-  getAll: async (params?: { page?: number; limit?: number; itemName?: string; itemcode?: string; stockId?: number }): Promise<{ success: boolean; data: any[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> => {
+  getAll: async (params?: {
+    page?: number;
+    limit?: number;
+    itemName?: string;
+    itemcode?: string;
+    stockId?: number;
+    stock_status?: string;
+  }): Promise<{ success: boolean; data: any[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> => {
     const response = await api.get('/weighing', { params });
     return response.data;
   },

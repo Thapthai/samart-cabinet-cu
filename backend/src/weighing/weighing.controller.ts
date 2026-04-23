@@ -21,6 +21,7 @@ export class WeighingController {
     @Query('itemName') itemName?: string,
     @Query('itemcode') itemcode?: string,
     @Query('stockId') stockId?: string,
+    @Query('stock_status') stock_status?: string,
   ) {
     return this.weighingService.findAll({
       page: page ? parseInt(page, 10) : undefined,
@@ -28,6 +29,7 @@ export class WeighingController {
       itemName,
       itemcode,
       stockId: stockId ? parseInt(stockId, 10) : undefined,
+      stock_status,
     });
   }
 

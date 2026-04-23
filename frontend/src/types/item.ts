@@ -100,6 +100,8 @@ export interface Item {
   damaged_qty?: number;
   /** จำนวนที่ต้องเติม: X=M-A, Y=B+C; if X<Y then 0, if X>Y then X-Y */
   refill_qty?: number;
+  /** Min/Max ต่อตู้ — จาก GET /items?cabinet_id= (CabinetItemSetting) */
+  cabinetItemSetting?: { stock_min: number | null; stock_max: number | null } | null;
 }
 
 export interface ItemStockRow {
@@ -229,6 +231,8 @@ export interface GetItemsQuery {
   page?: number;
   limit?: number;
   keyword?: string;
+  /** กรองชิปสถานะหน้า items-stock (all | expired | soon | low) — backend กรองก่อนแบ่งหน้า */
+  stock_status?: string;
   /** กรอง itemStocks ตาม stock_id ของตู้ — ใช้หน้าสต๊อก RFID */
   cabinet_id?: number;
   department_id?: number;

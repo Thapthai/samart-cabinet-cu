@@ -13,7 +13,6 @@ import StockStatusChips, { type StockStatusChipDef } from './StockStatusChips';
 import type { ItemSlotInCabinetRow, RfidStockLine, StockStatusFilter } from '../items-stock-shared';
 import {
   formatYmd,
-  matchesStatusChip,
   rfidLineBadge,
   rowBadge,
   rowFlags,
@@ -91,7 +90,18 @@ function mapItemsApiToSlotRow(
       stock_min: item.stock_min ?? null,
       stock_max: item.stock_max ?? null,
     },
-    cabinetItemSetting: null,
+    cabinetItemSetting: (() => {
+      const cis =
+        item.cabinetItemSetting ??
+        (item as unknown as { cabinet_item_setting?: Item['cabinetItemSetting'] | null })
+          .cabinet_item_setting;
+      return cis
+        ? {
+            stock_min: cis.stock_min ?? null,
+            stock_max: cis.stock_max ?? null,
+          }
+        : null;
+    })(),
   };
 }
 
@@ -152,6 +162,7 @@ export default function RfidStockTable({
           limit: itemsPerPage,
           keyword: kw,
           cabinet_id: cabinetId,
+          stock_status: statusFilter === 'all' ? undefined : statusFilter,
         });
         if (cancelled) return;
 
@@ -215,6 +226,7 @@ export default function RfidStockTable({
     cabinetCode,
     currentPage,
     itemsPerPage,
+    statusFilter,
   ]);
 
   const totalPages = serverLastPage;
@@ -225,15 +237,13 @@ export default function RfidStockTable({
     }
   }, [currentPage, totalPages, onPageChange]);
 
-  const displayedRows = pageRows.filter((row) => matchesStatusChip(row, statusFilter));
-
   useEffect(() => {
     onStatsChangeRef.current?.({
       systemTotal: serverTotal,
       rawOnPage: pageRows.length,
-      visibleCount: displayedRows.length,
+      visibleCount: pageRows.length,
     });
-  }, [serverTotal, pageRows.length, displayedRows.length, statusFilter]);
+  }, [serverTotal, pageRows.length]);
 
   const toggleExpand = (row: ItemSlotInCabinetRow) => {
     if (expandedIds.has(row.id)) {
@@ -279,39 +289,17 @@ export default function RfidStockTable({
   }
 
   if (pageRows.length === 0) {
+    const filteredEmpty = statusFilter !== 'all';
     return (
       <>
         <div className={STOCK_TABLE_FRAME}>
           {chipsToolbar}
           <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
             <Radio className="h-10 w-10 opacity-35" />
-            <p>ไม่พบข้อมูลตามเงื่อนไข</p>
-            <p className="text-xs">ลองเปลี่ยนคำค้น</p>
-          </div>
-        </div>
-        {totalPages > 1 && (
-          <div className="pt-5">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={onPageChange}
-              loading={loading}
-            />
-          </div>
-        )}
-      </>
-    );
-  }
-
-  if (displayedRows.length === 0) {
-    return (
-      <>
-        <div className={STOCK_TABLE_FRAME}>
-          {chipsToolbar}
-          <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 px-6 py-10 text-center text-sm text-muted-foreground">
-            <Radio className="h-9 w-9 opacity-35" />
-            <p>ไม่มีรายการที่ตรงกับชิปสถานะในหน้านี้</p>
-            <p className="text-xs">ลองเลือก &quot;ทั้งหมด&quot; หรือเปลี่ยนหน้า</p>
+            <p>{filteredEmpty ? 'ไม่มีรายการที่ตรงกับชิปสถานะ' : 'ไม่พบข้อมูลตามเงื่อนไข'}</p>
+            <p className="text-xs">
+              {filteredEmpty ? 'ลองเลือก &quot;ทั้งหมด&quot; หรือเปลี่ยนคำค้น' : 'ลองเปลี่ยนคำค้น'}
+            </p>
           </div>
         </div>
         {totalPages > 1 && (
@@ -357,7 +345,7 @@ export default function RfidStockTable({
               </TableRow>
             </TableHeader>
           <TableBody>
-            {displayedRows.map((row) => {
+            {pageRows.map((row) => {
               const name = row.item?.itemname || row.item?.Alternatename || '—';
               const { expired, soon, low } = rowFlags(row);
               const badge = rowBadge(row);

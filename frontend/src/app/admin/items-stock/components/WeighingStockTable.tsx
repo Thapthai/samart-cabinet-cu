@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import Pagination from '@/components/Pagination';
 import StockStatusChips, { type StockStatusChipDef } from './StockStatusChips';
 import type { ItemSlotInCabinetRow, StockStatusFilter } from '../items-stock-shared';
-import { matchesStatusChip, rowFlags, STOCK_TABLE_FRAME } from '../items-stock-shared';
+import { rowFlags, STOCK_TABLE_FRAME } from '../items-stock-shared';
 import { WeighingSlotPill } from './WeighingSlotPill';
 
 export interface WeighingListStats {
@@ -24,12 +24,14 @@ async function fetchWeighingItemSlots(params: {
   page: number;
   limit: number;
   itemName?: string;
+  stock_status?: string;
 }) {
   return weighingApi.getAll({
     page: params.page,
     limit: params.limit,
     itemName: params.itemName,
     stockId: params.stockId,
+    stock_status: params.stock_status,
   });
 }
 
@@ -93,6 +95,7 @@ export default function WeighingStockTable({
           page: currentPage,
           limit: itemsPerPage,
           itemName: appliedItemName.trim() || undefined,
+          stock_status: statusFilter === 'all' ? undefined : statusFilter,
         });
         if (cancelled) return;
         if (res?.success && Array.isArray(res.data)) {
@@ -124,17 +127,21 @@ export default function WeighingStockTable({
     return () => {
       cancelled = true;
     };
-  }, [stockId, appliedItemName, currentPage, itemsPerPage, refetchSignal]);
+  }, [stockId, appliedItemName, currentPage, itemsPerPage, refetchSignal, statusFilter]);
 
-  const displayedRows = rawRows.filter((row) => matchesStatusChip(row, statusFilter));
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      onPageChange(totalPages);
+    }
+  }, [currentPage, totalPages, onPageChange]);
 
   useEffect(() => {
     onStatsChangeRef.current?.({
       systemTotal,
       rawOnPage: rawRows.length,
-      visibleCount: displayedRows.length,
+      visibleCount: rawRows.length,
     });
-  }, [systemTotal, rawRows.length, displayedRows.length, statusFilter]);
+  }, [systemTotal, rawRows.length]);
 
   if (stockId == null || stockId <= 0) {
     return (
@@ -168,39 +175,17 @@ export default function WeighingStockTable({
   }
 
   if (rawRows.length === 0) {
+    const filteredEmpty = statusFilter !== 'all';
     return (
       <>
         <div className={STOCK_TABLE_FRAME}>
           {chipsToolbar}
           <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
             <PackageSearch className="h-10 w-10 opacity-35" />
-            <p>ไม่พบข้อมูลตามเงื่อนไข</p>
-            <p className="text-xs">ลองเปลี่ยนคำค้น</p>
-          </div>
-        </div>
-        {totalPages > 1 && (
-          <div className="pt-5">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={onPageChange}
-              loading={loading}
-            />
-          </div>
-        )}
-      </>
-    );
-  }
-
-  if (displayedRows.length === 0) {
-    return (
-      <>
-        <div className={STOCK_TABLE_FRAME}>
-          {chipsToolbar}
-          <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 px-6 py-10 text-center text-sm text-muted-foreground">
-            <PackageSearch className="h-9 w-9 opacity-35" />
-            <p>ไม่มีรายการที่ตรงกับชิปสถานะในหน้านี้</p>
-            <p className="text-xs">ลองเลือก &quot;ทั้งหมด&quot; หรือเปลี่ยนหน้า</p>
+            <p>{filteredEmpty ? 'ไม่มีรายการที่ตรงกับชิปสถานะ' : 'ไม่พบข้อมูลตามเงื่อนไข'}</p>
+            <p className="text-xs">
+              {filteredEmpty ? 'ลองเลือก &quot;ทั้งหมด&quot; หรือเปลี่ยนคำค้น' : 'ลองเปลี่ยนคำค้น'}
+            </p>
           </div>
         </div>
         {totalPages > 1 && (
@@ -246,7 +231,7 @@ export default function WeighingStockTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {displayedRows.map((row, index) => {
+              {rawRows.map((row, index) => {
                 const name = row.item?.itemname || row.item?.Alternatename || '—';
                 const { low } = rowFlags(row);
                 return (

@@ -1,6 +1,53 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
+const NEAR_EXPIRY_DAYS = 30;
+const WEIGHING_FILTER_MAX_ROWS = 10_000;
+
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+/** สอดคล้อง frontend items-stock `matchesStatusChip` / `rowFlags` */
+function weighingRowMatchesStockStatus(
+  row: {
+    Qty: number | null;
+    nearestExpireDate: Date | null;
+    cabinetItemSetting: { stock_min: number | null; stock_max: number | null } | null;
+    item?: { stock_min: number | null; stock_max: number | null } | null;
+  },
+  chip: string,
+): boolean {
+  const c = (chip ?? 'all').trim().toLowerCase();
+  if (!c || c === 'all') return true;
+
+  const minV = row.cabinetItemSetting?.stock_min ?? row.item?.stock_min ?? null;
+  const qty = row.Qty ?? 0;
+  const low = minV != null && qty < minV;
+
+  const expRaw = row.nearestExpireDate;
+  const exp = expRaw != null ? new Date(expRaw) : null;
+  const today = startOfDay(new Date());
+  let expired = false;
+  let soon = false;
+  if (exp && !Number.isNaN(exp.getTime())) {
+    const ed = startOfDay(exp);
+    expired = ed < today;
+    if (!expired) {
+      const limit = new Date(today);
+      limit.setDate(limit.getDate() + NEAR_EXPIRY_DAYS);
+      soon = ed <= limit;
+    }
+  }
+
+  if (c === 'expired') return expired;
+  if (c === 'soon') return soon && !expired;
+  if (c === 'low') return low;
+  return true;
+}
+
 @Injectable()
 export class WeighingService {
   constructor(private readonly prisma: PrismaService) { }
@@ -10,10 +57,20 @@ export class WeighingService {
    * itemName: ค้นหาจากชื่ออุปกรณ์ (itemname / Alternatename)
    * ไม่แสดงรายการที่ชื่อสินค้าเป็น '-' หรือตู้ 0
    */
-  async findAll(params: { page?: number; limit?: number; itemcode?: string; itemName?: string; stockId?: number }) {
+  async findAll(params: {
+    page?: number;
+    limit?: number;
+    itemcode?: string;
+    itemName?: string;
+    stockId?: number;
+    /** กรองสต๊อกหน้า items-stock: all | expired | soon | low */
+    stock_status?: string;
+  }) {
     const page = params.page ?? 1;
     const limit = Math.min(params.limit ?? 50, 10000);
     const skip = (page - 1) * limit;
+    const stockChip = (params.stock_status ?? 'all').trim().toLowerCase();
+    const useStockFilter = stockChip !== '' && stockChip !== 'all';
 
     const hasItemNameFilter = {
       itemname: { not: null },
@@ -46,29 +103,58 @@ export class WeighingService {
     }
     const where = { AND: [baseWhere, notCabinetZeroFilter] };
 
-    const [items, total] = await Promise.all([
-      this.prisma.itemSlotInCabinet.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: [{ SlotNo: 'asc' }, { Sensor: 'asc' }],
-        include: {
-          _count: { select: { itemSlotInCabinetDetail: true } },
-          cabinet: { select: { id: true, cabinet_name: true, cabinet_code: true, stock_id: true } },
-          item: {
-            select: {
-              itemcode: true,
-              itemname: true,
-              Alternatename: true,
-              Barcode: true,
-              stock_min: true,
-              stock_max: true,
-            },
-          },
+    const includeBlock = {
+      _count: { select: { itemSlotInCabinetDetail: true } },
+      cabinet: { select: { id: true, cabinet_name: true, cabinet_code: true, stock_id: true } },
+      item: {
+        select: {
+          itemcode: true,
+          itemname: true,
+          Alternatename: true,
+          Barcode: true,
+          stock_min: true,
+          stock_max: true,
         },
-      }),
-      this.prisma.itemSlotInCabinet.count({ where }),
+      },
+    };
+
+    /** ให้ TS รู้ relation หลัง findMany + include (Prisma client จาก generated) */
+    type WeighingSlotRow = {
+      id: number;
+      itemcode: string;
+      StockID: number;
+      SlotNo: number;
+      Sensor: number;
+      Qty: number;
+      cabinet: {
+        id: number;
+        cabinet_name: string | null;
+        cabinet_code: string | null;
+        stock_id: number | null;
+      } | null;
+      item: {
+        itemcode: string;
+        itemname: string | null;
+        Alternatename: string | null;
+        Barcode: string | null;
+        stock_min: number | null;
+        stock_max: number | null;
+      } | null;
+      _count: { itemSlotInCabinetDetail: number };
+    };
+
+    const findManyArgs = {
+      where,
+      orderBy: [{ SlotNo: 'asc' as const }, { Sensor: 'asc' as const }],
+      include: includeBlock,
+      ...(useStockFilter ? { take: WEIGHING_FILTER_MAX_ROWS } : { skip, take: limit }),
+    };
+
+    const [itemsRaw, total] = await Promise.all([
+      this.prisma.itemSlotInCabinet.findMany(findManyArgs as never),
+      useStockFilter ? Promise.resolve(0) : this.prisma.itemSlotInCabinet.count({ where }),
     ]);
+    const items = itemsRaw as WeighingSlotRow[];
 
     const pairList: { cabinet_id: number; item_code: string }[] = [];
     const pairSeen = new Set<string>();
@@ -126,7 +212,7 @@ export class WeighingService {
       }
     }
 
-    const data = items.map((row) => {
+    let data = items.map((row) => {
       const cid = row.cabinet?.id;
       const key = cid != null ? JSON.stringify([cid, row.itemcode]) : null;
       const st = key ? settingMap.get(key) : undefined;
@@ -145,14 +231,21 @@ export class WeighingService {
       };
     });
 
+    let effectiveTotal = total;
+    if (useStockFilter) {
+      data = data.filter((row) => weighingRowMatchesStockStatus(row, stockChip));
+      effectiveTotal = data.length;
+      data = data.slice(skip, skip + limit);
+    }
+
     return {
       success: true,
       data,
       pagination: {
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit) || 1,
+        total: effectiveTotal,
+        totalPages: Math.ceil(effectiveTotal / limit) || 1,
       },
     };
   }

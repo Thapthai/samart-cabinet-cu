@@ -120,6 +120,10 @@ export default function ItemsStockPage() {
     });
   }, [showExpiryStatusChips]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter]);
+
   const chipDefs = useMemo(() => {
     const base: { id: StockStatusFilter; label: string }[] = [{ id: 'all', label: 'ทั้งหมด' }];
     if (showExpiryStatusChips) {
@@ -162,8 +166,8 @@ export default function ItemsStockPage() {
     ({
       itemcode: row.itemcode,
       itemname: row.item?.itemname ?? row.item?.Alternatename,
-      stock_min: effectiveMin(row) ?? 0,
-      stock_max: effectiveMax(row) ?? 0,
+      stock_min: effectiveMin(row) ?? row.item?.stock_min ?? 0,
+      stock_max: effectiveMax(row) ?? row.item?.stock_max ?? 0,
       stock_balance: row.Qty,
     }) as Item;
 
@@ -277,7 +281,7 @@ export default function ItemsStockPage() {
           }}
           item={minMaxRow ? rowToDialogItem(minMaxRow) : null}
           cabinetId={minMaxRow?.cabinet?.id}
-          minMaxEndpoint="weighing"
+          minMaxEndpoint={tableMode === 'RFID' ? 'items' : 'weighing'}
           onSuccess={() => {
             setRefetchTick((t) => t + 1);
           }}

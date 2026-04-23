@@ -55,6 +55,8 @@ export class ItemService {
     cabinet_id?: number,
     department_id?: number,
     status?: string,
+    /** กรองสต๊อกหน้า items-stock: all | expired | soon | low — ใช้หลัง sort ก่อน slice */
+    stock_status?: string,
   ) {
     try {
       const where: any = {};
@@ -159,6 +161,53 @@ export class ItemService {
         return true;
       });
 
+      let settingByCode = new Map<string, { stock_min: number | null; stock_max: number | null }>();
+      if (cabinet_id != null && cabinet_id > 0 && filteredItems.length > 0) {
+        const codes = [
+          ...new Set(
+            filteredItems.map((i: { itemcode?: string }) => (i.itemcode ?? '').trim()).filter(Boolean),
+          ),
+        ];
+        if (codes.length > 0) {
+          /** รวม cabinet id จากพารามิเตอร์ + จาก itemstock.cabinet (กรณีแถว settings ผูก id ตู้กับที่ join จากสต็อก) */
+          const cabinetIdsForSettings = new Set<number>();
+          cabinetIdsForSettings.add(cabinet_id);
+          for (const it of filteredItems as { itemStocks?: { cabinet?: { id?: number } | null }[] }[]) {
+            for (const st of it.itemStocks ?? []) {
+              const cid = st.cabinet?.id;
+              if (cid != null && cid > 0) cabinetIdsForSettings.add(cid);
+            }
+          }
+          const settings = await this.prisma.cabinetItemSetting.findMany({
+            where: {
+              cabinet_id: { in: [...cabinetIdsForSettings] },
+              item_code: { in: codes },
+            },
+            select: {
+              cabinet_id: true,
+              item_code: true,
+              stock_min: true,
+              stock_max: true,
+            },
+          });
+          const lists = new Map<string, typeof settings>();
+          for (const s of settings) {
+            const k = (s.item_code ?? '').trim();
+            if (!k) continue;
+            const arr = lists.get(k) ?? [];
+            arr.push(s);
+            lists.set(k, arr);
+          }
+          for (const [k, arr] of lists) {
+            const pick =
+              arr.find((s) => s.cabinet_id === cabinet_id) ?? arr[0];
+            if (pick) {
+              settingByCode.set(k, { stock_min: pick.stock_min, stock_max: pick.stock_max });
+            }
+          }
+        }
+      }
+
       const now = new Date();
       const nearExpireLimit = new Date(now);
       nearExpireLimit.setDate(nearExpireLimit.getDate() + 30);
@@ -198,8 +247,13 @@ export class ItemService {
           }
         });
 
-        const effectiveStockMin = item.stock_min ?? null;
-        const effectiveStockMax = item.stock_max ?? 0;
+        const codeKey = (item.itemcode ?? '').trim();
+        const cabRow =
+          cabinet_id != null && cabinet_id > 0 ? settingByCode.get(codeKey) : undefined;
+        const effectiveStockMin =
+          cabRow !== undefined ? (cabRow.stock_min ?? item.stock_min ?? null) : (item.stock_min ?? null);
+        const effectiveStockMax =
+          cabRow !== undefined ? (cabRow.stock_max ?? item.stock_max ?? 0) : (item.stock_max ?? 0);
         const stockMin = effectiveStockMin ?? 0;
         const isLowStock = stockMin > 0 && countItemStock < stockMin;
 
@@ -238,6 +292,10 @@ export class ItemService {
           ...item,
           stock_min: effectiveStockMin,
           stock_max: effectiveStockMax,
+          cabinetItemSetting:
+            cabRow !== undefined
+              ? { stock_min: cabRow.stock_min, stock_max: cabRow.stock_max }
+              : null,
           itemStocks: matchingItemStocks,
           count_itemstock: countItemStock,
           qty_in_use: qtyInUse,
@@ -254,38 +312,49 @@ export class ItemService {
         };
       });
 
-      const sortedItems = itemsWithMeta
-        .sort((a, b) => {
-          // 1) มี stock หมดอายุก่อน
-          if (a.hasExpired !== b.hasExpired) {
-            return a.hasExpired ? -1 : 1;
-          }
+      const sortedMeta = [...itemsWithMeta].sort((a, b) => {
+        // 1) มี stock หมดอายุก่อน
+        if (a.hasExpired !== b.hasExpired) {
+          return a.hasExpired ? -1 : 1;
+        }
 
-          // 2) ถัดมา stock ใกล้หมดอายุ (ภายใน 30 วัน — ตรงกับหน้า admin items-stock)
-          if (a.hasNearExpire !== b.hasNearExpire) {
-            return a.hasNearExpire ? -1 : 1;
-          }
+        // 2) ถัดมา stock ใกล้หมดอายุ (ภายใน 30 วัน — ตรงกับหน้า admin items-stock)
+        if (a.hasNearExpire !== b.hasNearExpire) {
+          return a.hasNearExpire ? -1 : 1;
+        }
 
-          // 3) ถัดมาคือ stock ที่จำนวนชิ้นต่ำกว่า MIN
-          if (a.isLowStock !== b.isLowStock) {
-            return a.isLowStock ? -1 : 1;
-          }
+        // 3) ถัดมาคือ stock ที่จำนวนชิ้นต่ำกว่า MIN
+        if (a.isLowStock !== b.isLowStock) {
+          return a.isLowStock ? -1 : 1;
+        }
 
-          // 4) ถ้ามีวันหมดอายุทั้งคู่ ให้เรียงจากหมดอายุเร็วไปช้า
-          if (a.earliestExpireDate && b.earliestExpireDate) {
-            const aTime = (a.earliestExpireDate as Date).getTime();
-            const bTime = (b.earliestExpireDate as Date).getTime();
-            return aTime - bTime;
-          }
+        // 4) ถ้ามีวันหมดอายุทั้งคู่ ให้เรียงจากหมดอายุเร็วไปช้า
+        if (a.earliestExpireDate && b.earliestExpireDate) {
+          const aTime = (a.earliestExpireDate as Date).getTime();
+          const bTime = (b.earliestExpireDate as Date).getTime();
+          return aTime - bTime;
+        }
 
-          // 5) fallback: เรียงตาม itemcode (A-Z)
-          const codeA = a.item.itemcode || '';
-          const codeB = b.item.itemcode || '';
-          return codeA.localeCompare(codeB);
-        })
-        .map((x) => x.item);
+        // 5) fallback: เรียงตาม itemcode (A-Z)
+        const codeA = a.item.itemcode || '';
+        const codeB = b.item.itemcode || '';
+        return codeA.localeCompare(codeB);
+      });
 
-      // Apply pagination after sorting
+      const chip = (stock_status ?? 'all').trim().toLowerCase();
+      const filteredMeta =
+        !chip || chip === 'all'
+          ? sortedMeta
+          : sortedMeta.filter((x) => {
+              if (chip === 'expired') return x.hasExpired;
+              if (chip === 'soon') return x.hasNearExpire && !x.hasExpired;
+              if (chip === 'low') return x.isLowStock;
+              return true;
+            });
+
+      const sortedItems = filteredMeta.map((x) => x.item);
+
+      // Apply pagination after sorting + stock_status filter
       const total = sortedItems.length;
       const paginatedItems = sortedItems.slice(skip, skip + limit);
 
@@ -627,9 +696,14 @@ export class ItemService {
     updateMinMaxDto: UpdateItemMinMaxDto,
   ) {
     try {
+      const itemCodeNorm = (itemcode ?? '').trim();
+      if (!itemCodeNorm) {
+        return { success: false, message: 'itemcode is required' };
+      }
+
       // Check if item exists
       const existingItem = await this.prisma.item.findUnique({
-        where: { itemcode },
+        where: { itemcode: itemCodeNorm },
       });
 
       if (!existingItem) {
@@ -664,11 +738,11 @@ export class ItemService {
 
       const row = await this.prisma.cabinetItemSetting.upsert({
         where: {
-          cabinet_id_item_code: { cabinet_id: cabinetId, item_code: itemcode },
+          cabinet_id_item_code: { cabinet_id: cabinetId, item_code: itemCodeNorm },
         },
         create: {
           cabinet_id: cabinetId,
-          item_code: itemcode,
+          item_code: itemCodeNorm,
           stock_min: overrideData.stock_min ?? null,
           stock_max: overrideData.stock_max ?? null,
         },
