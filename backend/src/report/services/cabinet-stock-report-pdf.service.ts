@@ -4,35 +4,14 @@ import * as fs from 'fs';
 import { CabinetStockReportData } from './cabinet-stock-report-excel.service';
 import { resolveReportLogoPath, getReportThaiFontPaths } from '../config/report.config';
 
-const PALETTE = {
-  ink: '#0F172A',
-  muted: '#64748B',
-  line: '#E2E8F0',
-  lineStrong: '#CBD5E1',
-  headerBg: '#1E3A5F',
-  card: '#F8FAFC',
-  /** พื้นสรุปใต้วันที่ — เทาชัดพอเห็นบนจอและพิมพ์ */
-  summaryBandFill: '#D8DEE6',
-  summaryBandStroke: '#9CA3AF',
-  accent: '#2563EB',
-  footer: '#94A3B8',
-};
-
-function pdfRowBgForStatus(status: string, zebraLight: boolean): string {
-  const s = (status || '').toUpperCase();
-  if (s === 'EXPIRED') return '#FECACA';
-  if (s === 'LOW') return '#FFEDD5';
-  if (s === 'SOON') return '#FEF08A';
-  return zebraLight ? '#F8FAFC' : '#FFFFFF';
-}
-
+/** สีสถานะในคอลัมน์สถานะ — ข้อมูลแถวใช้ zebra เหมือน weighing */
 function statusTextColor(status: string): string {
   const s = (status || '').toUpperCase();
   if (s === 'EXPIRED') return '#B91C1C';
   if (s === 'LOW') return '#C2410C';
   if (s === 'SOON') return '#B45309';
   if (s === 'OK') return '#15803D';
-  return PALETTE.ink;
+  return '#000000';
 }
 
 @Injectable()
@@ -63,7 +42,7 @@ export class CabinetStockReportPdfService {
     const doc = new PDFDocument({
       size: 'A4',
       layout: 'portrait',
-      margin: 40,
+      margin: 10,
       bufferPages: true,
     });
 
@@ -77,8 +56,8 @@ export class CabinetStockReportPdfService {
       if (hasThai) {
         finalFontName = 'ThaiFont';
         finalFontBoldName = 'ThaiFontBold';
-        doc.font(finalFontBoldName).fontSize(17);
-        doc.font(finalFontName).fontSize(17);
+        doc.font(finalFontBoldName).fontSize(13);
+        doc.font(finalFontName).fontSize(13);
       }
     } catch {
       // keep default
@@ -97,230 +76,133 @@ export class CabinetStockReportPdfService {
       doc.on('error', reject);
 
       try {
-        const margin = 40;
-        /** ขนาดตัวอักษรหลัก = 17pt (ตาราง + กล่องสรุป) */
-        const F = {
-          title: 26,
-          titleEn: 14,
-          date: 13,
-          summary: 17,
-          table: 17,
-          footer: 12,
-          pageNum: 11,
-        } as const;
+        const margin = 10;
         const pageWidth = doc.page.width;
+        const pageHeight = doc.page.height;
         const contentWidth = pageWidth - margin * 2;
-        const summary = data?.summary ?? { total_rows: 0, total_qty: 0 };
         const rows = data?.data && Array.isArray(data.data) ? data.data : [];
-        const filters = data.filters ?? {};
-        const totalRows = Number(summary.total_rows ?? 0);
-        const totalQty = Number(summary.total_qty ?? 0);
-        const cabinetLabel = (filters.cabinetName || filters.cabinetCode || '').trim();
-        const scopeLine = cabinetLabel
-          ? `ตู้: ${cabinetLabel}`
-          : filters.departmentName
-            ? `แผนก: ${filters.departmentName}`
-            : '';
-        const descLine = `ทั้งหมด ${totalRows} รายการจากระบบ · รวม ${totalQty} แท็ก RFID · จำนวนคงเหลือต่อแถว = จำนวนแถว itemstock ที่มี RfidCode ในตู้ (เท่าคอลัมน์บนหน้าเว็บ)`;
-        const subtitleBlock = scopeLine ? `${scopeLine}\n${descLine}` : descLine;
 
-        const headerTop = 40;
-        const headerHeight = 58;
-        doc.rect(margin, headerTop, contentWidth, headerHeight).fillAndStroke(PALETTE.card, PALETTE.lineStrong);
-        doc.save();
-        doc.strokeColor(PALETTE.accent).lineWidth(3);
-        doc.moveTo(margin, headerTop + headerHeight).lineTo(margin + contentWidth, headerTop + headerHeight).stroke();
-        doc.restore();
-
+        const headerTop = 35;
+        const headerHeight = 48;
+        doc.rect(margin, headerTop, contentWidth, headerHeight).fillAndStroke('#F8F9FA', '#DEE2E6');
         if (logoBuffer && logoBuffer.length > 0) {
           try {
-            doc.image(logoBuffer, margin + 10, headerTop + 8, { fit: [72, 38] });
+            doc.image(logoBuffer, margin + 8, headerTop + 6, { fit: [70, 36] });
           } catch {
             try {
-              doc.image(logoBuffer, margin + 10, headerTop + 8, { width: 72 });
+              doc.image(logoBuffer, margin + 8, headerTop + 6, { width: 70 });
             } catch {
-              // skip logo
+              // skip
             }
           }
         }
+        doc.fontSize(16).font(finalFontBoldName).fillColor('#1A365D');
+        doc.text('รายการสต๊อกในตู้ (RFID)', margin, headerTop + 6, { width: contentWidth, align: 'center' });
+        doc.fontSize(11).font(finalFontName).fillColor('#6C757D');
+        doc.text('RFID Cabinet Stock Report', margin, headerTop + 22, { width: contentWidth, align: 'center' });
+        doc.fillColor('#000000');
+        doc.y = headerTop + headerHeight + 14;
 
-        doc.fontSize(20).font(finalFontBoldName).fillColor(PALETTE.headerBg);
-        doc.text('รายการในตู้ (RFID)', margin, headerTop + 8, {
-          width: contentWidth,
-          align: 'center',
-        });
-        doc.fontSize(12).font(finalFontName).fillColor(PALETTE.muted);
-        doc.text('Cabinet / RFID', margin, headerTop + 34, {
-          width: contentWidth,
-          align: 'center',
-        });
-        doc.fillColor(PALETTE.ink);
-        doc.y = headerTop + headerHeight + 16;
+        doc.fontSize(11).font(finalFontName).fillColor('#6C757D');
+        doc.text(`วันที่รายงาน: ${reportDate}`, margin, doc.y, { width: contentWidth, align: 'right' });
+        doc.fillColor('#000000');
+        doc.y += 6;
 
-        doc.fontSize(11).font(finalFontName).fillColor(PALETTE.muted);
-        doc.text(`วันที่รายงาน: ${reportDate}`, margin, doc.y, {
-          width: contentWidth,
-          align: 'right',
-        });
-        doc.fillColor(PALETTE.ink);
-        doc.y += 8;
-
-        const subY = doc.y;
-        const subPadX = 14;
-        const subPadY = 6;
-        doc.fontSize(F.summary).font(finalFontName).fillColor(PALETTE.ink);
-        const textBlockH = doc.heightOfString(subtitleBlock, {
-          width: contentWidth - subPadX * 2,
-          lineGap: 2,
-        });
-        const subH = Math.max(38, textBlockH + subPadY * 2);
-        doc.save();
-        doc.fillColor(PALETTE.summaryBandFill);
-        doc.strokeColor(PALETTE.summaryBandStroke);
-        doc.lineWidth(1);
-        doc.roundedRect(margin, subY, contentWidth, subH, 4);
-        doc.fill();
-        doc.stroke();
-        doc.restore();
-        doc.fontSize(F.summary).font(finalFontName).fillColor(PALETTE.ink);
-        doc.text(subtitleBlock, margin + subPadX, subY + subPadY, {
-          width: contentWidth - subPadX * 2,
-          align: 'left',
-          lineGap: 2,
-        });
-        doc.fillColor(PALETTE.ink);
-        doc.y = subY + subH + 12;
-
-        const itemHeight = 36;
-        const cellPadding = 6;
+        const itemHeight = 28;
+        const cellPadding = 4;
         const totalTableWidth = contentWidth;
-        /** แนวตั้ง — คอลัมน์แคบ เน้นชื่ออุปกรณ์ซ้าย */
-        const colPct = [0.38, 0.15, 0.12, 0.17, 0.18];
+        const colPct = [0.08, 0.44, 0.24, 0.24];
         const colWidths = colPct.map((p) => Math.floor(totalTableWidth * p));
         let sumW = colWidths.reduce((a, b) => a + b, 0);
-        if (sumW < totalTableWidth) colWidths[0]! += totalTableWidth - sumW;
-        const headers = ['ชื่ออุปกรณ์', 'วันหมดอายุ', 'จำนวนคงเหลือ', 'Min / Max', 'สถานะ'];
+        if (sumW < totalTableWidth) colWidths[1] += totalTableWidth - sumW;
+        const headers = ['ลำดับ', 'ชื่ออุปกรณ์', 'วันหมดอายุ', 'สถานะ'];
 
         const drawTableHeader = (y: number) => {
+          doc.fontSize(13).font(finalFontBoldName);
+          doc.rect(margin, y, totalTableWidth, itemHeight).fill('#1A365D');
+          doc.fillColor('#FFFFFF');
           let x = margin;
-          doc.save();
-          doc.roundedRect(margin, y, totalTableWidth, itemHeight, 3).fill(PALETTE.headerBg);
-          doc.restore();
-          doc.fontSize(11).font(finalFontBoldName).fillColor('#F8FAFC');
           headers.forEach((h, i) => {
-            doc.text(h, x + cellPadding, y + 9, {
-              width: Math.max(2, colWidths[i]! - cellPadding * 2),
+            doc.text(h, x + cellPadding, y + 8, {
+              width: Math.max(2, colWidths[i] - cellPadding * 2),
               align: 'center',
-              lineGap: 1,
             });
             if (i < headers.length - 1) {
               doc.save();
-              doc.strokeColor('#3D5A80').opacity(0.6).lineWidth(0.35);
-              doc.moveTo(x + colWidths[i]!, y + 6).lineTo(x + colWidths[i]!, y + itemHeight - 6).stroke();
-              doc.opacity(1).restore();
+              doc.strokeColor('#4A6FA0').lineWidth(0.5);
+              doc.moveTo(x + colWidths[i], y + 4).lineTo(x + colWidths[i], y + itemHeight - 4).stroke();
+              doc.restore();
             }
-            x += colWidths[i]!;
+            x += colWidths[i];
           });
-          doc.fillColor(PALETTE.ink);
+          doc.fillColor('#000000');
         };
 
         const tableHeaderY = doc.y;
         drawTableHeader(tableHeaderY);
-        doc.y = tableHeaderY + itemHeight + 1;
+        doc.y = tableHeaderY + itemHeight;
 
-        doc.fontSize(F.table).font(finalFontName).fillColor(PALETTE.ink);
+        doc.fontSize(13).font(finalFontName).fillColor('#000000');
         if (rows.length === 0) {
           const rowY = doc.y;
-          doc.roundedRect(margin, rowY, totalTableWidth, itemHeight, 2).fillAndStroke('#F8FAFC', PALETTE.line);
-          doc.text('ไม่มีข้อมูล', margin + cellPadding, rowY + 10, {
+          doc.rect(margin, rowY, totalTableWidth, itemHeight).fillAndStroke('#F8F9FA', '#DEE2E6');
+          doc.text('ไม่มีข้อมูล', margin + cellPadding, rowY + 7, {
             width: totalTableWidth - cellPadding * 2,
             align: 'center',
           });
           doc.y = rowY + itemHeight;
         } else {
           for (let idx = 0; idx < rows.length; idx++) {
-            const row = rows[idx]!;
-            const bal = Number(row.balance_qty ?? 0);
+            const row = rows[idx];
             const cellTexts = [
-              String(row.device_name ?? '—'),
-              String(row.expire_date_ymd ?? '—'),
-              bal.toLocaleString('th-TH'),
-              String(row.min_max_display ?? '—'),
-              String(row.status_label ?? '—'),
+              String(idx + 1),
+              String(row.device_name ?? '-'),
+              String(row.expire_date_ymd ?? '-'),
+              String(row.status_label ?? '-'),
             ];
-
-            doc.fontSize(F.table).font(finalFontName);
+            doc.fontSize(13).font(finalFontName);
             const cellHeights = cellTexts.map((text, i) => {
-              const w = Math.max(4, colWidths[i]! - cellPadding * 2);
-              return doc.heightOfString(text || '—', { width: w, lineGap: 2 });
+              const w = Math.max(4, colWidths[i] - cellPadding * 2);
+              return doc.heightOfString(text ?? '-', { width: w });
             });
-            const rowHeight = Math.max(itemHeight - 2, Math.max(...cellHeights) + cellPadding * 2);
+            const rowHeight = Math.max(itemHeight, Math.max(...cellHeights) + cellPadding * 2);
 
-            const bottomSafe = 52;
-            const pageH = doc.page.height;
-            if (doc.y + rowHeight > pageH - margin - bottomSafe) {
-              doc.addPage({ size: 'A4', layout: 'portrait', margin });
+            if (doc.y + rowHeight > pageHeight - 35) {
+              doc.addPage({ size: 'A4', layout: 'portrait', margin: 10 });
               doc.y = margin;
               const newHeaderY = doc.y;
               drawTableHeader(newHeaderY);
-              doc.y = newHeaderY + itemHeight + 1;
-              doc.fontSize(F.table).font(finalFontName).fillColor(PALETTE.ink);
+              doc.y = newHeaderY + itemHeight;
+              doc.fontSize(13).font(finalFontName).fillColor('#000000');
             }
 
             const rowY = doc.y;
-            const bg = pdfRowBgForStatus(row.status_label ?? '', idx % 2 === 1);
+            const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8F9FA';
             let xPos = margin;
-            const colCount = Math.min(headers.length, colWidths.length, cellTexts.length);
-            const aligns: ('left' | 'center' | 'right')[] = ['left', 'center', 'right', 'center', 'center'];
-            for (let i = 0; i < colCount; i++) {
-              const cw = colWidths[i]!;
+            for (let i = 0; i < 4; i++) {
+              const cw = colWidths[i];
               const w = Math.max(4, cw - cellPadding * 2);
-              doc.rect(xPos, rowY, cw, rowHeight).fillAndStroke(bg, PALETTE.line);
-              const isStatus = i === 4;
-              doc.fontSize(F.table).font(isStatus ? finalFontBoldName : finalFontName);
-              doc.fillColor(isStatus ? statusTextColor(row.status_label ?? '') : PALETTE.ink);
-              doc.text(cellTexts[i] ?? '—', xPos + cellPadding, rowY + cellPadding, {
+              doc.rect(xPos, rowY, cw, rowHeight).fillAndStroke(bg, '#DEE2E6');
+              const raw = String(cellTexts[i] ?? '-').trim();
+              const isStatus = i === 3;
+              doc.fontSize(13).font(isStatus ? finalFontBoldName : finalFontName);
+              doc.fillColor(isStatus ? statusTextColor(row.status_label ?? '') : '#000000');
+              doc.text(raw || '-', xPos + cellPadding, rowY + cellPadding, {
                 width: w,
-                align: aligns[i] ?? 'center',
+                align: i === 1 ? 'left' : 'center',
                 lineGap: 2,
               });
               xPos += cw;
             }
-            doc.fillColor(PALETTE.ink);
+            doc.fillColor('#000000');
             doc.font(finalFontName);
             doc.y = rowY + rowHeight;
           }
         }
 
-        doc.moveTo(margin, doc.y + 8).lineTo(margin + contentWidth, doc.y + 8).strokeColor(PALETTE.line).lineWidth(0.5).stroke();
-        doc.y += 14;
-
-        doc.fontSize(F.footer).font(finalFontName).fillColor(PALETTE.footer);
-        doc.text(
-          'หมายเหตุ: จำนวนคงเหลือ = จำนวนแท็ก RFID (แถว itemstock ที่มี RfidCode ในตู้) เหมือนคอลัมน์บนหน้าเว็บ · Min/Max จากรายการอุปกรณ์',
-          margin,
-          doc.y,
-          {
-            width: contentWidth,
-            align: 'center',
-            lineGap: 1,
-          },
-        );
-
-        const range = doc.bufferedPageRange();
-        for (let p = 0; p < range.count; p++) {
-          doc.switchToPage(range.start + p);
-          const ph = doc.page.height;
-          const pw = doc.page.width;
-          const cw = pw - margin * 2;
-          doc.fontSize(9).font(finalFontName).fillColor(PALETTE.footer);
-          doc.text(`หน้า ${p + 1} / ${range.count}`, margin, ph - margin - 20, {
-            width: cw,
-            align: 'center',
-          });
-        }
-
-        doc.fillColor(PALETTE.ink);
+        doc.fontSize(11).font(finalFontName).fillColor('#6C757D');
+        doc.text('เอกสารนี้สร้างจากระบบรายงานอัตโนมัติ', margin, doc.y + 6, { width: contentWidth, align: 'center' });
+        doc.fillColor('#000000');
         doc.end();
       } catch (err) {
         reject(err);

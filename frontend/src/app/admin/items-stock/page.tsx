@@ -196,7 +196,7 @@ export default function ItemsStockPage() {
       setExportLoading('pdf');
       const stockId = stockIdFilter ? parseInt(stockIdFilter, 10) : undefined;
       const itemName = appliedItemName.trim() || undefined;
-      await reportsApi.downloadWeighingStockPdf({ stockId, itemName });
+      await reportsApi.downloadWeighingStockPdf({ stockId, itemName, statusFilter });
       toast.success('ดาวน์โหลดรายงาน PDF สำเร็จ');
     } catch (e) {
       console.error(e);

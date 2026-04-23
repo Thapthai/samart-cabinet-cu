@@ -4,13 +4,31 @@ import * as fs from 'fs';
 import { resolveReportLogoPath } from '../config/report.config';
 import type { WeighingStockReportData } from './weighing-stock-report-excel.service';
 
+/** สอดคล้อง `cabinet-stock-report-excel.service.ts` */
+const CABINET_STOCK_INK = 'FF0F172A';
+
+function rowFillForCabinetStockStatus(status: string): string {
+  const s = (status || '').toUpperCase();
+  if (s === 'EXPIRED') return 'FFFECACA';
+  if (s === 'LOW') return 'FFFFEDD5';
+  if (s === 'SOON') return 'FFFEF08A';
+  return '';
+}
+
+function statusFontArgbCabinetStock(status: string): string {
+  const s = (status || '').toUpperCase();
+  if (s === 'EXPIRED') return 'FFB91C1C';
+  if (s === 'LOW') return 'FFC2410C';
+  if (s === 'SOON') return 'FFB45309';
+  if (s === 'OK') return 'FF15803D';
+  return CABINET_STOCK_INK;
+}
+
 export interface ItemsStockCombinedRfidRow {
   seq: number;
   cabinet_label: string;
   device_name: string;
   expire_date_ymd: string;
-  balance_qty: number;
-  min_max_display: string;
   status_label: string;
 }
 
@@ -131,7 +149,7 @@ export class ItemsStockCombinedExcelService {
 
     wsW.getColumn(1).width = 13;
     wsW.getColumn(2).width = 55;
-    wsW.getColumn(3).width = 22;
+    wsW.getColumn(3).width = 40;
     wsW.getColumn(4).width = 12;
     wsW.getColumn(5).width = 12;
     wsW.getColumn(6).width = 15;
@@ -157,7 +175,7 @@ export class ItemsStockCombinedExcelService {
     wsR.getRow(2).height = 20;
     wsR.getColumn(1).width = 12;
 
-    wsR.mergeCells('B1:G2');
+    wsR.mergeCells('B1:E2');
     const h2 = wsR.getCell('B1');
     h2.value = 'รายการสต๊อก RFID รวมทุกตู้\nRFID Cabinet Stock — All Cabinets';
     h2.font = { name: 'Tahoma', size: 14, bold: true, color: { argb: 'FF1A365D' } };
@@ -165,7 +183,7 @@ export class ItemsStockCombinedExcelService {
     h2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } };
     h2.border = thinBorder;
 
-    wsR.mergeCells('A3:G3');
+    wsR.mergeCells('A3:E3');
     wsR.getCell('A3').value = `วันที่รายงาน: ${reportDate}`;
     wsR.getCell('A3').font = { name: 'Tahoma', size: 12, color: { argb: 'FF6C757D' } };
     wsR.getCell('A3').alignment = { horizontal: 'right', vertical: 'middle' };
@@ -175,7 +193,7 @@ export class ItemsStockCombinedExcelService {
     const rf = input.rfid;
     const kw = rf.filters?.keyword?.trim();
     const st = rf.filters?.statusFilter?.trim();
-    wsR.mergeCells('A4:G4');
+    wsR.mergeCells('A4:E4');
     const filterLine = [
       kw ? `ค้นหา: ${kw}` : null,
       st && st !== 'all' ? `กรองสถานะ: ${st}` : null,
@@ -190,7 +208,7 @@ export class ItemsStockCombinedExcelService {
     wsR.getRow(4).height = 22;
 
     const rTableStart = 5;
-    const rHeaders = ['ลำดับ', 'ตู้จัดเก็บ', 'รายการอุปกรณ์', 'วันหมดอายุ (เร็วสุด)', 'จำนวน', 'Min / Max', 'สถานะ'];
+    const rHeaders = ['ลำดับ', 'ตู้จัดเก็บ', 'รายการอุปกรณ์', 'วันหมดอายุ', 'สถานะ'];
     const rHeaderRow = wsR.getRow(rTableStart);
     rHeaders.forEach((h, i) => {
       const cell = rHeaderRow.getCell(i + 1);
@@ -202,26 +220,32 @@ export class ItemsStockCombinedExcelService {
     });
     rHeaderRow.height = 26;
 
+    const rfidZebra = ['FFFFFFFF', 'FFF8FAFC'];
     let rRowIdx = rTableStart + 1;
     rf.rows.forEach((row, idx) => {
       const excelRow = wsR.getRow(rRowIdx);
-      const bg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8F9FA';
-      const vals = [
+      const tint = rowFillForCabinetStockStatus(row.status_label);
+      const bg = tint || rfidZebra[idx % 2];
+      const vals: (string | number)[] = [
         row.seq,
         row.cabinet_label,
         row.device_name,
         row.expire_date_ymd,
-        row.balance_qty,
-        row.min_max_display,
         row.status_label,
       ];
       vals.forEach((val, colIndex) => {
         const cell = excelRow.getCell(colIndex + 1);
         cell.value = val;
-        cell.font = { name: 'Tahoma', size: 12, color: { argb: 'FF212529' } };
+        const isStatus = colIndex === 4;
+        cell.font = {
+          name: 'Tahoma',
+          size: 12,
+          bold: isStatus,
+          color: { argb: isStatus ? statusFontArgbCabinetStock(row.status_label) : CABINET_STOCK_INK },
+        };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
         cell.alignment = {
-          horizontal: colIndex === 2 || colIndex === 1 ? 'left' : 'center',
+          horizontal: colIndex === 1 || colIndex === 2 ? 'left' : 'center',
           vertical: 'middle',
           wrapText: true,
         };
@@ -234,13 +258,13 @@ export class ItemsStockCombinedExcelService {
     if (rf.rows.length > 0) {
       wsR.autoFilter = {
         from: { row: rTableStart, column: 1 },
-        to: { row: rRowIdx - 1, column: 7 },
+        to: { row: rRowIdx - 1, column: 5 },
       };
     }
 
     wsR.addRow([]);
     const rFoot = rRowIdx + 1;
-    wsR.mergeCells(`A${rFoot}:G${rFoot}`);
+    wsR.mergeCells(`A${rFoot}:E${rFoot}`);
     wsR.getCell(`A${rFoot}`).value = 'เอกสารนี้สร้างจากระบบรายงานอัตโนมัติ';
     wsR.getCell(`A${rFoot}`).font = { name: 'Tahoma', size: 11, color: { argb: 'FFADB5BD' } };
     wsR.getCell(`A${rFoot}`).alignment = { horizontal: 'center', vertical: 'middle' };
@@ -248,11 +272,9 @@ export class ItemsStockCombinedExcelService {
 
     wsR.getColumn(1).width = 10;
     wsR.getColumn(2).width = 28;
-    wsR.getColumn(3).width = 42;
-    wsR.getColumn(4).width = 18;
+    wsR.getColumn(3).width = 40;
+    wsR.getColumn(4).width = 14;
     wsR.getColumn(5).width = 12;
-    wsR.getColumn(6).width = 14;
-    wsR.getColumn(7).width = 12;
 
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);

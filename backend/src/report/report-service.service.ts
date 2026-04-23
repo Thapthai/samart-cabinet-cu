@@ -75,6 +75,7 @@ function itemKeywordSql(keyword: string | undefined): Prisma.Sql {
 
 function cabinetStockRowMatchesStatusFilter(
   chip: string | undefined,
+  /** สำหรับรายงานแบบแถวละแท็ก: จำนวนแท็กของรายการนั้นในตู้ (ใช้เทียบกับ min ตอนกรอง «สต็อกต่ำ») */
   balanceQty: number,
   stockMin: number | null,
   earliestExpire: Date | string | null | undefined,
@@ -138,12 +139,6 @@ function cabinetSummaryStatusLabel(
   if (soon) return 'SOON';
   if (low) return 'LOW';
   return 'OK';
-}
-
-function formatMinMaxCell(min: number | null | undefined, max: number | null | undefined): string {
-  const a = min != null && min !== undefined ? String(min) : '—';
-  const b = max != null && max !== undefined ? String(max) : '—';
-  return `${a} / ${b}`;
 }
 
 function weighingStockRowMatchesStatusFilter(row: any, chip: string | undefined): boolean {
@@ -2550,17 +2545,21 @@ export class ReportServiceService {
       if (hasCabinet) {
         query = this.prisma.$queryRaw<any[]>`
           SELECT
-            COALESCE(MIN(dept.DepName), '-') AS department_name,
+            COALESCE(dept.DepName, '-') AS department_name,
             i.itemcode AS item_code,
             i.itemname AS item_name,
-            MAX(i.Alternatename) AS alternatename,
-            /** ตรง RfidStockTable: Qty = item.itemStocks.length (แถว itemstock ที่มี RfidCode ในตู้ — ไม่กรอง IsStock) */
-            COALESCE(COUNT(*), 0) AS balance_qty,
-            i.stock_max,
+            i.Alternatename AS alternatename,
+            ist.RowID AS row_id,
+            ist.ExpireDate AS expire_date,
             i.stock_min,
-            MIN(ist.ExpireDate) AS earliest_expire_date,
-            MAX(CASE WHEN ist.ExpireDate IS NOT NULL AND ist.ExpireDate < CURDATE() THEN 1 ELSE 0 END) AS has_expired,
-            MAX(CASE WHEN ist.ExpireDate IS NOT NULL AND ist.ExpireDate >= CURDATE() AND ist.ExpireDate <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS has_near_expire
+            i.stock_max,
+            (
+              SELECT COUNT(*)
+              FROM itemstock ist_cnt
+              WHERE ist_cnt.StockID = c.stock_id
+                AND ist_cnt.ItemCode = i.itemcode
+                AND (ist_cnt.RfidCode IS NOT NULL AND TRIM(ist_cnt.RfidCode) <> '')
+            ) AS tags_for_item_in_cabinet
           FROM item i
           INNER JOIN itemstock ist ON ist.ItemCode = i.itemcode
           INNER JOIN app_microservice_cabinets c ON ist.StockID = c.stock_id AND ist.StockID > 0
@@ -2576,22 +2575,26 @@ export class ReportServiceService {
             ${rfidOnlySql}
             ${activeItemSql}
             ${kwSql}
-          GROUP BY i.itemcode, i.itemname, i.stock_max, i.stock_min
-          ORDER BY i.itemcode
+          ORDER BY COALESCE(NULLIF(TRIM(i.itemname), ''), NULLIF(TRIM(i.Alternatename), ''), i.itemcode), i.itemcode, ist.ExpireDate, ist.RowID
         `;
       } else {
         query = this.prisma.$queryRaw<any[]>`
           SELECT
-            dept.DepName AS department_name,
+            COALESCE(dept.DepName, '-') AS department_name,
             i.itemcode AS item_code,
             i.itemname AS item_name,
-            MAX(i.Alternatename) AS alternatename,
-            COALESCE(COUNT(*), 0) AS balance_qty,
-            i.stock_max,
+            i.Alternatename AS alternatename,
+            ist.RowID AS row_id,
+            ist.ExpireDate AS expire_date,
             i.stock_min,
-            MIN(ist.ExpireDate) AS earliest_expire_date,
-            MAX(CASE WHEN ist.ExpireDate IS NOT NULL AND ist.ExpireDate < CURDATE() THEN 1 ELSE 0 END) AS has_expired,
-            MAX(CASE WHEN ist.ExpireDate IS NOT NULL AND ist.ExpireDate >= CURDATE() AND ist.ExpireDate <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS has_near_expire
+            i.stock_max,
+            (
+              SELECT COUNT(*)
+              FROM itemstock ist_cnt
+              WHERE ist_cnt.StockID = c.stock_id
+                AND ist_cnt.ItemCode = i.itemcode
+                AND (ist_cnt.RfidCode IS NOT NULL AND TRIM(ist_cnt.RfidCode) <> '')
+            ) AS tags_for_item_in_cabinet
           FROM item i
           INNER JOIN itemstock ist ON ist.ItemCode = i.itemcode
           INNER JOIN app_microservice_cabinets c ON ist.StockID = c.stock_id AND ist.StockID > 0
@@ -2607,8 +2610,7 @@ export class ReportServiceService {
             ${rfidOnlySql}
             ${activeItemSql}
             ${kwSql}
-          GROUP BY dept.DepName, i.itemcode, i.itemname, i.stock_max, i.stock_min
-          ORDER BY dept.DepName, i.itemcode
+          ORDER BY COALESCE(dept.DepName, '-'), COALESCE(NULLIF(TRIM(i.itemname), ''), NULLIF(TRIM(i.Alternatename), ''), i.itemcode), i.itemcode, ist.ExpireDate, ist.RowID
         `;
       }
 
@@ -2617,56 +2619,41 @@ export class ReportServiceService {
       type CabinetWorkRow = {
         device_name: string;
         expire_date_ymd: string;
-        balance_qty: number;
-        min_max_display: string;
         status_label: 'EXPIRED' | 'SOON' | 'LOW' | 'OK';
         _stock_min: number | null;
         _item_code: string;
+        _row_id: number;
       };
 
       const work: CabinetWorkRow[] = [];
       for (const row of rows as any[]) {
-        const balanceQty = Number(row.balance_qty ?? 0);
+        const tagsInCabinet = Number(row.tags_for_item_in_cabinet ?? 0);
         const smin = row.stock_min != null ? Number(row.stock_min) : null;
-        const smax = row.stock_max != null ? Number(row.stock_max) : null;
         const name = String(row.item_name ?? '').trim();
         const alt = String(row.alternatename ?? '').trim();
-        /** ลำดับเดียวกับหน้าเว็บ: itemname ก่อน แล้ว Alternatename */
         const deviceName = name || alt || String(row.item_code ?? '—');
-        const earliest = row.earliest_expire_date ?? null;
+        const exp = row.expire_date ?? null;
         work.push({
           device_name: deviceName,
-          expire_date_ymd: formatYmdReport(earliest),
-          balance_qty: balanceQty,
-          min_max_display: formatMinMaxCell(smin, smax),
-          status_label: cabinetSummaryStatusLabel(earliest, balanceQty, smin),
+          expire_date_ymd: formatYmdReport(exp),
+          status_label: cabinetSummaryStatusLabel(exp, tagsInCabinet, smin),
           _stock_min: smin,
           _item_code: String(row.item_code ?? ''),
+          _row_id: Number(row.row_id ?? 0),
         });
       }
 
       const sortedPairs = work
         .map((dataRow, i) => ({ dataRow, rawRow: (rows as any[])[i] }))
         .sort((a, b) => {
-          const hasExpiredA = Number(a.rawRow?.has_expired ?? 0) === 1;
-          const hasExpiredB = Number(b.rawRow?.has_expired ?? 0) === 1;
-          if (hasExpiredA !== hasExpiredB) return hasExpiredA ? -1 : 1;
-
-          const hasNearExpireA = Number(a.rawRow?.has_near_expire ?? 0) === 1;
-          const hasNearExpireB = Number(b.rawRow?.has_near_expire ?? 0) === 1;
-          if (hasNearExpireA !== hasNearExpireB) return hasNearExpireA ? -1 : 1;
-
-          const stockMinA = a.dataRow._stock_min ?? 0;
-          const stockMinB = b.dataRow._stock_min ?? 0;
-          const isLowStockA = stockMinA > 0 && a.dataRow.balance_qty < stockMinA;
-          const isLowStockB = stockMinB > 0 && b.dataRow.balance_qty < stockMinB;
-          if (isLowStockA !== isLowStockB) return isLowStockA ? -1 : 1;
-
-          const expA = a.rawRow?.earliest_expire_date ? new Date(a.rawRow.earliest_expire_date).getTime() : 0;
-          const expB = b.rawRow?.earliest_expire_date ? new Date(b.rawRow.earliest_expire_date).getTime() : 0;
-          if (expA && expB) return expA - expB;
-
-          return (a.dataRow._item_code || '').localeCompare(b.dataRow._item_code || '');
+          const byName = (a.dataRow.device_name || '').localeCompare(b.dataRow.device_name || '', 'th');
+          if (byName !== 0) return byName;
+          const codeCmp = (a.dataRow._item_code || '').localeCompare(b.dataRow._item_code || '');
+          if (codeCmp !== 0) return codeCmp;
+          const expA = a.rawRow?.expire_date ? new Date(a.rawRow.expire_date).getTime() : 0;
+          const expB = b.rawRow?.expire_date ? new Date(b.rawRow.expire_date).getTime() : 0;
+          if (expA !== expB) return expA - expB;
+          return (a.dataRow._row_id || 0) - (b.dataRow._row_id || 0);
         });
 
       const statusChip = (params?.statusFilter ?? 'all').trim() || 'all';
@@ -2676,21 +2663,19 @@ export class ReportServiceService {
           : sortedPairs.filter(({ dataRow, rawRow }) =>
               cabinetStockRowMatchesStatusFilter(
                 statusChip,
-                dataRow.balance_qty,
+                Number(rawRow?.tags_for_item_in_cabinet ?? 0),
                 dataRow._stock_min,
-                rawRow?.earliest_expire_date,
+                rawRow?.expire_date,
               ),
             );
 
       const data: CabinetStockReportData['data'] = filteredPairs.map(({ dataRow }) => ({
         device_name: dataRow.device_name,
         expire_date_ymd: dataRow.expire_date_ymd,
-        balance_qty: dataRow.balance_qty,
-        min_max_display: dataRow.min_max_display,
         status_label: dataRow.status_label,
       }));
 
-      const totalQty = data.reduce((s, r) => s + r.balance_qty, 0);
+      const totalQty = data.length;
 
       let filterDeptName: string | undefined;
       let filterCabinetName: string | undefined;
@@ -3131,7 +3116,6 @@ export class ReportServiceService {
 
       const keyword = params?.itemName?.trim() || undefined;
       const rfidRows: ItemsStockCombinedRfidRow[] = [];
-      let seq = 1;
       for (const c of rfidCabinets) {
         const reportData = await this.getCabinetStockData({
           cabinetId: c.id,
@@ -3141,16 +3125,25 @@ export class ReportServiceService {
         const label = (c.cabinet_name || c.cabinet_code || `ตู้ #${c.id}`).trim();
         for (const d of reportData.data) {
           rfidRows.push({
-            seq: seq++,
+            seq: 0,
             cabinet_label: label,
             device_name: d.device_name,
             expire_date_ymd: d.expire_date_ymd,
-            balance_qty: d.balance_qty,
-            min_max_display: d.min_max_display,
             status_label: d.status_label,
           });
         }
       }
+
+      rfidRows.sort((a, b) => {
+        const byName = (a.device_name || '').localeCompare(b.device_name || '', 'th');
+        if (byName !== 0) return byName;
+        const byCab = (a.cabinet_label || '').localeCompare(b.cabinet_label || '', 'th');
+        if (byCab !== 0) return byCab;
+        return (a.expire_date_ymd || '').localeCompare(b.expire_date_ymd || '');
+      });
+      rfidRows.forEach((r, i) => {
+        r.seq = i + 1;
+      });
 
       const buffer = await this.itemsStockCombinedExcelService.generateReport({
         weighing: weighingReportData,

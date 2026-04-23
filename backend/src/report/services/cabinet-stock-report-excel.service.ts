@@ -3,12 +3,10 @@ import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
 import { resolveReportLogoPath } from '../config/report.config';
 
-/** แถวรายงาน — สอดคล้องแถวสรุปตาราง RFID หน้า admin items-stock (ไม่รวมคอลัมน์ขยายรายละเอียด RFID) */
+/** แถวรายงาน — 1 แถวต่อ 1 แท็ก RFID (แถว itemstock) */
 export interface CabinetStockRow {
   device_name: string;
   expire_date_ymd: string;
-  balance_qty: number;
-  min_max_display: string;
   status_label: string;
 }
 
@@ -26,45 +24,9 @@ export interface CabinetStockReportData {
   data: CabinetStockRow[];
 }
 
-const LAST_COL = 'E';
-const COL_COUNT = 5;
-
-const C = {
-  ink: 'FF0F172A',
-  muted: 'FF64748B',
-  line: 'FFE2E8F0',
-  lineStrong: 'FFCBD5E1',
-  headerBg: 'FF1E3A5F',
-  headerText: 'FFF8FAFC',
-  cardBg: 'FFF8FAFC',
-  bandBg: 'FFF1F5F9',
-  accent: 'FF2563EB',
-  footerMuted: 'FF94A3B8',
-};
-
-const borderAll = (s: ExcelJS.BorderStyle, argb: string): Partial<ExcelJS.Borders> => ({
-  top: { style: s, color: { argb } },
-  left: { style: s, color: { argb } },
-  bottom: { style: s, color: { argb } },
-  right: { style: s, color: { argb } },
-});
-
-function rowFillForStatus(status: string): string {
-  const s = (status || '').toUpperCase();
-  if (s === 'EXPIRED') return 'FFFECACA';
-  if (s === 'LOW') return 'FFFFEDD5';
-  if (s === 'SOON') return 'FFFEF08A';
-  return '';
-}
-
-function statusFontArgb(status: string): string {
-  const s = (status || '').toUpperCase();
-  if (s === 'EXPIRED') return 'FFB91C1C';
-  if (s === 'LOW') return 'FFC2410C';
-  if (s === 'SOON') return 'FFB45309';
-  if (s === 'OK') return 'FF15803D';
-  return C.ink;
-}
+/** คอลัมน์สุดท้ายของ merge หัวรายงาน/วันที่/ท้าย (คู่กับ B1:E2 — โลโก้คอลัมน์ A เหมือน weighing-stock) */
+const LAST_MERGE_COL = 'D';
+const DATA_COL_COUNT = 4;
 
 @Injectable()
 export class CabinetStockReportExcelService {
@@ -72,15 +34,8 @@ export class CabinetStockReportExcelService {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Report Service';
     workbook.created = new Date();
-    const worksheet = workbook.addWorksheet('รายการในตู้ RFID', {
-      pageSetup: {
-        paperSize: 9,
-        orientation: 'portrait',
-        fitToPage: true,
-        fitToWidth: 1,
-        fitToHeight: 0,
-        margins: { left: 0.55, right: 0.55, top: 0.6, bottom: 0.6, header: 0.25, footer: 0.25 },
-      },
+    const worksheet = workbook.addWorksheet('สต๊อก RFID', {
+      pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true },
       properties: { defaultRowHeight: 20 },
     });
 
@@ -91,168 +46,97 @@ export class CabinetStockReportExcelService {
       timeZone: 'Asia/Bangkok',
     });
 
-    const filters = data.filters ?? {};
-    const totalRows = data.summary?.total_rows ?? 0;
-    const totalQty = data.summary?.total_qty ?? 0;
-    const cabinetLabel = (filters.cabinetName || filters.cabinetCode || '').trim();
-    const cabinetLine = cabinetLabel
-      ? `ตู้: ${cabinetLabel}`
-      : filters.departmentName
-        ? `แผนก: ${filters.departmentName}`
-        : '';
-
-    const thinLine = borderAll('thin', C.line);
-    const titleBlockBorder: Partial<ExcelJS.Borders> = {
-      top: { style: 'thin', color: { argb: C.lineStrong } },
-      left: { style: 'thin', color: { argb: C.lineStrong } },
-      bottom: { style: 'medium', color: { argb: C.headerBg } },
-      right: { style: 'thin', color: { argb: C.lineStrong } },
+    const thinBorder = {
+      top: { style: 'thin' as const },
+      left: { style: 'thin' as const },
+      bottom: { style: 'thin' as const },
+      right: { style: 'thin' as const },
     };
-
-    worksheet.mergeCells(`A1:${LAST_COL}2`);
-    const titleCell = worksheet.getCell('A1');
-    titleCell.value = 'รายการในตู้ (RFID)\nCabinet / RFID';
-    titleCell.font = { name: 'Tahoma', size: 16, bold: true, color: { argb: C.headerBg } };
-    titleCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.cardBg } };
-    titleCell.border = titleBlockBorder;
-
-    worksheet.getRow(1).height = 24;
-    worksheet.getRow(2).height = 24;
-
+    worksheet.mergeCells('A1:A2');
+    worksheet.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } };
+    worksheet.getCell('A1').border = thinBorder;
     const logoPath = resolveReportLogoPath();
     if (logoPath && fs.existsSync(logoPath)) {
       try {
         const imageId = workbook.addImage({ filename: logoPath, extension: 'png' });
-        /** โลโก้ลอยมุมซ้ายบน — ไม่ merge เป็นส่วนของตารางข้อมูล (ตารางเริ่มแถว 5) */
-        worksheet.addImage(imageId, {
-          tl: { col: 0, row: 0 },
-          ext: { width: 132, height: 52 },
-        });
+        worksheet.addImage(imageId, 'A1:A2');
       } catch {
         // skip
       }
     }
+    worksheet.getRow(1).height = 20;
+    worksheet.getRow(2).height = 20;
+    worksheet.getColumn(1).width = 12;
 
-    worksheet.mergeCells(`A3:${LAST_COL}3`);
-    const dateCell = worksheet.getCell('A3');
-    dateCell.value = `วันที่รายงาน  ${reportDate}`;
-    dateCell.font = { name: 'Tahoma', size: 11, color: { argb: C.muted } };
-    dateCell.alignment = { horizontal: 'right', vertical: 'middle' };
-    dateCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
-    dateCell.border = thinLine;
-    worksheet.getRow(3).height = 22;
+    worksheet.mergeCells(`B1:${LAST_MERGE_COL}2`);
+    const headerCell = worksheet.getCell('B1');
+    headerCell.value = 'รายการสต๊อกในตู้ (RFID)\nRFID Cabinet Stock Report';
+    headerCell.font = { name: 'Tahoma', size: 14, bold: true, color: { argb: 'FF1A365D' } };
+    headerCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    headerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } };
+    headerCell.border = thinBorder;
 
-    worksheet.mergeCells(`A4:${LAST_COL}4`);
-    const subCell = worksheet.getCell('A4');
-    const descLine = `ทั้งหมด ${totalRows} รายการจากระบบ · รวม ${totalQty} แท็ก RFID · จำนวนคงเหลือต่อแถว = จำนวนแถว itemstock ที่มี RfidCode ในตู้ (เท่าคอลัมน์บนหน้าเว็บ)`;
-    subCell.value = cabinetLine ? `${cabinetLine}\n${descLine}` : descLine;
-    subCell.font = { name: 'Tahoma', size: 11, color: { argb: C.ink } };
-    subCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-    subCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.bandBg } };
-    subCell.border = {
-      ...thinLine,
-      left: { style: 'medium', color: { argb: C.accent } },
-    };
-    worksheet.getRow(4).height = cabinetLine ? 40 : 32;
+    worksheet.mergeCells(`A3:${LAST_MERGE_COL}3`);
+    worksheet.getCell('A3').value = `วันที่รายงาน: ${reportDate}`;
+    worksheet.getCell('A3').font = { name: 'Tahoma', size: 12, color: { argb: 'FF6C757D' } };
+    worksheet.getCell('A3').alignment = { horizontal: 'right', vertical: 'middle' };
+    worksheet.getCell('A3').border = thinBorder;
+    worksheet.getRow(3).height = 20;
 
-    const tableStartRow = 5;
-    const headers = ['ชื่ออุปกรณ์', 'วันหมดอายุ', 'จำนวนคงเหลือ', 'Min / Max', 'สถานะ'];
+    const tableStartRow = 4;
+    const headers = ['ลำดับ', 'ชื่ออุปกรณ์', 'วันหมดอายุ', 'สถานะ'];
     const headerRow = worksheet.getRow(tableStartRow);
-    const headerBorder: Partial<ExcelJS.Borders> = {
-      top: { style: 'medium', color: { argb: C.headerBg } },
-      left: { style: 'thin', color: { argb: C.headerBg } },
-      bottom: { style: 'medium', color: { argb: C.headerBg } },
-      right: { style: 'thin', color: { argb: C.headerBg } },
-    };
     headers.forEach((h, i) => {
       const cell = headerRow.getCell(i + 1);
       cell.value = h;
-      cell.font = { name: 'Tahoma', size: 11, bold: true, color: { argb: C.headerText } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.headerBg } };
+      cell.font = { name: 'Tahoma', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A365D' } };
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-      cell.border = headerBorder;
+      cell.border = thinBorder;
     });
-    headerRow.height = 30;
+    headerRow.height = 26;
 
     let dataRowIndex = tableStartRow + 1;
-    const zebra = ['FFFFFFFF', 'FFF8FAFC'];
-    const lastDataRow = tableStartRow + data.data.length;
-
     data.data.forEach((row, idx) => {
       const excelRow = worksheet.getRow(dataRowIndex);
-      const tint = rowFillForStatus(row.status_label);
-      const bg = tint || zebra[idx % 2];
-      const vals: (string | number)[] = [
-        row.device_name,
-        row.expire_date_ymd,
-        row.balance_qty,
-        row.min_max_display,
-        row.status_label,
-      ];
-      vals.forEach((val, colIndex) => {
+      const bg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8F9FA';
+      const seq = idx + 1;
+      [seq, row.device_name, row.expire_date_ymd, row.status_label].forEach((val, colIndex) => {
         const cell = excelRow.getCell(colIndex + 1);
         cell.value = val;
-        const isStatus = colIndex === 4;
-        cell.font = {
-          name: 'Tahoma',
-          size: 11,
-          bold: isStatus,
-          color: { argb: isStatus ? statusFontArgb(row.status_label) : C.ink },
-        };
+        cell.font = { name: 'Tahoma', size: 12, color: { argb: 'FF212529' } };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
         cell.alignment = {
-          horizontal: colIndex === 0 ? 'left' : colIndex === 2 ? 'right' : 'center',
-          vertical: 'top',
-          indent: colIndex === 0 ? 1 : 0,
-          wrapText: colIndex === 0,
+          horizontal: colIndex === 1 ? 'left' : 'center',
+          vertical: 'middle',
+          wrapText: true,
         };
-        cell.border = thinLine;
-        if (colIndex === 2 && typeof val === 'number') {
-          cell.numFmt = '#,##0';
-        }
+        cell.border = thinBorder;
       });
-      const nameLines = Math.max(1, String(row.device_name).split('\n').length);
-      excelRow.height = Math.max(24, nameLines * 15 + 8);
+      excelRow.height = 22;
       dataRowIndex++;
     });
 
     if (data.data.length > 0) {
       worksheet.autoFilter = {
         from: { row: tableStartRow, column: 1 },
-        to: { row: tableStartRow, column: COL_COUNT },
+        to: { row: dataRowIndex - 1, column: DATA_COL_COUNT },
       };
     }
 
     worksheet.addRow([]);
     const footerRow = dataRowIndex + 1;
-    worksheet.mergeCells(`A${footerRow}:${LAST_COL}${footerRow}`);
-    const footerCell = worksheet.getCell(`A${footerRow}`);
-    footerCell.value = 'เอกสารนี้สร้างจากระบบรายงานอัตโนมัติ · Smart Cabinet';
-    footerCell.font = { name: 'Tahoma', size: 9, italic: true, color: { argb: C.footerMuted } };
-    footerCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    footerCell.border = thinLine;
+    worksheet.mergeCells(`A${footerRow}:${LAST_MERGE_COL}${footerRow}`);
+    worksheet.getCell(`A${footerRow}`).value = 'เอกสารนี้สร้างจากระบบรายงานอัตโนมัติ';
+    worksheet.getCell(`A${footerRow}`).font = { name: 'Tahoma', size: 11, color: { argb: 'FFADB5BD' } };
+    worksheet.getCell(`A${footerRow}`).alignment = { horizontal: 'center', vertical: 'middle' };
+    worksheet.getRow(footerRow).height = 18;
 
-    if (lastDataRow >= tableStartRow + 1) {
-      for (let c = 1; c <= COL_COUNT; c++) {
-        const top = worksheet.getCell(tableStartRow, c);
-        const bottom = worksheet.getCell(lastDataRow, c);
-        top.border = {
-          ...top.border,
-          top: { style: 'medium', color: { argb: C.headerBg } },
-        };
-        bottom.border = {
-          ...bottom.border,
-          bottom: { style: 'thin', color: { argb: C.lineStrong } },
-        };
-      }
-    }
-
-    worksheet.getColumn(1).width = 48;
-    worksheet.getColumn(2).width = 18;
+    worksheet.getColumn(1).width = 13;
+    worksheet.getColumn(2).width = 55;
     worksheet.getColumn(3).width = 18;
-    worksheet.getColumn(4).width = 18;
-    worksheet.getColumn(5).width = 14;
+    worksheet.getColumn(4).width = 16;
+    worksheet.getColumn(5).width = 8;
 
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);
