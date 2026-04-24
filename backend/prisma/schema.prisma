@@ -721,7 +721,7 @@ model ItemSlotInCabinetDetail {
   // Relations
   itemSlotInCabinet ItemSlotInCabinet @relation("DetailToSlot", fields: [itemcode], references: [itemcode], map: "detail_to_slot_fkey")
   item             Item?             @relation("DetailToItem", fields: [itemcode], references: [itemcode], map: "detail_to_item_fkey")
-  userCabinet      UserCabinet?      @relation(fields: [UserID], references: [cabinet_finger_id])
+  userCabinet      UserCabinet?      @relation(fields: [UserID], references: [user_id])
 
   @@map("itemslotincabinet_detail")
 }
@@ -730,7 +730,7 @@ model ItemSlotInCabinetDetail {
 model UserCabinet {
   id                Int    @id @default(autoincrement())
   cabinet_finger_id Int    @unique @map("cabinet_finger_id")
-  user_id           Int    @map("user_id")
+  user_id           Int    @unique @map("user_id")
 
   legacyUser        LegacyUsers           @relation(fields: [user_id], references: [id])
   itemSlotInCabinetDetail ItemSlotInCabinetDetail[]
