@@ -2532,11 +2532,12 @@ export class MedicalSuppliesService {
               SELECT uc.*
               FROM user_cabinet uc
               INNER JOIN (
-                  SELECT cabinet_finger_id, MAX(id) AS max_id
+                  SELECT user_id, MAX(id) AS max_id
                   FROM user_cabinet
-                  GROUP BY cabinet_finger_id
-              ) x ON x.max_id = uc.id
-          ) user_cabinet ON ist.CabinetUserID = user_cabinet.cabinet_finger_id
+                  WHERE user_id IS NOT NULL
+                  GROUP BY user_id
+              ) x ON x.user_id = uc.user_id AND x.max_id = uc.id
+          ) user_cabinet ON ist.CabinetUserID = user_cabinet.user_id
         LEFT JOIN users ON user_cabinet.user_id = users.ID
         LEFT JOIN employee ON employee.EmpCode = users.EmpCode
         LEFT JOIN app_microservice_cabinets on app_microservice_cabinets.stock_id = ist.StockID
@@ -2646,7 +2647,7 @@ export class MedicalSuppliesService {
 
       // Get total count first - Same structure as main query
       const countResult: any[] = await this.prisma.$queryRaw`
-        SELECT count(ist.RowID) as total
+        SELECT COUNT(DISTINCT ist.RowID) as total
         FROM itemstock ist
         INNER JOIN item i ON ist.ItemCode = i.itemcode
         LEFT JOIN user_cabinet ON ist.CabinetUserID = user_cabinet.user_id
@@ -2683,11 +2684,12 @@ export class MedicalSuppliesService {
               SELECT uc.*
               FROM user_cabinet uc
               INNER JOIN (
-                  SELECT cabinet_finger_id, MAX(id) AS max_id
+                  SELECT user_id, MAX(id) AS max_id
                   FROM user_cabinet
-                  GROUP BY cabinet_finger_id
-              ) x ON x.max_id = uc.id
-          ) user_cabinet ON ist.CabinetUserID = user_cabinet.cabinet_finger_id
+                  WHERE user_id IS NOT NULL
+                  GROUP BY user_id
+              ) x ON x.user_id = uc.user_id AND x.max_id = uc.id
+          ) user_cabinet ON ist.CabinetUserID = user_cabinet.user_id
         LEFT JOIN users ON user_cabinet.user_id = users.ID
         LEFT JOIN employee ON employee.EmpCode = users.EmpCode
         LEFT JOIN app_microservice_cabinets on app_microservice_cabinets.stock_id = ist.StockID

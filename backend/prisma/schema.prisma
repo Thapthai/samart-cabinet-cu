@@ -533,6 +533,7 @@ model ItemStock {
   ProductSerial         String?   @map("ProductSerial") @db.VarChar(25)
   StockID               Int?      @map("StockID")
   HNCode                String?   @map("HNCode") @db.VarChar(20)
+  /// อ้างอิง user_cabinet.user_id (เดิมเก็บ/จับคู่กับ user_cabinet.cabinet_finger_id)
   CabinetUserID         Int?      @map("CabinetUserID")
   LastCabinetModify     DateTime? @map("LastCabinetModify")
   InsertRfidDocNo       String?   @map("InsertRfidDocNo") @db.VarChar(20)
@@ -725,7 +726,7 @@ model ItemSlotInCabinetDetail {
   @@map("itemslotincabinet_detail")
 }
 
-// user_cabinet: links cabinet_finger_id (UserID in detail) to user_id -> users -> employee
+// user_cabinet: ItemSlotInCabinetDetail.UserID -> cabinet_finger_id; itemstock.CabinetUserID -> user_id (Legacy users.id)
 model UserCabinet {
   id                Int    @id @default(autoincrement())
   cabinet_finger_id Int    @unique @map("cabinet_finger_id")
