@@ -89,6 +89,8 @@ export class ItemService {
         });
         if (cabinet?.stock_id) {
           itemStocksWhere.StockID = cabinet.stock_id;
+          // หน้า admin items-stock RFID: เฉพาะแท็กที่อยู่ในตู้ (IsStock = 1 / true)
+          itemStocksWhere.IsStock = true;
         }
       }
 

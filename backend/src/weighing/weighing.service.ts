@@ -52,6 +52,21 @@ function weighingRowMatchesStockStatus(
 export class WeighingService {
   constructor(private readonly prisma: PrismaService) { }
 
+  /** stock_id ของตู้ที่ถือเป็น "ตู้ 0" — ใช้กรองแทน relation OR เพื่อไม่ให้แถว detail ซ้ำจากแผน SQL */
+  private async getStockIdsExcludedAsCabinetZero(): Promise<number[]> {
+    const rows = await this.prisma.cabinet.findMany({
+      where: {
+        stock_id: { not: null, gt: 0 },
+        OR: [{ cabinet_code: '0' }, { cabinet_name: 'ตู้ 0' }],
+      },
+      select: { stock_id: true },
+    });
+    const ids = rows
+      .map((r) => r.stock_id)
+      .filter((id): id is number => id != null && typeof id === 'number' && id > 0);
+    return [...new Set(ids)];
+  }
+
   /**
    * ดึงรายการ ItemSlotInCabinet แบบแบ่งหน้า (รวม relation cabinet)
    * itemName: ค้นหาจากชื่ออุปกรณ์ (itemname / Alternatename)
@@ -351,25 +366,20 @@ export class WeighingService {
       NOT: { OR: [{ itemname: '' }, { itemname: '-' }] },
     };
 
-    // ไม่แสดงตู้ 0 (cabinet_code = '0' หรือ cabinet_name = 'ตู้ 0')
-    const notCabinetZeroFilter = {
-      OR: [
-        { cabinet: null },
-        {
-          cabinet: {
-            cabinet_code: { not: '0' },
-            cabinet_name: { not: 'ตู้ 0' },
-          },
-        },
-      ],
-    };
+    const excludeStockIds = await this.getStockIdsExcludedAsCabinetZero();
+    if (params.stockId != null && params.stockId > 0 && excludeStockIds.includes(params.stockId)) {
+      return {
+        success: true,
+        data: [],
+        pagination: { page, limit, total: 0, totalPages: 1 },
+      };
+    }
 
     const where: {
       Sign: string;
       itemcode?: { contains: string };
       item?: object;
-      itemSlotInCabinet?: object;
-      StockID?: number;
+      StockID?: number | { notIn: number[] };
       ModifyDate?: { gte?: Date; lte?: Date };
     } = {
       Sign: sign === '+' ? '+' : '-',
@@ -393,10 +403,11 @@ export class WeighingService {
     } else {
       where.item = hasItemNameFilter;
     }
-    // ไม่แสดงตู้ 0
-    where.itemSlotInCabinet = notCabinetZeroFilter;
+    // ไม่แสดงตู้ 0 — กรองที่ StockID เพื่อไม่ให้เกิดแถวซ้ำจาก subquery/JOIN ของ Prisma เมื่อใช้ OR บน relation
     if (params.stockId != null && params.stockId > 0) {
       where.StockID = params.stockId;
+    } else if (excludeStockIds.length > 0) {
+      where.StockID = { notIn: excludeStockIds };
     }
     if (params.dateFrom?.trim()) {
       where.ModifyDate = {
@@ -454,9 +465,16 @@ export class WeighingService {
       this.prisma.itemSlotInCabinetDetail.count({ where }),
     ]);
 
+    const seenIds = new Set<number>();
+    const data = details.filter((row) => {
+      if (seenIds.has(row.id)) return false;
+      seenIds.add(row.id);
+      return true;
+    });
+
     return {
       success: true,
-      data: details,
+      data,
       pagination: {
         page,
         limit,
