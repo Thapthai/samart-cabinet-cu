@@ -50,80 +50,25 @@ export function statusFontArgbCabinetStock(status: string): string {
 
 const EXCEL_SHEET_FORBIDDEN_C = /[\*\[\]\:\\/?]/g;
 
-const SUMMARY_LAST_COL = 'E';
-const SUMMARY_COL_COUNT = 5;
+const SUMMARY_LAST_COL = 'C';
+const SUMMARY_COL_COUNT = 3;
 
-function parseCabinetExpireYmd(s: string): Date | null {
-  const t = String(s ?? '').trim();
-  if (!t || t === '—' || t === '-') return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
-  if (!m) return null;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  d.setHours(0, 0, 0, 0);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-function startOfDayBangkok(d: Date): Date {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Bangkok',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  const parts = fmt.formatToParts(d);
-  const y = Number(parts.find((p) => p.type === 'year')?.value);
-  const m = Number(parts.find((p) => p.type === 'month')?.value);
-  const day = Number(parts.find((p) => p.type === 'day')?.value);
-  const x = new Date(y, m - 1, day);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-/** จัดกลุ่มตามชื่ออุปกรณ์: จำนวนแท็ก + วันหมดอายุที่เร็วที่สุด (ใกล้ถึงกำหนดก่อน) */
+/** จัดกลุ่มตามชื่ออุปกรณ์: จำนวนแท็ก */
 export function buildCabinetStockSummaryRows(rows: CabinetStockRow[]): {
   device_name: string;
   tag_count: number;
-  nearest_expire_ymd: string;
-  days_to_nearest: number | null;
 }[] {
-  const byName = new Map<
-    string,
-    { count: number; minTs: number | null; minYmd: string | null }
-  >();
+  const byName = new Map<string, number>();
   for (const r of rows) {
     const name = String(r.device_name ?? '').trim() || '—';
-    const g = byName.get(name) ?? { count: 0, minTs: null, minYmd: null };
-    g.count += 1;
-    const exp = parseCabinetExpireYmd(r.expire_date_ymd);
-    if (exp) {
-      const ts = exp.getTime();
-      if (g.minTs == null || ts < g.minTs) {
-        g.minTs = ts;
-        g.minYmd = r.expire_date_ymd.trim();
-      }
-    }
-    byName.set(name, g);
+    byName.set(name, (byName.get(name) ?? 0) + 1);
   }
-  const today = startOfDayBangkok(new Date());
-  const out = [...byName.entries()].map(([device_name, g]) => {
-    let days_to_nearest: number | null = null;
-    if (g.minTs != null) {
-      const nearest = new Date(g.minTs);
-      nearest.setHours(0, 0, 0, 0);
-      days_to_nearest = Math.round((nearest.getTime() - today.getTime()) / 86400000);
-    }
-    return {
-      device_name,
-      tag_count: g.count,
-      nearest_expire_ymd: g.minYmd ?? '—',
-      days_to_nearest,
-    };
-  });
+  const out = [...byName.entries()].map(([device_name, tag_count]) => ({ device_name, tag_count }));
   out.sort((a, b) => a.device_name.localeCompare(b.device_name, 'th'));
   return out;
 }
 
-/** ชีตสรุปตามรายการอุปกรณ์ — แท็กต่อรายการ, วันหมดเร็วที่สุด, วันถึงกำหนด */
+/** ชีตสรุปตามรายการอุปกรณ์ — จำนวนแท็กต่อรายการ */
 export function appendCabinetStockSummarySheet(
   workbook: ExcelJS.Workbook,
   sheetName: string,
@@ -173,13 +118,7 @@ export function appendCabinetStockSummarySheet(
   worksheet.getRow(3).height = 20;
 
   const tableStartRow = 4;
-  const headers = [
-    'ลำดับ',
-    'ชื่ออุปกรณ์',
-    'จำนวนแท็ก',
-    'วันหมดอายุเร็วที่สุด',
-    'ถึงกำหนด (วัน)',
-  ];
+  const headers = ['ลำดับ', 'ชื่ออุปกรณ์', 'จำนวนแท็ก'];
   const headerRow = worksheet.getRow(tableStartRow);
   headers.forEach((h, i) => {
     const cell = headerRow.getCell(i + 1);
@@ -209,14 +148,7 @@ export function appendCabinetStockSummarySheet(
     summaryRows.forEach((row, idx) => {
       const excelRow = worksheet.getRow(dataRowIndex);
       const bg = zebra[idx % 2];
-      const daysVal = row.days_to_nearest == null ? '—' : row.days_to_nearest;
-      const vals: (string | number)[] = [
-        idx + 1,
-        row.device_name,
-        row.tag_count,
-        row.nearest_expire_ymd,
-        daysVal,
-      ];
+      const vals: (string | number)[] = [idx + 1, row.device_name, row.tag_count];
       vals.forEach((val, colIndex) => {
         const cell = excelRow.getCell(colIndex + 1);
         cell.value = val;
@@ -244,17 +176,14 @@ export function appendCabinetStockSummarySheet(
   worksheet.addRow([]);
   const footerRow = dataRowIndex + 1;
   worksheet.mergeCells(`A${footerRow}:${SUMMARY_LAST_COL}${footerRow}`);
-  worksheet.getCell(`A${footerRow}`).value =
-    'ถึงกำหนด (วัน): จากวันรายงาน (Asia/Bangkok) ถึงวันหมดเร็วที่สุดของรายการ · ค่าติดลบ = หมดอายุแล้ว';
-  worksheet.getCell(`A${footerRow}`).font = { name: 'Tahoma', size: 10, color: { argb: 'FFADB5BD' } };
+  worksheet.getCell(`A${footerRow}`).value = 'เอกสารนี้สร้างจากระบบรายงานอัตโนมัติ';
+  worksheet.getCell(`A${footerRow}`).font = { name: 'Tahoma', size: 11, color: { argb: 'FFADB5BD' } };
   worksheet.getCell(`A${footerRow}`).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-  worksheet.getRow(footerRow).height = 28;
+  worksheet.getRow(footerRow).height = 18;
 
-  worksheet.getColumn(1).width = 10;
-  worksheet.getColumn(2).width = 48;
-  worksheet.getColumn(3).width = 14;
-  worksheet.getColumn(4).width = 22;
-  worksheet.getColumn(5).width = 18;
+  worksheet.getColumn(1).width = 11;
+  worksheet.getColumn(2).width = 52;
+  worksheet.getColumn(3).width = 16;
 }
 
 function safeCabinetStockSheetName(name: string, used: Set<string>): string {

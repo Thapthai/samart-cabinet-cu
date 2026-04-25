@@ -75,26 +75,17 @@ docker compose -f docker/docker-compose.yml logs -f backend
 
 ### วิธีแก้
 
-1. **ดาวน์โหลดฟอนต์** (ชุดฟอนต์ของรัฐบาลไทย หรือแหล่งที่ให้ใช้ได้ตามลิขสิทธิ์)  
-   ต้องมีไฟล์:
-   - `THSarabunNew.ttf`
-   - `THSarabunNew Bold.ttf`
-
-2. **วางไฟล์ในโฟลเดอร์ `backend/fonts/`**  
-   จากโฟลเดอร์ backend ให้มีโครงแบบนี้:
-   ```
-   backend/
-     fonts/
-       THSarabunNew.ttf
-       THSarabunNew Bold.ttf
-   ```
+1. **ดาวน์โหลดฟอนต์** (ชุดฟอนต์ของรัฐบาลไทย หรือแหล่งที่ให้ใช้ได้ตามลิขสิทธิ์)
+  ต้องมีไฟล์:
+  - `THSarabunNew.ttf`
+  - `THSarabunNew Bold.ttf`
+2. **วางไฟล์ในโฟลเดอร์ `backend/fonts/`**
+  จากโฟลเดอร์ backend ให้มีโครงแบบนี้:
    (โฟลเดอร์ `backend/fonts/` มีอยู่แล้ว มีไฟล์ `.gitkeep` อยู่ข้างใน)
-
 3. **Build image ใหม่** แล้วรัน container ใหม่:
-   ```bash
+  ```bash
    cd /path/to/samart-cabinet-cu-app/backend
    docker compose -f docker/docker-compose.yml --env-file .env up -d --build
-   ```
+  ```
 
 หลัง build ใหม่ ฟอนต์จะถูก copy เข้า image และรายงาน PDF จะแสดงภาษาไทยได้ถูกต้อง
-

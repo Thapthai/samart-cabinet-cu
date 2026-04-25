@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AlertTriangle, ChevronDown, ChevronUp, Loader2, Radio, Settings2 } from 'lucide-react';
 import { itemsApi } from '@/lib/api';
@@ -14,6 +14,7 @@ import type { ItemSlotInCabinetRow, RfidStockLine, StockStatusFilter } from '../
 import {
   earliestExpireRawFromStocks,
   expireRangeQueryFromAfterDaysField,
+  filterRfidStockLinesForToolbar,
   formatExpireRelativeLabel,
   formatYmd,
   rfidLineBadge,
@@ -253,6 +254,11 @@ export default function RfidStockTable({
     });
   }, [serverTotal, pageRows.length]);
 
+  const toolbarExpireRange = useMemo(
+    () => expireRangeQueryFromAfterDaysField(stockExpiryAfterDay ?? ''),
+    [stockExpiryAfterDay],
+  );
+
   const toggleExpand = (row: ItemSlotInCabinetRow) => {
     if (expandedIds.has(row.id)) {
       setExpandedIds((prev) => {
@@ -370,6 +376,11 @@ export default function RfidStockTable({
               const warnQtyBelowMin = low;
               const open = expandedIds.has(row.id);
               const lines = rfidByItemcode[row.itemcode] ?? [];
+              const filteredLines = filterRfidStockLinesForToolbar(
+                lines,
+                statusFilter,
+                toolbarExpireRange,
+              );
               /** โหมดทั้งหมด: เน้นสีทั้งแถวให้เห็นว่าตัวไหนหมดอายุ/ใกล้หมด — กดขยาย RFID ได้ตรง */
               const rowAllMode =
                 statusFilter === 'all' &&
@@ -473,10 +484,16 @@ export default function RfidStockTable({
                         <div className="px-4 py-4 sm:px-5">
                           {lines.length === 0 ? (
                             <p className="text-sm text-muted-foreground">ไม่พบแท็ก RFID ใน itemstock</p>
+                          ) : filteredLines.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                              ไม่มีแท็ก RFID ที่ตรงกับชิปสถานะหรือช่วงวันหมดอายุที่กรอง
+                              {lines.length > 0 ? ` (ทั้งหมด ${lines.length} แท็ก)` : ''}
+                            </p>
                           ) : (
                             <div className="space-y-3">
                               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                รายการ RFID ({lines.length})
+                                รายการ RFID ({filteredLines.length}
+                                {filteredLines.length !== lines.length ? ` / ${lines.length}` : ''})
                               </p>
                               <div className="overflow-x-auto rounded-lg border border-slate-200/80 bg-white shadow-sm">
                                 <table className="w-full table-fixed border-collapse text-sm">
@@ -499,7 +516,7 @@ export default function RfidStockTable({
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {lines.map((line) => {
+                                    {filteredLines.map((line) => {
                                       const lb = rfidLineBadge(line.expireDate);
                                       const rel = formatExpireRelativeLabel(line.expireDate);
                                       const expCls =

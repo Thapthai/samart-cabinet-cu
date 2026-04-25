@@ -131,7 +131,67 @@ export function ymdFromTodayOffset(offsetDays: number): string | null {
   return formatYmd(d);
 }
 
-/** คำใต้ช่อง «อีกกี่วัน» — อธิบายเงื่อนไข <= n วันจากวันนี้ */
+/** จำนวนวันเต็มจากวันนี้ถึงวันที่เดินปฏิทิน +months (เริ่มต้นวันนี้ 00:00) */
+export function fullDaysFromTodayAfterCalendarMonths(months: number): number {
+  const start = startOfDay(new Date());
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + months);
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000);
+}
+
+/** จำนวนวันเต็มจากวันนี้ถึงวันที่เดินปฏิทิน +years */
+export function fullDaysFromTodayAfterCalendarYears(years: number): number {
+  const start = startOfDay(new Date());
+  const end = new Date(start);
+  end.setFullYear(end.getFullYear() + years);
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000);
+}
+
+export type ExpireAfterPresetValue = '3' | '7' | '1m' | '3m' | '6m' | '1y';
+
+export const EXPIRE_AFTER_PRESET_ORDER: ExpireAfterPresetValue[] = ['3', '7', '1m', '3m', '6m', '1y'];
+
+export function expireAfterDaysForPreset(preset: ExpireAfterPresetValue): number {
+  switch (preset) {
+    case '3':
+      return 3;
+    case '7':
+      return 7;
+    case '1m':
+      return fullDaysFromTodayAfterCalendarMonths(1);
+    case '3m':
+      return fullDaysFromTodayAfterCalendarMonths(3);
+    case '6m':
+      return fullDaysFromTodayAfterCalendarMonths(6);
+    case '1y':
+      return fullDaysFromTodayAfterCalendarYears(1);
+    default:
+      return 0;
+  }
+}
+
+/** แปลงจำนวนวันที่เก็บใน state กลับเป็นค่า preset (ถ้าตรงกับพรีเซ็ตวันนี้) */
+export function presetForStoredExpireDays(stored: string): ExpireAfterPresetValue | '' {
+  const t = (stored ?? '').trim();
+  if (!t || !/^\d+$/.test(t)) return '';
+  const n = parseInt(t, 10);
+  if (!Number.isFinite(n)) return '';
+  for (const p of EXPIRE_AFTER_PRESET_ORDER) {
+    if (expireAfterDaysForPreset(p) === n) return p;
+  }
+  return '';
+}
+
+export const EXPIRE_AFTER_DAY_PRESET_LABELS: Record<ExpireAfterPresetValue, string> = {
+  '3': '3 วัน',
+  '7': '7 วัน',
+  '1m': '1 เดือน',
+  '3m': '3 เดือน',
+  '6m': '6 เดือน',
+  '1y': '1 ปี',
+};
+
+/** คำใต้ช่องพรีเซ็ต — อธิบายเงื่อนไข <= n วันจากวันนี้ */
 export function hintForExpireAfterDaysInput(daysStr: string): string | null {
   const t = (daysStr ?? '').trim();
   if (!t || !/^\d+$/.test(t)) return null;
@@ -139,8 +199,7 @@ export function hintForExpireAfterDaysInput(daysStr: string): string | null {
   if (!Number.isFinite(n)) return null;
   const toYmd = ymdFromTodayOffset(n);
   if (!toYmd) return null;
-  // return `แสดงเฉพาะรายการที่วันหมดเร็วสุดภายใน ${n} วันจากวันนี้ (<= ${toYmd})`;
-  return null;
+  return `แสดงเฉพาะรายการที่วันหมดเร็วสุดภายใน ${n} วันจากวันนี้ (<= ${toYmd})`;
 }
 
 /**
@@ -159,6 +218,57 @@ export function expireRangeQueryFromAfterDaysField(daysField: string): {
   const expire_to = ymdFromTodayOffset(n) ?? undefined;
   const expire_from = ymdFromTodayOffset(-1) ?? undefined;
   return { expire_from, expire_to };
+}
+
+/** แท็ก RFID แถวเดียวตรงช่วง expire_from / expire_to เดียวกับ GET /items (เทียบ YYYY-MM-DD) */
+export function rfidLineMatchesExpireRange(
+  expireDate: string | Date | null | undefined,
+  range: { expire_from?: string; expire_to?: string },
+): boolean {
+  const fromStr = (range.expire_from ?? '').trim();
+  const toStr = (range.expire_to ?? '').trim();
+  if (!fromStr && !toStr) return true;
+  const itemYmd = formatYmd(expireDate);
+  if (!itemYmd || itemYmd === '—') return false;
+  if (fromStr && YMD_STRICT.test(fromStr) && itemYmd <= fromStr) return false;
+  if (toStr && YMD_STRICT.test(toStr) && itemYmd > toStr) return false;
+  return true;
+}
+
+/** แท็ก RFID แถวเดียวตรงชิปสถานะ (low = ระดับรายการ — แสดงแท็กทั้งหมดเมื่อเลือกสต็อกต่ำ) */
+export function rfidLineMatchesStatusChip(
+  expireDate: string | Date | null | undefined,
+  chip: StockStatusFilter,
+): boolean {
+  if (chip === 'all' || chip === 'low') return true;
+  const exp = expireDate != null ? new Date(expireDate as string) : null;
+  const today = startOfDay(new Date());
+  let expired = false;
+  let soon = false;
+  if (exp && !Number.isNaN(exp.getTime())) {
+    const ed = startOfDay(exp);
+    expired = ed < today;
+    if (!expired) {
+      const limit = new Date(today);
+      limit.setDate(limit.getDate() + NEAR_EXPIRY_DAYS);
+      soon = ed <= limit;
+    }
+  }
+  if (chip === 'expired') return expired;
+  if (chip === 'soon') return soon && !expired;
+  return true;
+}
+
+export function filterRfidStockLinesForToolbar(
+  lines: RfidStockLine[],
+  chip: StockStatusFilter,
+  expireRange: { expire_from?: string; expire_to?: string },
+): RfidStockLine[] {
+  return lines.filter(
+    (line) =>
+      rfidLineMatchesStatusChip(line.expireDate, chip) &&
+      rfidLineMatchesExpireRange(line.expireDate, expireRange),
+  );
 }
 
 /** สล็อต 1 = ใน, 2 = นอก */
