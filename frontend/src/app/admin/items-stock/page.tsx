@@ -46,7 +46,7 @@ export default function ItemsStockPage() {
   const [minMaxOpen, setMinMaxOpen] = useState(false);
   const [minMaxRow, setMinMaxRow] = useState<ItemSlotInCabinetRow | null>(null);
   const [statusFilter, setStatusFilter] = useState<StockStatusFilter>('all');
-  /** กรองวันหมดอายุเร็วสุดหลังวันนี้ (ไม่รวม) — GET /items expire_from RFID */
+  /** จำนวนวันนับจากวันนี้ → ส่ง expire_from = วันนี้+n (วันหมดเร็วสุดอยู่หลังวันนั้น ไม่รวม) — RFID */
   const [stockExpiryAfterDay, setStockExpiryAfterDay] = useState('');
 
   const rfidExpandResetKey = useMemo(

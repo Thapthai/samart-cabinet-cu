@@ -19,7 +19,7 @@ export interface ItemSlotInCabinetRow {
   _count?: { itemSlotInCabinetDetail: number };
 }
 
-export type RfidStockLine = { rowId: number; rfidCode: string; expireDate: string | null };
+export type RfidStockLine = { rowId: number; rfidCode: string; expireDate: string | Date | null };
 
 export type StockStatusFilter = 'all' | 'expired' | 'soon' | 'low';
 
@@ -33,6 +33,42 @@ export function startOfDay(d: Date): Date {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
   return x;
+}
+
+type StockExpireFields = {
+  ExpireDate?: string | Date | null;
+  expDate?: string | Date | null;
+  RfidCode?: string | null;
+};
+
+/**
+ * วันหมดอายุที่เร็วที่สุดตามปฏิทิน (เทียบ startOfDay ก่อน แล้วค่อยเวลาในวันเดียวกัน)
+ * รองรับทั้ง ExpireDate และ expDate — ใช้คอลัมน์วันหมดอายุในตาราง RFID ให้ตรงกับ rowFlags / ชิปกรอง
+ */
+export function earliestExpireRawFromStocks(
+  stocks: StockExpireFields[] | undefined | null,
+  options?: { rfidOnly?: boolean },
+): string | Date | null {
+  const list = stocks ?? [];
+  const rfidOnly = options?.rfidOnly ?? false;
+  let bestRaw: string | Date | null = null;
+  let bestDayMs = Infinity;
+  let bestTimeMs = Infinity;
+  for (const s of list) {
+    if (rfidOnly && String(s.RfidCode ?? '').trim() === '') continue;
+    const raw = s.ExpireDate ?? s.expDate ?? null;
+    if (raw == null || (typeof raw === 'string' && raw.trim() === '')) continue;
+    const d = typeof raw === 'string' ? new Date(raw) : new Date(raw as Date);
+    if (Number.isNaN(d.getTime())) continue;
+    const dayMs = startOfDay(d).getTime();
+    const timeMs = d.getTime();
+    if (dayMs < bestDayMs || (dayMs === bestDayMs && timeMs < bestTimeMs)) {
+      bestDayMs = dayMs;
+      bestTimeMs = timeMs;
+      bestRaw = raw;
+    }
+  }
+  return bestRaw;
 }
 
 export function formatYmd(value: string | Date | null | undefined): string {
@@ -85,6 +121,44 @@ export function formatDaysFromSelectedYmdToTodayHint(ymd: string): string | null
   if (n === 0) return 'นับจากวันที่เลือกถึงวันนี้: 0 วัน (วันเดียวกัน)';
   if (n > 0) return `นับจากวันที่เลือกถึงวันนี้: ${n} วัน`;
   return `วันนี้อยู่ก่อนวันที่เลือกอีก ${-n} วัน`;
+}
+
+/** วันนี้ (เริ่มวัน) + offset วันตามปฏิทินเครื่อง → YYYY-MM-DD */
+export function ymdFromTodayOffset(offsetDays: number): string | null {
+  if (!Number.isFinite(offsetDays)) return null;
+  const d = startOfDay(new Date());
+  d.setDate(d.getDate() + Math.trunc(offsetDays));
+  return formatYmd(d);
+}
+
+/** คำใต้ช่อง «อีกกี่วัน» — อธิบายเงื่อนไข <= n วันจากวันนี้ */
+export function hintForExpireAfterDaysInput(daysStr: string): string | null {
+  const t = (daysStr ?? '').trim();
+  if (!t || !/^\d+$/.test(t)) return null;
+  const n = parseInt(t, 10);
+  if (!Number.isFinite(n)) return null;
+  const toYmd = ymdFromTodayOffset(n);
+  if (!toYmd) return null;
+  // return `แสดงเฉพาะรายการที่วันหมดเร็วสุดภายใน ${n} วันจากวันนี้ (<= ${toYmd})`;
+  return null;
+}
+
+/**
+ * แปลงค่าช่อง «อีกกี่วัน» เป็นช่วงวันที่สำหรับ API:
+ * - expire_to = วันนี้ + n (ต้อง <= วันนี้+n)
+ * - expire_from = เมื่อวาน (เพื่อบังคับให้เหลือเฉพาะวันนี้เป็นต้นไป, ตัดที่หมดไปแล้วออก)
+ */
+export function expireRangeQueryFromAfterDaysField(daysField: string): {
+  expire_from?: string;
+  expire_to?: string;
+} {
+  const t = (daysField ?? '').trim();
+  if (!t || !/^\d+$/.test(t)) return {};
+  const n = parseInt(t, 10);
+  if (!Number.isFinite(n)) return {};
+  const expire_to = ymdFromTodayOffset(n) ?? undefined;
+  const expire_from = ymdFromTodayOffset(-1) ?? undefined;
+  return { expire_from, expire_to };
 }
 
 /** สล็อต 1 = ใน, 2 = นอก */

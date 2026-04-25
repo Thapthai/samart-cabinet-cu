@@ -3,12 +3,8 @@
 import { Fragment } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import {
-  formatDaysFromSelectedYmdToTodayHint,
-  type StockStatusFilter,
-} from '../items-stock-shared';
+import { hintForExpireAfterDaysInput, type StockStatusFilter } from '../items-stock-shared';
 
 export type StockStatusChipDef = { id: StockStatusFilter; label: string };
 
@@ -16,8 +12,9 @@ type Props = {
   chipDefs: StockStatusChipDef[];
   statusFilter: StockStatusFilter;
   onStatusFilterChange: (value: StockStatusFilter) => void;
-  /** แสดงช่องวันที่เดียว — กรองวันหมดอายุเร็วสุดหลังวันนั้น (ตู้ RFID) */
+  /** แสดงช่องจำนวนวัน — กรองวันหมดเร็วสุดภายใน <= n วันจากวันนี้ (ตู้ RFID) */
   showExpiryDateRange?: boolean;
+  /** จำนวนวันนับจากวันนี้ (สตริงตัวเลข เช่น "30") */
   expiryAfterDay?: string;
   onExpiryAfterDayChange?: (value: string) => void;
   onClearExpiryDate?: () => void;
@@ -32,10 +29,9 @@ export default function StockStatusChips({
   onExpiryAfterDayChange,
   onClearExpiryDate,
 }: Props) {
-  const hasDate = Boolean((expiryAfterDay ?? '').trim());
-  const daysFromSelectedHint = hasDate
-    ? formatDaysFromSelectedYmdToTodayHint((expiryAfterDay ?? '').trim())
-    : null;
+  const rawDays = (expiryAfterDay ?? '').trim();
+  const hasDays = Boolean(rawDays);
+  const daysHint = hasDays ? hintForExpireAfterDaysInput(rawDays) : null;
 
   return (
     <div className="space-y-2">
@@ -62,19 +58,24 @@ export default function StockStatusChips({
               {c.id === 'low' && showExpiryDateRange && onExpiryAfterDayChange && (
                 <div
                   className="flex min-w-0 flex-col gap-1 border-l border-slate-200/90 pl-3 sm:ml-0.5"
-                  title="แสดงรายการที่วันหมดอายุเร็วสุดอยู่หลังวันที่เลือก (ไม่รวมวันนั้น)"
+                  title="ใส่จำนวนวันนับจากวันนี้ — แสดงเฉพาะรายการที่วันหมดเร็วสุดภายใน <= จำนวนวันที่ใส่"
                 >
                   <div className="flex min-w-0 flex-wrap items-end gap-2">
                     <div className="grid min-w-0 gap-1">
-                      <Label htmlFor="items-stock-expire-after" className="text-xs text-slate-600">
-                        หลังวันที่
-                      </Label>
+            
                       <Input
-                        id="items-stock-expire-after"
-                        type="date"
-                        className="h-9 w-[148px] max-w-full text-sm"
+                        id="items-stock-expire-after-days"
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        autoComplete="off"
+                        placeholder="เช่น 100"
+                        className="h-9 w-[100px] max-w-full text-sm"
                         value={expiryAfterDay}
-                        onChange={(e) => onExpiryAfterDayChange(e.target.value)}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/\D/g, '');
+                          onExpiryAfterDayChange(v);
+                        }}
                       />
                     </div>
                     {onClearExpiryDate && (
@@ -83,16 +84,16 @@ export default function StockStatusChips({
                         variant="ghost"
                         size="sm"
                         className="h-9 shrink-0 text-slate-600"
-                        disabled={!hasDate}
+                        disabled={!hasDays}
                         onClick={() => onClearExpiryDate()}
                       >
-                        ล้างวันที่
+                        ล้าง
                       </Button>
                     )}
                   </div>
-                  {daysFromSelectedHint && (
-                    <p className="max-w-[min(100%,280px)] text-[11px] leading-snug text-slate-500">
-                      {daysFromSelectedHint}
+                  {daysHint && (
+                    <p className="max-w-[min(100%,320px)] text-[11px] leading-snug text-slate-500">
+                      {daysHint}
                     </p>
                   )}
                 </div>

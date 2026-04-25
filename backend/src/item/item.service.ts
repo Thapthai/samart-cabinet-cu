@@ -6,6 +6,20 @@ import { UpdateItemDto } from './dto/update-item.dto';
 import { UpdateItemMinMaxDto } from './dto/update-item-minmax.dto';
 import { ItemStockDto } from './dto/item-stock.dto';
 
+/** เปรียบเทียบวันหมดอายุตามปฏิทิน — สอดคล้อง frontend items-stock rowFlags */
+function startOfDayLocal(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function stockEffectiveExpireAt(stock: { ExpireDate?: Date | null; expDate?: Date | null }): Date | null {
+  const raw = stock.ExpireDate ?? stock.expDate ?? null;
+  if (raw == null) return null;
+  const exp = new Date(raw as Date);
+  return Number.isNaN(exp.getTime()) ? null : exp;
+}
+
 @Injectable()
 export class ItemService {
   constructor(private prisma: PrismaService) {}
@@ -55,11 +69,8 @@ export class ItemService {
     cabinet_id?: number,
     department_id?: number,
     status?: string,
-    /** กรองสต๊อกหน้า items-stock: all | expired | soon | low — ใช้หลัง sort ก่อน slice */
     stock_status?: string,
-    /** วันหมดอายุเร็วสุดต้องอยู่หลังวันนี้ (ไม่รวม YYYY-MM-DD) — RFID / cabinet_id */
     expire_from?: string,
-    /** วันหมดอายุเร็วสุดถึงวันนี้รวม (YYYY-MM-DD) */
     expire_to?: string,
   ) {
     try {
@@ -81,7 +92,7 @@ export class ItemService {
           not: '',
         },
       };
-
+ 
       if (cabinet_id) {
         const cabinet = await this.prisma.cabinet.findUnique({
           where: { id: cabinet_id },
@@ -92,8 +103,8 @@ export class ItemService {
           // หน้า admin items-stock RFID: เฉพาะแท็กที่อยู่ในตู้ (IsStock = 1 / true)
           itemStocksWhere.IsStock = true;
         }
-      }
-
+      }     
+ 
       // Get all items matching the filter criteria (including keyword search)
       const allItemsQuery = await this.prisma.item.findMany({
         where: {
@@ -117,6 +128,7 @@ export class ItemService {
               Qty: true,
               RfidCode: true,
               ExpireDate: true,
+              expDate: true,
               IsStock: true,
               cabinet: {
                 select: {
@@ -214,9 +226,9 @@ export class ItemService {
         }
       }
 
-      const now = new Date();
-      const nearExpireLimit = new Date(now);
-      nearExpireLimit.setDate(nearExpireLimit.getDate() + 30);
+      const todayCal = startOfDayLocal(new Date());
+      const nearExpireLimitCal = new Date(todayCal);
+      nearExpireLimitCal.setDate(nearExpireLimitCal.getDate() + 30);
 
       const itemsWithMeta = filteredItems.map((item: any) => {
         // จำกัด itemStocks ตาม department ถ้ามีระบุ
@@ -233,22 +245,23 @@ export class ItemService {
           (s: any) => s.IsStock === true || s.IsStock === 1,
         ).length;
 
-        // วิเคราะห์วันหมดอายุ และสถานะหมดอายุ/ใกล้หมดอายุ
+        // วันหมดอายุ (ExpireDate หรือ expDate) — หมดอายุ/ใกล้หมด ตามปฏิทินเหมือน frontend rowFlags
         let earliestExpireDate: Date | null = null;
         let hasExpired = false;
         let hasNearExpire = false;
 
         matchingItemStocks.forEach((stock: any) => {
-          if (!stock.ExpireDate) return;
-          const exp = new Date(stock.ExpireDate);
+          const exp = stockEffectiveExpireAt(stock);
+          if (!exp) return;
 
           if (!earliestExpireDate || exp.getTime() < (earliestExpireDate as Date).getTime()) {
             earliestExpireDate = exp;
           }
 
-          if (exp < now) {
+          const ed = startOfDayLocal(exp);
+          if (ed < todayCal) {
             hasExpired = true;
-          } else if (exp >= now && exp <= nearExpireLimit) {
+          } else if (ed >= todayCal && ed <= nearExpireLimitCal) {
             hasNearExpire = true;
           }
         });
@@ -378,7 +391,9 @@ export class ItemService {
           ? afterExpireMeta
           : afterExpireMeta.filter((x) => {
               if (chip === 'expired') return x.hasExpired;
-              if (chip === 'soon') return x.hasNearExpire && !x.hasExpired;
+              // ใกล้หมด = มีอย่างน้อยหนึ่งแถวสต็อกที่วันหมดอยู่ในช่วงวันนี้–+30 วัน (ยังไม่หมดแถวนั้น)
+              // ไม่ใช้ !hasExpired เพราะถ้ามีแท็กหมดแล้ว + แท็กใกล้หมดคู่กัน จะไม่โผล่ใน "ใกล้หมด" ทั้งที่ควรเห็นแท็กที่ยังใช้ได้
+              if (chip === 'soon') return x.hasNearExpire;
               if (chip === 'low') return x.isLowStock;
               return true;
             });
@@ -445,6 +460,7 @@ export class ItemService {
               RowID: true,
               StockID: true,
               ExpireDate: true,
+              expDate: true,
               ItemCode: true,
               RfidCode: true,
               cabinet: {
@@ -525,11 +541,12 @@ export class ItemService {
 
         // รวบรวม itemStocks สำหรับรายการวันหมดอายุ
         matchingItemStocks.forEach((stock: any) => {
+          const eff = stockEffectiveExpireAt(stock);
           allMatchingStocks.push({
             RowID: stock.RowID,
             ItemCode: stock.ItemCode ?? item.itemcode,
             itemname: item.itemname ?? null,
-            ExpireDate: stock.ExpireDate ?? null,
+            ExpireDate: eff,
             RfidCode: stock.RfidCode ?? null,
             cabinet_name: stock.cabinet?.cabinet_name ?? undefined,
             cabinet_code: stock.cabinet?.cabinet_code ?? undefined,
@@ -538,22 +555,23 @@ export class ItemService {
         });
       });
 
-      // นับ: หมดอายุแล้ว | ใกล้หมดอายุ 1-7 วัน (ถ้าหมดอายุไม่นับ)
-      const now = new Date();
-      const in7Days = new Date(now);
-      in7Days.setDate(in7Days.getDate() + 7);
+      // นับ: หมดอายุแล้ว | ใกล้หมดอายุ 1-7 วัน (ถ้าหมดอายุไม่นับ) — ตามปฏิทิน
+      const todayStats = startOfDayLocal(new Date());
+      const in7DaysCal = new Date(todayStats);
+      in7DaysCal.setDate(in7DaysCal.getDate() + 7);
 
       let expiredCount = 0;
       let nearExpire7Days = 0;
       allMatchingStocks.forEach((s) => {
         if (!s.ExpireDate) return;
         const exp = new Date(s.ExpireDate);
-        if (exp < now) expiredCount++;
-        else if (exp <= in7Days) nearExpire7Days++;
+        if (Number.isNaN(exp.getTime())) return;
+        const ed = startOfDayLocal(exp);
+        if (ed < todayStats) expiredCount++;
+        else if (ed >= todayStats && ed <= in7DaysCal) nearExpire7Days++;
       });
 
-      // รายการ item_stock ที่มีวันหมดอายุทั้งหมด — เรียง: หมดอายุก่อน -> ใกล้หมดอายุ ตามวันหมดอายุ (เร็วไปช้า)
-      const nowTime = now.getTime();
+      // รายการ item_stock ที่มีวันหมดอายุทั้งหมด — เรียง: หมดอายุก่อน -> ใกล้หมดอายุ ตามวันหมดอายุ (เร็วไปช้า) — ตามปฏิทิน
       const itemsWithExpiry = allMatchingStocks
         .filter((s) => s.ExpireDate != null)
         .map((s) => ({
@@ -569,13 +587,13 @@ export class ItemService {
         }))
         .sort((a, b) => {
           if (!a.ExpireDate || !b.ExpireDate) return 0;
-          const aT = new Date(a.ExpireDate).getTime();
-          const bT = new Date(b.ExpireDate).getTime();
-          const aExpired = aT < nowTime;
-          const bExpired = bT < nowTime;
+          const aCal = startOfDayLocal(new Date(a.ExpireDate)).getTime();
+          const bCal = startOfDayLocal(new Date(b.ExpireDate)).getTime();
+          const aExpired = aCal < todayStats.getTime();
+          const bExpired = bCal < todayStats.getTime();
           if (aExpired && !bExpired) return -1;
           if (!aExpired && bExpired) return 1;
-          return aT - bT;
+          return aCal - bCal;
         });
 
       return {

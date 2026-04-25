@@ -110,6 +110,7 @@ export interface ItemStockRow {
   Qty?: number;
   RfidCode?: string;
   ExpireDate?: string; // ISO date string
+  expDate?: string | Date | null;
   /** true = อยู่ในตู้, false = ถูกเบิก */
   IsStock?: boolean;
   cabinet?: {
@@ -233,7 +234,7 @@ export interface GetItemsQuery {
   keyword?: string;
   /** กรองชิปสถานะหน้า items-stock (all | expired | soon | low) — backend กรองก่อนแบ่งหน้า */
   stock_status?: string;
-  /** กรองวันหมดอายุเร็วสุด — หลังวันนี้ (ไม่รวม YYYY-MM-DD) — RFID + cabinet_id */
+  /** กรองวันหมดเร็วสุด — อยู่หลังวันนี้แบบปฏิทิน (ไม่รวม YYYY-MM-DD) — RFID + cabinet_id */
   expire_from?: string;
   /** กรองถึงวันนี้รวม (YYYY-MM-DD) */
   expire_to?: string;

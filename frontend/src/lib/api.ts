@@ -1335,10 +1335,11 @@ export const reportsApi = {
     window.URL.revokeObjectURL(url);
   },
 
-  /** รายงานรวมหน้า items-stock — Excel 2 ชีต (Weighing ทุกตู้ + RFID รวมทุกตู้) */
+  /** รายงานรวมหน้า items-stock — Excel แยกชีตตามชิป (ทั้งหมด/หมดอายุ/ใกล้หมด/สต็อกต่ำ) × Weighing + RFID */
   downloadItemsStockCombinedExcel: async (params?: {
     itemName?: string;
     itemcode?: string;
+    /** ส่งได้เพื่อความเข้ากัน — แบ็กเอนด์ส่งออกครบทุกชิปในชีตแยก */
     statusFilter?: string;
   }): Promise<void> => {
     const body = {

@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import StockStatusChips, { type StockStatusChipDef } from './StockStatusChips';
 import type { ItemSlotInCabinetRow, RfidStockLine, StockStatusFilter } from '../items-stock-shared';
 import {
+  earliestExpireRawFromStocks,
+  expireRangeQueryFromAfterDaysField,
   formatExpireRelativeLabel,
   formatYmd,
   rfidLineBadge,
@@ -36,10 +38,11 @@ interface RfidStockTableProps {
   statusFilter: StockStatusFilter;
   chipDefs: StockStatusChipDef[];
   onStatusFilterChange: (value: StockStatusFilter) => void;
+  /** จำนวนวันนับจากวันนี้ (ตัวเลขเท่านั้น) → แปลงเป็นช่วง expire_from/expire_to ตอนเรียก API */
   stockExpiryAfterDay?: string;
   onStockExpiryAfterDayChange?: (value: string) => void;
   onClearStockExpiryDate?: () => void;
-  /** แสดงช่องกรองวันหมดอายุในแถบชิป */
+  /** แสดงช่อง «หลังจากนี้ (วัน)» ในแถบชิปสต็อกต่ำ */
   showExpiryDateRange?: boolean;
   currentPage: number;
   itemsPerPage: number;
@@ -63,17 +66,8 @@ function mapItemsApiToSlotRow(
   const code = item.itemcode?.trim();
   if (!code) return null;
   const stocks = item.itemStocks ?? [];
-  let nearest: string | Date | null = null;
-  let nearestMs = Infinity;
-  for (const s of stocks) {
-    if (!s.ExpireDate) continue;
-    const t = new Date(s.ExpireDate).getTime();
-    if (Number.isNaN(t)) continue;
-    if (t < nearestMs) {
-      nearestMs = t;
-      nearest = s.ExpireDate;
-    }
-  }
+  /** วันหมดอายุเร็วสุดจากแท็ก RFID เท่านั้น — ตามปฏิทินให้สอดคล้องชิปสถานะ / rowFlags */
+  const nearest = earliestExpireRawFromStocks(stocks, { rfidOnly: true });
   return {
     id: stableRfidSummaryRowId(stockId, code),
     itemcode: code,
@@ -167,14 +161,15 @@ export default function RfidStockTable({
         setLoading(true);
         onLoadingChangeRef.current?.(true);
         const kw = appliedItemName.trim() || undefined;
-        const ef = stockExpiryAfterDay?.trim() || undefined;
+        const expireRange = expireRangeQueryFromAfterDaysField(stockExpiryAfterDay ?? '');
         const res = await itemsApi.getAll({
           page: currentPage,
           limit: itemsPerPage,
           keyword: kw,
           cabinet_id: cabinetId,
           stock_status: statusFilter === 'all' ? undefined : statusFilter,
-          expire_from: ef,
+          expire_from: expireRange.expire_from,
+          expire_to: expireRange.expire_to,
         });
         if (cancelled) return;
 
@@ -195,7 +190,7 @@ export default function RfidStockTable({
               .map((s) => ({
                 rowId: Number(s.RowID ?? 0),
                 rfidCode: String(s.RfidCode).trim(),
-                expireDate: s.ExpireDate ?? null,
+                expireDate: (s.ExpireDate ?? s.expDate ?? null) as string | Date | null,
               }));
           }
         }
@@ -315,7 +310,7 @@ export default function RfidStockTable({
             <Radio className="h-10 w-10 opacity-35" />
             <p>{filteredEmpty ? 'ไม่มีรายการที่ตรงกับชิปสถานะ' : 'ไม่พบข้อมูลตามเงื่อนไข'}</p>
             <p className="text-xs">
-              {filteredEmpty ? 'ลองเลือก &quot;ทั้งหมด&quot; หรือเปลี่ยนคำค้น' : 'ลองเปลี่ยนคำค้น'}
+              {filteredEmpty ? 'ลองเลือกชิปทั้งหมดหรือเปลี่ยนคำค้น' : 'ลองเปลี่ยนคำค้น'}
             </p>
           </div>
         </div>
@@ -375,10 +370,25 @@ export default function RfidStockTable({
               const warnQtyBelowMin = low;
               const open = expandedIds.has(row.id);
               const lines = rfidByItemcode[row.itemcode] ?? [];
+              /** โหมดทั้งหมด: เน้นสีทั้งแถวให้เห็นว่าตัวไหนหมดอายุ/ใกล้หมด — กดขยาย RFID ได้ตรง */
+              const rowAllMode =
+                statusFilter === 'all' &&
+                cn(
+                  'border-l-[3px]',
+                  expired && 'border-l-red-500 bg-red-50/85 hover:bg-red-50',
+                  !expired && soon && 'border-l-amber-400 bg-amber-50/75 hover:bg-amber-50/90',
+                  !expired && !soon && 'border-l-transparent hover:bg-muted/35',
+                );
 
               return (
                 <Fragment key={row.id}>
-                  <TableRow className="border-b border-border/50 transition-colors hover:bg-muted/40">
+                  <TableRow
+                    className={cn(
+                      'border-b border-border/50 transition-colors',
+                      rowAllMode,
+                      statusFilter !== 'all' && 'hover:bg-muted/40',
+                    )}
+                  >
                     <TableCell className={cn('max-w-[260px] truncate', nameDateClass)} title={name}>
                       {name}
                     </TableCell>
