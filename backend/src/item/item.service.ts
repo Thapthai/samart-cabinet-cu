@@ -90,6 +90,7 @@ export class ItemService {
       const itemStocksWhere: any = {
         RfidCode: {
           not: '',
+          
         },
       };
  

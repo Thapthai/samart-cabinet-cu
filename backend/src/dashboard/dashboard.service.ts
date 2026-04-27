@@ -45,6 +45,34 @@ const itemStockCabinetIsRfidWhere = {
   },
 };
 
+/** สอดคล้อง `cabinetEntityStockTableMode` / หน้า items-stock */
+function cabinetStockModeForMinRow(c: {
+  cabinet_type?: string | null;
+  cabinetTypeDef?: { code?: string | null; show_rfid_code?: boolean | null } | null;
+}): 'WEIGHING' | 'RFID' {
+  const def = c.cabinetTypeDef;
+  if (def?.code) {
+    const code = def.code.trim().toUpperCase();
+    if (code === 'WEIGHING') return 'WEIGHING';
+    if (code === 'RFID') return 'RFID';
+    if (def.show_rfid_code === true) return 'RFID';
+    return 'WEIGHING';
+  }
+  const raw = (c.cabinet_type ?? '').toString().trim().toUpperCase();
+  if (raw === 'WEIGHING') return 'WEIGHING';
+  if (raw === 'RFID') return 'RFID';
+  return 'WEIGHING';
+}
+
+/** เทียบคู่ StockID+รหัสสินค้า / ค้นหา Item — ลดเพี้ยนตัวพิมพ์ */
+function normalizeDashboardItemCode(code: string | null | undefined): string {
+  return String(code ?? '').trim().toLowerCase();
+}
+
+function stockItemPairKey(stockId: number, itemCode: string): string {
+  return `${stockId}|${normalizeDashboardItemCode(itemCode)}`;
+}
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -72,7 +100,12 @@ export class DashboardService {
 
   /**
    * หมดอายุ / ใกล้หมดอายุ 30 วัน — นับจาก itemstock.ExpireDate เฉพาะตู้ RFID
-   * สต็อกต่ำกว่า min — เทียบ min จาก cabinet_item_settings กับผลรวม itemslotincabinet.Qty ต่อ (StockID, itemcode)
+   * สต็อกต่ำกว่า min — เทียบ min จาก cabinet_item_settings กับ:
+   * - ตู้ Weighing: จำนวน Qty จากแถว itemslotincabinet ของรายการนั้น — ต้อง StockID ตรงกับตู้ใน settings
+   *   (itemcode unique ทั้งระบบ ถ้าสล็อตอยู่ตู้อื่นจะไม่แสดงแถวหลอกในตู้นี้)
+   * - ตู้ RFID: จำนวนแถว itemstock ที่ IsStock + มี RfidCode ต่อ (StockID, ItemCode) — ตรง GET /items?cabinet_id
+   *   แถว min ของ RFID เฉพาะรายการที่มีอย่างน้อยหนึ่งแถว itemstock: IsStock + RfidCode ใน StockID นั้น
+   *   (สอดคล้อง GET /items?cabinet_id — ไม่รวมแถว settings ลอย)
    */
   /** นับ KPI + รายการตู้–รายการที่ต่ำกว่า min (จำกัดจำนวนแถว) */
   private async getItemStockAlertsAndBelowMinList(listLimit = 15) {
@@ -80,7 +113,7 @@ export class DashboardService {
     const in30 = new Date(now);
     in30.setDate(in30.getDate() + 30);
 
-    const [expiredStockCount, nearExpireStockCount, settings, slotQtyByPair] = await Promise.all([
+    const [expiredStockCount, nearExpireStockCount, settings] = await Promise.all([
       this.prisma.itemStock.count({
         where: {
           ...itemStockInCabinetWhere,
@@ -110,19 +143,64 @@ export class DashboardService {
               cabinet_name: true,
               cabinet_code: true,
               cabinet_type: true,
+              cabinetTypeDef: { select: { code: true, show_rfid_code: true } },
             },
           },
         },
       }),
-      this.prisma.itemSlotInCabinet.groupBy({
-        by: ['StockID', 'itemcode'],
-        _sum: { Qty: true },
-      }),
     ]);
 
-    const qtyByStockAndItem = new Map<string, number>();
-    for (const g of slotQtyByPair) {
-      qtyByStockAndItem.set(`${g.StockID}|${g.itemcode}`, g._sum.Qty ?? 0);
+    const rfidStockIds = new Set<number>();
+    const weighingSettingCodes = new Set<string>();
+    for (const s of settings) {
+      const sid = s.cabinet?.stock_id;
+      if (sid == null || sid <= 0 || !s.cabinet) continue;
+      if (cabinetStockModeForMinRow(s.cabinet) === 'RFID') rfidStockIds.add(sid);
+      else {
+        const ic = String(s.item_code ?? '').trim();
+        if (ic) weighingSettingCodes.add(ic);
+      }
+    }
+
+    const [weighingSlots, rfidTagCountByPair] = await Promise.all([
+      weighingSettingCodes.size > 0
+        ? this.prisma.itemSlotInCabinet.findMany({
+            where: { itemcode: { in: [...weighingSettingCodes] } },
+            select: { StockID: true, itemcode: true, Qty: true },
+          })
+        : Promise.resolve([] as { StockID: number; itemcode: string; Qty: number }[]),
+      rfidStockIds.size > 0
+        ? this.prisma.itemStock.groupBy({
+            by: ['StockID', 'ItemCode'],
+            where: {
+              StockID: { in: [...rfidStockIds] },
+              IsStock: true,
+              RfidCode: { not: '' },
+              NOT: { OR: [{ ItemCode: null }, { ItemCode: '' }] },
+            },
+            _count: { RowID: true },
+          })
+        : Promise.resolve([] as { StockID: number | null; ItemCode: string | null; _count: { RowID: number } }[]),
+    ]);
+
+    /** สล็อต Weighing ต่อรหัสสินค้า (itemcode unique ใน DB) */
+    const weighingSlotByNormCode = new Map<string, { stockId: number; qty: number; itemcode: string }>();
+    for (const row of weighingSlots) {
+      const nk = normalizeDashboardItemCode(row.itemcode);
+      if (!nk) continue;
+      weighingSlotByNormCode.set(nk, {
+        stockId: row.StockID,
+        qty: row.Qty ?? 0,
+        itemcode: row.itemcode,
+      });
+    }
+
+    const rfidQtyByPair = new Map<string, number>();
+    for (const g of rfidTagCountByPair) {
+      const sid = g.StockID;
+      const raw = String(g.ItemCode ?? '').trim();
+      if (sid == null || sid <= 0 || !raw) continue;
+      rfidQtyByPair.set(stockItemPairKey(sid, raw), g._count.RowID);
     }
 
     let belowMinCabinetItemPairs = 0;
@@ -138,10 +216,23 @@ export class DashboardService {
 
     for (const s of settings) {
       const stockId = s.cabinet?.stock_id;
-      if (stockId == null || stockId <= 0) continue;
+      if (stockId == null || stockId <= 0 || !s.cabinet) continue;
       const minVal = s.stock_min ?? 0;
       if (minVal <= 0) continue;
-      const cnt = qtyByStockAndItem.get(`${stockId}|${s.item_code}`) ?? 0;
+      const itemCode = String(s.item_code ?? '').trim();
+      if (!itemCode) continue;
+      const mode = cabinetStockModeForMinRow(s.cabinet);
+      let cnt: number;
+      if (mode === 'RFID') {
+        const pairKey = stockItemPairKey(stockId, itemCode);
+        if (!rfidQtyByPair.has(pairKey)) continue;
+        cnt = rfidQtyByPair.get(pairKey) ?? 0;
+      } else {
+        const slot = weighingSlotByNormCode.get(normalizeDashboardItemCode(itemCode));
+        if (!slot) continue;
+        if (slot.stockId !== stockId) continue;
+        cnt = slot.qty;
+      }
       if (cnt < minVal) {
         belowMinCabinetItemPairs++;
         const cab = s.cabinet;
@@ -154,7 +245,7 @@ export class DashboardService {
           : '-';
         belowRaw.push({
           id: s.id,
-          itemCode: s.item_code,
+          itemCode,
           currentQty: cnt,
           stockMin: minVal,
           stockMax: s.stock_max ?? null,
@@ -174,14 +265,19 @@ export class DashboardService {
             select: { itemcode: true, itemname: true, Alternatename: true },
           })
         : [];
-    const itemByCode = new Map(items.map((i) => [i.itemcode, i]));
+    const itemByNormCode = new Map<string, (typeof items)[0]>();
+    for (const i of items) {
+      const nk = normalizeDashboardItemCode(i.itemcode ?? '');
+      if (nk) itemByNormCode.set(nk, i);
+    }
 
     const belowMinStockList = sliced.map((r) => {
-      const it = itemByCode.get(r.itemCode);
+      const it = itemByNormCode.get(normalizeDashboardItemCode(r.itemCode));
       const itemName = it?.itemname || it?.Alternatename || r.itemCode;
+      const displayItemCode = it?.itemcode ?? r.itemCode;
       return {
         settingId: r.id,
-        itemCode: r.itemCode,
+        itemCode: displayItemCode,
         itemName,
         cabinetLabel: r.cabinetLabel,
         currentQty: r.currentQty,
