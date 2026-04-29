@@ -114,7 +114,7 @@ export class WeighingRefillReportExcelService {
 
     worksheet.getColumn(1).width = 13;
     worksheet.getColumn(2).width = 48;
-    worksheet.getColumn(3).width = 30;
+    worksheet.getColumn(3).width = 45;
     worksheet.getColumn(4).width = 25;
     worksheet.getColumn(5).width = 10;
     worksheet.getColumn(6).width = 20;

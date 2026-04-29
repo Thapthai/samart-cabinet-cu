@@ -7,6 +7,7 @@ import Pagination from '@/components/Pagination';
 import StockStatusChips, { type StockStatusChipDef } from './StockStatusChips';
 import type { StockStatusFilter } from '../items-stock-shared';
 import { STOCK_TABLE_FRAME } from '../items-stock-shared';
+import WeighingStockLowRowsTable from './WeighingStockLowRowsTable';
 import WeighingStockRowsTable from './WeighingStockRowsTable';
 import { fetchWeighingItemSlots, type WeighingRow } from './weighingStockFetch';
 
@@ -30,6 +31,8 @@ interface WeighingStockTableProps {
   onStatsChange?: (stats: WeighingListStats) => void;
   /** ปุ่มรายงาน — แสดงในแถบเดียวกับ «กรองสถานะในหน้านี้» */
   reportToolbar?: ReactNode;
+  /** คอลัมน์จัดการ — Min/Max ต่อตู้ */
+  onManage?: (row: WeighingRow) => void;
 }
 
 export default function WeighingStockTable({
@@ -45,6 +48,7 @@ export default function WeighingStockTable({
   onLoadingChange,
   onStatsChange,
   reportToolbar,
+  onManage,
 }: WeighingStockTableProps) {
   const [rawRows, setRawRows] = useState<WeighingRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,12 +193,16 @@ export default function WeighingStockTable({
     <>
       <div className={STOCK_TABLE_FRAME}>
         {chipsToolbar}
-        <WeighingStockRowsTable
-          rows={rawRows}
-          statusFilter={statusFilter}
-          currentPage={currentPage}
-          itemsPerPage={itemsPerPage}
-        />
+        {statusFilter === 'low' ? (
+          <WeighingStockLowRowsTable rows={rawRows} currentPage={currentPage} itemsPerPage={itemsPerPage} />
+        ) : (
+          <WeighingStockRowsTable
+            rows={rawRows}
+            currentPage={currentPage}
+            itemsPerPage={itemsPerPage}
+            onManage={onManage}
+          />
+        )}
       </div>
       {totalPages > 1 && (
         <div className="pt-5">

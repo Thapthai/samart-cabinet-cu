@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import Pagination from '@/components/Pagination';
 import { cn } from '@/lib/utils';
 import StockStatusChips, { type StockStatusChipDef } from './StockStatusChips';
-import WeighingStockRowsTable from './WeighingStockRowsTable';
+import RfidStockLowRowsTable from './RfidStockLowRowsTable';
 import type { ItemSlotInCabinetRow, RfidStockLine, StockStatusFilter } from '../items-stock-shared';
 import {
   earliestExpireRawFromStocks,
@@ -345,11 +345,14 @@ export default function RfidStockTable({
       <div className={STOCK_TABLE_FRAME}>
         {chipsToolbar}
         {statusFilter === 'low' ? (
-          <WeighingStockRowsTable
-            rows={pageRows}
-            statusFilter={statusFilter}
+          <RfidStockLowRowsTable
+            pageRows={pageRows}
             currentPage={currentPage}
             itemsPerPage={itemsPerPage}
+            rfidByItemcode={rfidByItemcode}
+            toolbarExpireRange={toolbarExpireRange}
+            expandedIds={expandedIds}
+            onToggleExpand={toggleExpand}
           />
         ) : (
         <div className="overflow-x-auto">

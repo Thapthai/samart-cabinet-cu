@@ -198,7 +198,7 @@ function appendWeighingLowWebExcelSheet(
   wsW.getRow(wFoot).height = 18;
 
   wsW.getColumn(1).width = 11;
-  wsW.getColumn(2).width = 28;
+  wsW.getColumn(2).width = 35;
   wsW.getColumn(3).width = 44;
   wsW.getColumn(4).width = 14;
   wsW.getColumn(5).width = 14;

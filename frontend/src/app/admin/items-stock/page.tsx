@@ -417,6 +417,7 @@ export default function ItemsStockPage() {
                   refetchSignal={refetchTick}
                   onLoadingChange={setListLoading}
                   onStatsChange={setListStats}
+                  onManage={openMinMaxDialog}
                   reportToolbar={
                     stockIdParsed ? (
                       <WeighingStockReportDownloadGroups
