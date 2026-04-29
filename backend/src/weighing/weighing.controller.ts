@@ -34,6 +34,25 @@ export class WeighingController {
   }
 
   /**
+   * GET /weighing/low-stock — รายการ Weighing ที่จำนวนต่ำกว่า Min (แยกจาก GET /weighing)
+   * Query: stockId (จำเป็น), itemName, page, limit — แต่ละแถวมี refillQuantity = max − qty เมื่อมีค่า max
+   */
+  @Get('low-stock')
+  findLowStock(
+    @Query('stockId') stockId?: string,
+    @Query('itemName') itemName?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.weighingService.findLowStockRefill({
+      stockId: stockId ? parseInt(stockId, 10) : undefined,
+      itemName,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
+  }
+
+  /**
    * GET /weighing/by-sign — รายการ Detail ตาม Sign (เบิก = '-', เติม = '+')
    * Query: sign, page, limit, itemName (ค้นหาชื่ออุปกรณ์), itemcode, stockId, dateFrom, dateTo (YYYY-MM-DD)
    */

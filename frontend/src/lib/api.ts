@@ -1127,7 +1127,7 @@ export const reportsApi = {
     return response.data;
   },
 
-  // Cabinet Stock Report (รายงานสต๊อกอุปกรณ์ในตู้) — Backend POST /reports/cabinet-stock/excel|pdf returns JSON { success, data: { buffer, filename, contentType } }
+  // รายงานสต๊อก RFID ในตู้ — POST /reports/rfid-stock/excel (สอดคล้อง weighing-stock: JSON base64 + statusFilter)
   downloadCabinetStockExcel: async (params?: {
     cabinetId?: number;
     cabinetCode?: string;
@@ -1142,7 +1142,7 @@ export const reportsApi = {
       keyword: params?.keyword?.trim() || undefined,
       statusFilter: params?.statusFilter && params.statusFilter !== 'all' ? params.statusFilter : undefined,
     };
-    const response = await api.post('/reports/cabinet-stock/excel', body);
+    const response = await api.post('/reports/rfid-stock/excel', body);
     const res = response.data as { success?: boolean; data?: { buffer?: string; filename?: string; contentType?: string } };
     if (!res?.success || !res?.data?.buffer) throw new Error((res as any)?.error || 'ไม่สามารถสร้างไฟล์ได้');
     const binary = atob(res.data.buffer);
@@ -1152,7 +1152,7 @@ export const reportsApi = {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', res.data.filename || `cabinet_stock_report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    link.setAttribute('download', res.data.filename || `rfid_stock_report_${new Date().toISOString().split('T')[0]}.xlsx`);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1173,7 +1173,7 @@ export const reportsApi = {
       keyword: params?.keyword?.trim() || undefined,
       statusFilter: params?.statusFilter && params.statusFilter !== 'all' ? params.statusFilter : undefined,
     };
-    const response = await api.post('/reports/cabinet-stock/pdf', body);
+    const response = await api.post('/reports/rfid-stock/pdf', body);
     const res = response.data as { success?: boolean; data?: { buffer?: string; filename?: string; contentType?: string } };
     if (!res?.success || !res?.data?.buffer) throw new Error((res as any)?.error || 'ไม่สามารถสร้างไฟล์ได้');
     const binary = atob(res.data.buffer);
@@ -1183,7 +1183,7 @@ export const reportsApi = {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', res.data.filename || `cabinet_stock_report_${new Date().toISOString().split('T')[0]}.pdf`);
+    link.setAttribute('download', res.data.filename || `rfid_stock_report_${new Date().toISOString().split('T')[0]}.pdf`);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1335,7 +1335,7 @@ export const reportsApi = {
     window.URL.revokeObjectURL(url);
   },
 
-  /** รายงานรวมหน้า items-stock — Excel แยกชีตตามชิป (ทั้งหมด/หมดอายุ/ใกล้หมด/สต็อกต่ำ) × Weighing + RFID */
+  /** รายงานรวมหน้า items-stock — Excel แยกชีตตามชิป (ทั้งหมด/หมดอายุ/ใกล้หมดอายุ/สต็อกต่ำ) × Weighing + RFID */
   downloadItemsStockCombinedExcel: async (params?: {
     itemName?: string;
     itemcode?: string;
@@ -1358,6 +1358,58 @@ export const reportsApi = {
     const link = document.createElement('a');
     link.href = url;
     link.setAttribute('download', res.data.filename || `items_stock_combined_report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  /** รายงานสต็อกต่ำรวม — Excel 2 ชีต (Weighing แล้ว RFID) endpoint แยกจาก items-stock-combined */
+  downloadItemsStockLowCombinedExcel: async (params?: {
+    itemName?: string;
+    itemcode?: string;
+  }): Promise<void> => {
+    const body = {
+      itemName: params?.itemName || undefined,
+      itemcode: params?.itemcode || undefined,
+    };
+    const response = await api.post('/reports/items-stock-low-combined/excel', body);
+    const res = response.data as { success?: boolean; data?: { buffer?: string; filename?: string; contentType?: string } };
+    if (!res?.success || !res?.data?.buffer) throw new Error((res as any)?.error || 'ไม่สามารถสร้างไฟล์ได้');
+    const binary = atob(res.data.buffer);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: res.data.contentType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', res.data.filename || `items_stock_low_combined_${new Date().toISOString().split('T')[0]}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  /** รายงานสต็อกต่ำรวม — PDF เดียว (Weighing แล้ว RFID) */
+  downloadItemsStockLowCombinedPdf: async (params?: {
+    itemName?: string;
+    itemcode?: string;
+  }): Promise<void> => {
+    const body = {
+      itemName: params?.itemName || undefined,
+      itemcode: params?.itemcode || undefined,
+    };
+    const response = await api.post('/reports/items-stock-low-combined/pdf', body);
+    const res = response.data as { success?: boolean; data?: { buffer?: string; filename?: string; contentType?: string } };
+    if (!res?.success || !res?.data?.buffer) throw new Error((res as any)?.error || 'ไม่สามารถสร้างไฟล์ได้');
+    const binary = atob(res.data.buffer);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: res.data.contentType || 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', res.data.filename || `items_stock_low_combined_${new Date().toISOString().split('T')[0]}.pdf`);
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -1867,6 +1919,21 @@ export const weighingApi = {
     stock_status?: string;
   }): Promise<{ success: boolean; data: any[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> => {
     const response = await api.get('/weighing', { params });
+    return response.data;
+  },
+
+  /** รายการสต็อกต่ำ Weighing + refillQuantity (max − qty) — GET /weighing/low-stock */
+  getLowStockRefill: async (params?: {
+    stockId?: number;
+    itemName?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    data: any[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  }> => {
+    const response = await api.get('/weighing/low-stock', { params });
     return response.data;
   },
 

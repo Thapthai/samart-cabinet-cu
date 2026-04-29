@@ -135,7 +135,7 @@ export class WeighingStockReportPdfService {
         const colWidths = colPct.map((p) => Math.floor(totalTableWidth * p));
         let sumW = colWidths.reduce((a, b) => a + b, 0);
         if (sumW < totalTableWidth) colWidths[1] += totalTableWidth - sumW;
-        const headers = ['ลำดับ', 'ชื่อสินค้า', 'ตู้', 'ช่อง', 'สล็อต', 'จำนวน'];
+        const headers = ['ลำดับ', 'ชื่ออุปกรณ์', 'ตู้', 'ช่อง', 'สล็อต', 'จำนวน'];
 
         const drawTableHeader = (y: number) => {
           doc.fontSize(13).font(finalFontBoldName);

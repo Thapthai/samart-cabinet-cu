@@ -300,6 +300,24 @@ export function formatMinMax(v: number | null | undefined) {
   return v != null && v !== undefined ? String(v) : '—';
 }
 
+/** รายการสล็อต/สรุป: qty ต่ำกว่า min ที่ใช้จริง (ต่อตู้หรือจาก item) */
+export function isItemBelowMinStock(row: ItemSlotInCabinetRow): boolean {
+  const min = effectiveMin(row);
+  if (min == null) return false;
+  return (row.Qty ?? 0) < min;
+}
+
+/**
+ * ตู้ Weighing — จำนวนที่ต้องเติม = max − qty เมื่อ qty < min
+ * ถ้าไม่มี max ใน settings/item จะได้ null (ให้ backend ส่งมาแทนได้ภายหลัง)
+ */
+export function weighingRefillQuantity(row: ItemSlotInCabinetRow): number | null {
+  if (!isItemBelowMinStock(row)) return null;
+  const maxV = effectiveMax(row);
+  if (maxV == null) return null;
+  return Math.max(0, maxV - (row.Qty ?? 0));
+}
+
 export function rowFlags(row: ItemSlotInCabinetRow) {
   const min = effectiveMin(row);
   const qty = row.Qty ?? 0;
@@ -317,7 +335,7 @@ export function rowFlags(row: ItemSlotInCabinetRow) {
       soon = ed <= limit;
     }
   }
-  const low = min != null && qty < min;
+  const low = isItemBelowMinStock(row);
   return { expired, soon, low };
 }
 
@@ -330,6 +348,22 @@ export function rowBadge(row: ItemSlotInCabinetRow): {
   if (soon) return { key: 'SOON', className: 'bg-amber-100 text-amber-900 border-amber-200' };
   if (low) return { key: 'LOW', className: 'bg-orange-100 text-orange-900 border-orange-200' };
   return { key: 'OK', className: 'bg-emerald-100 text-emerald-900 border-emerald-200' };
+}
+
+/** ป้ายสถานะภาษาไทยในตาราง — สอดคล้องชิปกรอง «ใกล้หมดอายุ» */
+export type ItemsStockStatusBadgeKey = 'EXPIRED' | 'SOON' | 'LOW' | 'OK';
+
+export function itemsStockStatusKeyLabelTh(key: ItemsStockStatusBadgeKey): string {
+  switch (key) {
+    case 'EXPIRED':
+      return 'หมดอายุ';
+    case 'SOON':
+      return 'ใกล้หมดอายุ';
+    case 'LOW':
+      return 'สต็อกต่ำ';
+    default:
+      return 'ปกติ';
+  }
 }
 
 export function rfidLineBadge(expireRaw: string | Date | null | undefined): {

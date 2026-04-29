@@ -46,6 +46,8 @@ import {
   type ItemsStockCombinedChip,
   type ItemsStockCombinedChipBlock,
 } from './services/items-stock-combined-excel.service';
+import { ItemsStockLowCombinedExcelService } from './services/items-stock-low-combined-excel.service';
+import { ItemsStockLowCombinedPdfService } from './services/items-stock-low-combined-pdf.service';
 import { WeighingStockReportPdfService } from './services/weighing-stock-report-pdf.service';
 import {
   DispensedItemsForPatientsExcelService,
@@ -112,7 +114,7 @@ function formatYmdReport(d: Date | string | null | undefined): string {
   return `${y}-${m}-${day}`;
 }
 
-/** สถานะแถวสรุป — ตรง rowBadge หน้า items-stock (EXPIRED > SOON > LOW > OK) */
+/** สถานะแถวสรุป — ตรง rowBadge หน้า items-stock (EXPIRED > SOON > LOW > OK; แสดงภาษาไทยในรายงาน RFID) */
 function cabinetSummaryStatusLabel(
   earliest: Date | string | null | undefined,
   balance: number,
@@ -198,6 +200,15 @@ function cabinetEntityStockTableMode(c: {
   return 'WEIGHING';
 }
 
+/** Body POST /reports/rfid-stock/* — เทียบเคียง weighing-stock + statusFilter */
+export type RfidStockReportParams = {
+  cabinetId?: number;
+  cabinetCode?: string;
+  departmentId?: number;
+  keyword?: string;
+  statusFilter?: string;
+};
+
 @Injectable()
 export class ReportServiceService {
   constructor(
@@ -237,6 +248,8 @@ export class ReportServiceService {
     private readonly dispensedItemsForPatientsExcelService: DispensedItemsForPatientsExcelService,
     private readonly dispensedItemsForPatientsPdfService: DispensedItemsForPatientsPdfService,
     private readonly itemsStockCombinedExcelService: ItemsStockCombinedExcelService,
+    private readonly itemsStockLowCombinedExcelService: ItemsStockLowCombinedExcelService,
+    private readonly itemsStockLowCombinedPdfService: ItemsStockLowCombinedPdfService,
   ) {}
 
   /**
@@ -2569,7 +2582,7 @@ export class ReportServiceService {
 
       const kwSql = itemKeywordSql(params?.keyword);
       const rfidOnlySql = Prisma.sql`AND (ist.RfidCode IS NOT NULL AND TRIM(ist.RfidCode) <> '')`;
-      /** สอดคล้อง GET /items?cabinet_id= (findAllItems) — เฉพาะแท็กที่ยังอยู่ในตู้ */
+      /** สอดคล้อง GET /items?cabinet_id= (findAllItems): IsStock + min/max ต่อตู้จาก app_microservice_cabinet_item_settings */
       const inCabinetStockSql = Prisma.sql`AND (ist.IsStock = 1 OR ist.IsStock = TRUE)`;
       const inCabinetCountSql = Prisma.sql`AND (ist_cnt.IsStock = 1 OR ist_cnt.IsStock = TRUE)`;
       const activeItemSql = Prisma.sql`AND COALESCE(i.item_status, 0) = 0`;
@@ -2584,8 +2597,8 @@ export class ReportServiceService {
             i.Alternatename AS alternatename,
             ist.RowID AS row_id,
             COALESCE(ist.ExpireDate, ist.expDate) AS expire_date,
-            i.stock_min,
-            i.stock_max,
+            COALESCE(cis.stock_min, i.stock_min) AS stock_min,
+            COALESCE(cis.stock_max, i.stock_max) AS stock_max,
             (
               SELECT COUNT(*)
               FROM itemstock ist_cnt
@@ -2597,6 +2610,8 @@ export class ReportServiceService {
           FROM item i
           INNER JOIN itemstock ist ON ist.ItemCode = i.itemcode
           INNER JOIN app_microservice_cabinets c ON ist.StockID = c.stock_id AND ist.StockID > 0
+          LEFT JOIN app_microservice_cabinet_item_settings cis
+            ON cis.cabinet_id = c.id AND cis.item_code = i.itemcode
           LEFT JOIN (
             SELECT cd.cabinet_id, MIN(d.DepName) AS DepName
             FROM app_microservice_cabinet_departments cd
@@ -2621,8 +2636,8 @@ export class ReportServiceService {
             i.Alternatename AS alternatename,
             ist.RowID AS row_id,
             COALESCE(ist.ExpireDate, ist.expDate) AS expire_date,
-            i.stock_min,
-            i.stock_max,
+            COALESCE(cis.stock_min, i.stock_min) AS stock_min,
+            COALESCE(cis.stock_max, i.stock_max) AS stock_max,
             (
               SELECT COUNT(*)
               FROM itemstock ist_cnt
@@ -2634,6 +2649,8 @@ export class ReportServiceService {
           FROM item i
           INNER JOIN itemstock ist ON ist.ItemCode = i.itemcode
           INNER JOIN app_microservice_cabinets c ON ist.StockID = c.stock_id AND ist.StockID > 0
+          LEFT JOIN app_microservice_cabinet_item_settings cis
+            ON cis.cabinet_id = c.id AND cis.item_code = i.itemcode
           INNER JOIN app_microservice_cabinet_departments cd_filter ON cd_filter.cabinet_id = c.id AND cd_filter.department_id = ${params!.departmentId!} AND cd_filter.status = 'ACTIVE'
           LEFT JOIN (
             SELECT cd.cabinet_id, MIN(d.DepName) AS DepName
@@ -2706,10 +2723,12 @@ export class ReportServiceService {
               ),
             );
 
-      const data: CabinetStockReportData['data'] = filteredPairs.map(({ dataRow }) => ({
+      const data: CabinetStockReportData['data'] = filteredPairs.map(({ dataRow, rawRow }) => ({
         device_name: dataRow.device_name,
         expire_date_ymd: dataRow.expire_date_ymd,
         status_label: dataRow.status_label,
+        stock_min: dataRow._stock_min,
+        stock_max: rawRow?.stock_max != null ? Number(rawRow.stock_max) : null,
       }));
 
       const totalQty = data.length;
@@ -2788,7 +2807,7 @@ export class ReportServiceService {
         tabs: [
           { chipLabelTh: 'ทั้งหมด', rows: allData.data },
           { chipLabelTh: 'หมดอายุ', rows: expiredData.data },
-          { chipLabelTh: 'ใกล้หมด', rows: soonData.data },
+          { chipLabelTh: 'ใกล้หมดอายุ', rows: soonData.data },
           { chipLabelTh: 'สต็อกต่ำ', rows: lowData.data },
         ],
       });
@@ -2823,6 +2842,26 @@ export class ReportServiceService {
       const errorMessage = error?.message || error?.toString() || 'Unknown error';
       throw new Error(`Failed to generate Cabinet Stock PDF report: ${errorMessage}`);
     }
+  }
+
+  /**
+   * รายงานสต๊อก RFID ในตู้ — delegate ไป cabinet stock (สูตรเดียวกับ weighing-stock: POST + statusFilter)
+   * ชื่อไฟล์ใช้ prefix rfid_stock_report_ เพื่อให้สอดคล้อง weighing_stock_report_
+   */
+  async generateRfidStockExcel(params: RfidStockReportParams): Promise<{ buffer: Buffer; filename: string }> {
+    const { buffer } = await this.generateCabinetStockExcel(params);
+    const dateStr = new Date().toISOString().split('T')[0];
+    return { buffer, filename: `rfid_stock_report_${dateStr}.xlsx` };
+  }
+
+  async generateRfidStockPdf(params: RfidStockReportParams): Promise<{ buffer: Buffer; filename: string }> {
+    const { buffer } = await this.generateCabinetStockPdf(params);
+    const dateStr = new Date().toISOString().split('T')[0];
+    return { buffer, filename: `rfid_stock_report_${dateStr}.pdf` };
+  }
+
+  async getRfidStockData(params: RfidStockReportParams): Promise<CabinetStockReportData> {
+    return this.getCabinetStockData(params);
   }
 
   /**
@@ -3059,14 +3098,17 @@ export class ReportServiceService {
       const chipTabs = [
         { id: 'all' as const, labelTh: 'ทั้งหมด' },
         { id: 'expired' as const, labelTh: 'หมดอายุ' },
-        { id: 'soon' as const, labelTh: 'ใกล้หมด' },
+        { id: 'soon' as const, labelTh: 'ใกล้หมดอายุ' },
         { id: 'low' as const, labelTh: 'สต็อกต่ำ' },
       ];
       const tabs = chipTabs.map((c) => ({
         chipLabelTh: c.labelTh,
         data: toReportData(rawRows.filter((r: any) => weighingStockRowMatchesStatusFilter(r, c.id))),
       }));
-      const buffer = await this.weighingStockReportExcelService.generateMultiTabReport({ tabs });
+      const buffer = await this.weighingStockReportExcelService.generateMultiTabReport({
+        filters: baseFilters,
+        tabs,
+      });
       const dateStr = new Date().toISOString().split('T')[0];
       const filename = `weighing_stock_report_${dateStr}.xlsx`;
       return { buffer, filename };
@@ -3127,7 +3169,7 @@ export class ReportServiceService {
   }
 
   /**
-   * รายงานรวมหน้า admin/items-stock — Excel แยกชีตตามชิปสถานะ (ทั้งหมด / หมดอายุ / ใกล้หมด / สต็อกต่ำ)
+   * รายงานรวมหน้า admin/items-stock — Excel แยกชีตตามชิปสถานะ (ทั้งหมด / หมดอายุ / ใกล้หมดอายุ / สต็อกต่ำ)
    * ลำดับชีต: Weighing ตามชิปทั้งหมดก่อน แล้ว RFID ตามชิปทั้งหมด — สอดคล้องการกรองบนหน้าเว็บ
    */
   async generateItemsStockCombinedExcel(params: {
@@ -3141,7 +3183,7 @@ export class ReportServiceService {
       const COMBINED_CHIPS: { id: ItemsStockCombinedChip; labelTh: string }[] = [
         { id: 'all', labelTh: 'ทั้งหมด' },
         { id: 'expired', labelTh: 'หมดอายุ' },
-        { id: 'soon', labelTh: 'ใกล้หมด' },
+        { id: 'soon', labelTh: 'ใกล้หมดอายุ' },
         { id: 'low', labelTh: 'สต็อกต่ำ' },
       ];
 
@@ -3245,6 +3287,178 @@ export class ReportServiceService {
       console.error('[Report Service] Error generating Items Stock Combined Excel:', error);
       const errorMessage = error?.message || error?.toString() || 'Unknown error';
       throw new Error(`Failed to generate Items Stock Combined Excel: ${errorMessage}`);
+    }
+  }
+
+  /** max−qty เมื่อ qty < min และมี max — สอดคล้อง weighing.service findLowStockRefill */
+  private weighingRefillQtyForLowCombinedRow(r: any): number | null {
+    const minV = r?.cabinetItemSetting?.stock_min ?? r?.item?.stock_min ?? null;
+    const maxV = r?.cabinetItemSetting?.stock_max ?? r?.item?.stock_max ?? null;
+    const qty = Number(r?.Qty) || 0;
+    if (minV == null || qty >= Number(minV)) return null;
+    if (maxV == null) return null;
+    return Math.max(0, Number(maxV) - qty);
+  }
+
+  /**
+   * โหลด payload รายงานสต็อกต่ำรวม (Weighing + RFID) ใช้ร่วม Excel / PDF
+   */
+  private async loadItemsStockLowCombinedPayload(params: {
+    itemName?: string;
+    itemcode?: string;
+  }): Promise<{
+    keyword?: string;
+    itemcode?: string;
+    weighingReportData: WeighingStockReportData;
+    rfidRows: ItemsStockCombinedRfidRow[];
+  }> {
+    const keyword = params?.itemName?.trim() || undefined;
+    const itemcode = params?.itemcode?.trim() || undefined;
+    const chip = 'low' as const;
+
+    const res = await this.weighingService.findAll({
+      page: 1,
+      limit: 10000,
+      itemName: keyword,
+      itemcode,
+      stockId: undefined,
+    });
+    const rawRows = Array.isArray((res as any)?.data) ? (res as any).data : [];
+
+    const cabinetName = (r: any) =>
+      r?.cabinet ? r.cabinet.cabinet_name || r.cabinet.cabinet_code || '-' : '-';
+    const slotDisplay = (v: any) => (v === 1 ? 'ใน' : v === 2 ? 'นอก' : v != null ? String(v) : '-');
+
+    const rowsW = rawRows.filter((r: any) => weighingStockRowMatchesStatusFilter(r, chip));
+    const weighingReportData: WeighingStockReportData = {
+      filters: { stockId: undefined, itemName: keyword, itemcode },
+      summary: {
+        total_rows: rowsW.length,
+        total_qty: rowsW.reduce((sum: number, r: any) => sum + (Number(r?.Qty) || 0), 0),
+      },
+      data: rowsW.map((r: any, i: number) => ({
+        seq: i + 1,
+        item_name: r?.item?.itemname || r?.item?.Alternatename || r?.itemcode || '-',
+        cabinet_name: cabinetName(r),
+        slot_no: Number(r?.SlotNo) ?? 0,
+        sensor: Number(r?.Sensor) ?? 0,
+        channel_display: r?.SlotNo != null ? String(r.SlotNo) : '-',
+        slot_display: slotDisplay(r?.Sensor),
+        qty: Number(r?.Qty) || 0,
+        refill_qty: this.weighingRefillQtyForLowCombinedRow(r),
+      })),
+    };
+
+    const cabinets = await this.prisma.cabinet.findMany({
+      where: {
+        stock_id: { not: null, gt: 0 },
+      },
+      select: {
+        id: true,
+        cabinet_name: true,
+        cabinet_code: true,
+        cabinet_type: true,
+        cabinetTypeDef: { select: { code: true, show_rfid_code: true } },
+      },
+      orderBy: [{ cabinet_name: 'asc' }],
+    });
+    const rfidCabinets = cabinets.filter((c) => cabinetEntityStockTableMode(c) === 'RFID');
+
+    const rfidRows: ItemsStockCombinedRfidRow[] = [];
+    for (const cab of rfidCabinets) {
+      const reportData = await this.getCabinetStockData({
+        cabinetId: cab.id,
+        keyword,
+        statusFilter: chip,
+      });
+      const label = (cab.cabinet_name || cab.cabinet_code || `ตู้ #${cab.id}`).trim();
+      for (const d of reportData.data) {
+        rfidRows.push({
+          seq: 0,
+          cabinet_label: label,
+          device_name: d.device_name,
+          expire_date_ymd: d.expire_date_ymd,
+          status_label: d.status_label,
+          stock_min: d.stock_min,
+          stock_max: d.stock_max,
+        });
+      }
+    }
+
+    rfidRows.sort((a, b) => {
+      const byName = (a.device_name || '').localeCompare(b.device_name || '', 'th');
+      if (byName !== 0) return byName;
+      const byCab = (a.cabinet_label || '').localeCompare(b.cabinet_label || '', 'th');
+      if (byCab !== 0) return byCab;
+      return (a.expire_date_ymd || '').localeCompare(b.expire_date_ymd || '');
+    });
+    rfidRows.forEach((r, i) => {
+      r.seq = i + 1;
+    });
+
+    return { keyword, itemcode, weighingReportData, rfidRows };
+  }
+
+  /**
+   * รายงานสต็อกต่ำรวม — Excel แยกบริการ/ไฟล์จากรายงานรวมชิปทั้งหมด
+   * ชีต 1: Weighing (เฉพาะสต็อกต่ำ) · ชีต 2: RFID (เฉพาะสต็อกต่ำ)
+   */
+  async generateItemsStockLowCombinedExcel(params: {
+    itemName?: string;
+    itemcode?: string;
+  }): Promise<{ buffer: Buffer; filename: string }> {
+    try {
+      const { keyword, weighingReportData, rfidRows } = await this.loadItemsStockLowCombinedPayload(params);
+
+      const buffer = await this.itemsStockLowCombinedExcelService.generateReport({
+        keyword,
+        weighing: weighingReportData,
+        rfidRows,
+      });
+      const dateStr = new Date().toISOString().split('T')[0];
+      const filename = `items_stock_low_combined_${dateStr}.xlsx`;
+      return { buffer, filename };
+    } catch (error) {
+      console.error('[Report Service] Error generating Items Stock Low Combined Excel:', error);
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
+      throw new Error(`Failed to generate Items Stock Low Combined Excel: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * รายงานสต็อกต่ำรวม — PDF ไฟล์เดียว (pdfkit): Weighing แล้วต่อ RFID
+   */
+  async generateItemsStockLowCombinedPdf(params: {
+    itemName?: string;
+    itemcode?: string;
+  }): Promise<{ buffer: Buffer; filename: string }> {
+    try {
+      const { keyword, weighingReportData, rfidRows } = await this.loadItemsStockLowCombinedPayload(params);
+
+      const rfidPdfData: CabinetStockReportData = {
+        filters: { keyword, statusFilter: 'low' },
+        summary: { total_rows: rfidRows.length, total_qty: rfidRows.length },
+        data: rfidRows.map((r) => ({
+          device_name: `[${r.cabinet_label}] ${r.device_name}`,
+          expire_date_ymd: r.expire_date_ymd ?? '-',
+          status_label: r.status_label ?? '-',
+          stock_min: r.stock_min,
+          stock_max: r.stock_max,
+        })),
+      };
+
+      const buffer = await this.itemsStockLowCombinedPdfService.generateReport({
+        keyword,
+        weighing: weighingReportData,
+        rfid: rfidPdfData,
+      });
+      const dateStr = new Date().toISOString().split('T')[0];
+      const filename = `items_stock_low_combined_${dateStr}.pdf`;
+      return { buffer, filename };
+    } catch (error) {
+      console.error('[Report Service] Error generating Items Stock Low Combined PDF:', error);
+      const errorMessage = error?.message || error?.toString() || 'Unknown error';
+      throw new Error(`Failed to generate Items Stock Low Combined PDF: ${errorMessage}`);
     }
   }
 

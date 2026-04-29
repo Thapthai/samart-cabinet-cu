@@ -41,10 +41,10 @@ export interface ItemsStockCombinedChipBlock {
 }
 
 export interface ItemsStockCombinedExcelInput {
-  /** คำค้นชื่อสินค้า (เดียวกับหน้าเว็บ) */
+  /** คำค้นชื่ออุปกรณ์ (เดียวกับหน้าเว็บ) */
   keyword?: string;
   /**
-   * ลำดับชิป: ทั้งหมด → หมดอายุ → ใกล้หมด → สต็อกต่ำ
+   * ลำดับชิป: ทั้งหมด → หมดอายุ → ใกล้หมดอายุ (บล็อก chip `low` จะถูกข้าม — ไม่สร้างชีตสต็อกต่ำในไฟล์นี้)
    * ชีตในไฟล์: กลุ่ม Weighing ตามชิปทั้งหมดก่อน แล้วตามด้วยกลุ่ม RFID ตามชิป (แยกตามกรองเป็นระเบียบ)
    */
   chipBlocks: ItemsStockCombinedChipBlock[];
@@ -72,8 +72,9 @@ export class ItemsStockCombinedExcelService {
     ];
 
     const usedNames = new Set<string>();
+    const chipBlocksNoLow = input.chipBlocks.filter((b) => b.chip !== 'low');
 
-    for (const block of input.chipBlocks) {
+    for (const block of chipBlocksNoLow) {
       const wName = safeSheetName(`Weighing · ${block.chipLabelTh}`, usedNames);
       appendWeighingStockCombinedExcelSheet(workbook, {
         sheetName: wName,
@@ -84,7 +85,7 @@ export class ItemsStockCombinedExcelService {
       });
     }
 
-    for (const block of input.chipBlocks) {
+    for (const block of chipBlocksNoLow) {
       const rName = safeSheetName(`RFID · ${block.chipLabelTh}`, usedNames);
       appendRfidStockCombinedExcelSheet(workbook, {
         sheetName: rName,

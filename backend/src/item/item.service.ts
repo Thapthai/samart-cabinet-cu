@@ -246,7 +246,7 @@ export class ItemService {
           (s: any) => s.IsStock === true || s.IsStock === 1,
         ).length;
 
-        // วันหมดอายุ (ExpireDate หรือ expDate) — หมดอายุ/ใกล้หมด ตามปฏิทินเหมือน frontend rowFlags
+        // วันหมดอายุ (ExpireDate หรือ expDate) — หมดอายุ/ใกล้หมดอายุ ตามปฏิทินเหมือน frontend rowFlags
         let earliestExpireDate: Date | null = null;
         let hasExpired = false;
         let hasNearExpire = false;
@@ -392,8 +392,8 @@ export class ItemService {
           ? afterExpireMeta
           : afterExpireMeta.filter((x) => {
               if (chip === 'expired') return x.hasExpired;
-              // ใกล้หมด = มีอย่างน้อยหนึ่งแถวสต็อกที่วันหมดอยู่ในช่วงวันนี้–+30 วัน (ยังไม่หมดแถวนั้น)
-              // ไม่ใช้ !hasExpired เพราะถ้ามีแท็กหมดแล้ว + แท็กใกล้หมดคู่กัน จะไม่โผล่ใน "ใกล้หมด" ทั้งที่ควรเห็นแท็กที่ยังใช้ได้
+              // ใกล้หมดอายุ = มีอย่างน้อยหนึ่งแถวสต็อกที่วันหมดอยู่ในช่วงวันนี้–+30 วัน (ยังไม่หมดแถวนั้น)
+              // ไม่ใช้ !hasExpired เพราะถ้ามีแท็กหมดแล้ว + แท็กใกล้หมดอายุคู่กัน จะไม่โผล่ใน "ใกล้หมดอายุ" ทั้งที่ควรเห็นแท็กที่ยังใช้ได้
               if (chip === 'soon') return x.hasNearExpire;
               if (chip === 'low') return x.isLowStock;
               return true;
@@ -509,6 +509,55 @@ export class ItemService {
         return true;
       });
 
+      /** สอดคล้อง findAllItems — นับสต็อกต่ำตาม min ต่อตู้ (cabinet_item_setting) เมื่อมี cabinet_id */
+      let settingByCodeStats = new Map<string, { stock_min: number | null; stock_max: number | null }>();
+      if (cabinet_id != null && cabinet_id > 0 && filteredItems.length > 0) {
+        const codes = [
+          ...new Set(
+            filteredItems.map((i: { itemcode?: string }) => (i.itemcode ?? '').trim()).filter(Boolean),
+          ),
+        ];
+        if (codes.length > 0) {
+          const cabinetIdsForSettings = new Set<number>();
+          cabinetIdsForSettings.add(cabinet_id);
+          for (const it of filteredItems as { itemStocks?: { cabinet?: { id?: number } | null }[] }[]) {
+            for (const st of it.itemStocks ?? []) {
+              const cid = st.cabinet?.id;
+              if (cid != null && cid > 0) cabinetIdsForSettings.add(cid);
+            }
+          }
+          const settings = await this.prisma.cabinetItemSetting.findMany({
+            where: {
+              cabinet_id: { in: [...cabinetIdsForSettings] },
+              item_code: { in: codes },
+            },
+            select: {
+              cabinet_id: true,
+              item_code: true,
+              stock_min: true,
+              stock_max: true,
+            },
+          });
+          const lists = new Map<string, typeof settings>();
+          for (const s of settings) {
+            const k = (s.item_code ?? '').trim();
+            if (!k) continue;
+            const arr = lists.get(k) ?? [];
+            arr.push(s);
+            lists.set(k, arr);
+          }
+          for (const [, arr] of lists) {
+            const pick = arr.find((s) => s.cabinet_id === cabinet_id) ?? arr[0];
+            if (pick) {
+              settingByCodeStats.set((pick.item_code ?? '').trim(), {
+                stock_min: pick.stock_min,
+                stock_max: pick.stock_max,
+              });
+            }
+          }
+        }
+      }
+
       // Calculate stats และรวบรวม itemStocks ที่ match สำหรับนับหมดอายุ
       let totalItems = 0;
       let activeItems = 0;
@@ -527,7 +576,14 @@ export class ItemService {
         }
 
         const countItemStock = matchingItemStocks.length;
-        const stockMin = item.stock_min ?? 0;
+        const codeKey = (item.itemcode ?? '').trim();
+        const cabRowStats =
+          cabinet_id != null && cabinet_id > 0 ? settingByCodeStats.get(codeKey) : undefined;
+        const effectiveStockMinStats =
+          cabRowStats !== undefined
+            ? (cabRowStats.stock_min ?? item.stock_min ?? null)
+            : (item.stock_min ?? null);
+        const stockMin = effectiveStockMinStats ?? 0;
         const isLowStock = stockMin > 0 && countItemStock < stockMin;
 
         totalItems++;

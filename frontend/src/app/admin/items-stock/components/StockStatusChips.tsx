@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -35,6 +35,8 @@ type Props = {
   expiryAfterDay?: string;
   onExpiryAfterDayChange?: (value: string) => void;
   onClearExpiryDate?: () => void;
+  /** ปุ่มดาวน์โหลดรายงาน — แถวเดียวกับหัวข้อ «กรองสถานะในหน้านี้» */
+  reportActions?: ReactNode;
 };
 
 export default function StockStatusChips({
@@ -45,6 +47,7 @@ export default function StockStatusChips({
   expiryAfterDay = '',
   onExpiryAfterDayChange,
   onClearExpiryDate,
+  reportActions,
 }: Props) {
   const rawDays = (expiryAfterDay ?? '').trim();
   const hasDays = Boolean(rawDays);
@@ -55,9 +58,11 @@ export default function StockStatusChips({
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-medium text-slate-500">กรองสถานะในหน้านี้</p>
-      <div className="flex min-w-0 flex-wrap items-end gap-2">
-        {chipDefs.map((c) => {
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-2">
+          <p className="text-xs font-medium text-slate-500 shrink-0">กรองสถานะในหน้านี้</p>
+          <div className="flex min-w-0 flex-wrap items-end gap-2">
+            {chipDefs.map((c) => {
           const active = statusFilter === c.id;
           return (
             <Fragment key={c.id}>
@@ -137,6 +142,11 @@ export default function StockStatusChips({
             </Fragment>
           );
         })}
+          </div>
+        </div>
+        {reportActions ? (
+          <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">{reportActions}</div>
+        ) : null}
       </div>
     </div>
   );

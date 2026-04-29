@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 const NEAR_EXPIRY_DAYS = 30;
@@ -46,6 +46,20 @@ function weighingRowMatchesStockStatus(
   if (c === 'soon') return soon && !expired;
   if (c === 'low') return low;
   return true;
+}
+
+/** จำนวนที่ต้องเติม = max − qty (เมื่อ qty < min และมี max) — ใช้ GET /weighing/low-stock */
+function weighingRefillQuantityFromRow(row: {
+  Qty: number | null;
+  cabinetItemSetting: { stock_min: number | null; stock_max: number | null } | null;
+  item?: { stock_min: number | null; stock_max: number | null } | null;
+}): number | null {
+  const minV = row.cabinetItemSetting?.stock_min ?? row.item?.stock_min ?? null;
+  const maxV = row.cabinetItemSetting?.stock_max ?? row.item?.stock_max ?? null;
+  const qty = row.Qty ?? 0;
+  if (minV == null || qty >= minV) return null;
+  if (maxV == null) return null;
+  return Math.max(0, maxV - qty);
 }
 
 @Injectable()
@@ -261,6 +275,47 @@ export class WeighingService {
         limit,
         total: effectiveTotal,
         totalPages: Math.ceil(effectiveTotal / limit) || 1,
+      },
+    };
+  }
+
+  /**
+   * รายการสต็อกต่ำ Weighing แยกจาก GET /weighing — เฉพาะ qty ต่ำกว่า min
+   * refillQuantity = max − qty เมื่อมีค่า max (ไม่มี max จะเป็น null)
+   */
+  async findLowStockRefill(params: {
+    stockId?: number;
+    itemName?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    if (params.stockId == null || params.stockId <= 0) {
+      throw new BadRequestException('stockId is required and must be a positive number');
+    }
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.min(Math.max(1, params.limit ?? 500), 5000);
+    const inner = await this.findAll({
+      page: 1,
+      limit: WEIGHING_FILTER_MAX_ROWS,
+      stockId: params.stockId,
+      itemName: params.itemName,
+      stock_status: 'low',
+    });
+    const withRefill = inner.data.map((row) => ({
+      ...row,
+      refillQuantity: weighingRefillQuantityFromRow(row),
+    }));
+    const total = withRefill.length;
+    const skip = (page - 1) * limit;
+    const data = withRefill.slice(skip, skip + limit);
+    return {
+      success: true,
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
       },
     };
   }

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import * as fs from 'fs';
-import { CabinetStockReportData } from './cabinet-stock-report-excel.service';
+import { CabinetStockReportData, cabinetStockStatusLabelTh } from './cabinet-stock-report-excel.service';
 import { resolveReportLogoPath, getReportThaiFontPaths } from '../config/report.config';
 
 /** สีสถานะในคอลัมน์สถานะ — ข้อมูลแถวใช้ zebra เหมือน weighing */
@@ -158,7 +158,7 @@ export class CabinetStockReportPdfService {
               String(idx + 1),
               String(row.device_name ?? '-'),
               String(row.expire_date_ymd ?? '-'),
-              String(row.status_label ?? '-'),
+              cabinetStockStatusLabelTh(row.status_label),
             ];
             doc.fontSize(13).font(finalFontName);
             const cellHeights = cellTexts.map((text, i) => {

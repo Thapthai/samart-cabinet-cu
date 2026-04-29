@@ -561,6 +561,28 @@ export class ReportServiceController {
     }
   }
 
+  /** สต็อกต่ำรวม — Excel 2 ชีต (Weighing แล้ว RFID) แยกจากรายงานรวมชิป */
+  @Post('items-stock-low-combined/excel')
+  async generateItemsStockLowCombinedExcel(@Body() data: { itemName?: string; itemcode?: string }) {
+    try {
+      const result = await this.reportServiceService.generateItemsStockLowCombinedExcel(data);
+      return toFileResponse(result.buffer, result.filename, EXCEL_CONTENT);
+    } catch (error: any) {
+      return { success: false, error: error?.message };
+    }
+  }
+
+  /** สต็อกต่ำรวม — PDF เดียว: Weighing แล้วต่อ RFID (pdfkit เหมือนรายงานอื่น) */
+  @Post('items-stock-low-combined/pdf')
+  async generateItemsStockLowCombinedPdf(@Body() data: { itemName?: string; itemcode?: string }) {
+    try {
+      const result = await this.reportServiceService.generateItemsStockLowCombinedPdf(data);
+      return toFileResponse(result.buffer, result.filename, PDF_CONTENT);
+    } catch (error: any) {
+      return { success: false, error: error?.message };
+    }
+  }
+
   @Post('weighing-stock/pdf')
   async generateWeighingStockPdf(@Body() data: {
     stockId?: number;
@@ -571,6 +593,55 @@ export class ReportServiceController {
     try {
       const result = await this.reportServiceService.generateWeighingStockPdf(data);
       return toFileResponse(result.buffer, result.filename, PDF_CONTENT);
+    } catch (error: any) {
+      return { success: false, error: error?.message };
+    }
+  }
+
+  /** สต๊อก RFID ในตู้ — สอดคล้อง POST /reports/weighing-stock/* (filter + statusFilter, ตอบ JSON base64 เดียวกัน) */
+  @Post('rfid-stock/excel')
+  async generateRfidStockExcel(@Body() data: {
+    cabinetId?: number;
+    cabinetCode?: string;
+    departmentId?: number;
+    keyword?: string;
+    statusFilter?: string;
+  }) {
+    try {
+      const result = await this.reportServiceService.generateRfidStockExcel(data);
+      return toFileResponse(result.buffer, result.filename, EXCEL_CONTENT);
+    } catch (error: any) {
+      return { success: false, error: error?.message };
+    }
+  }
+
+  @Post('rfid-stock/pdf')
+  async generateRfidStockPdf(@Body() data: {
+    cabinetId?: number;
+    cabinetCode?: string;
+    departmentId?: number;
+    keyword?: string;
+    statusFilter?: string;
+  }) {
+    try {
+      const result = await this.reportServiceService.generateRfidStockPdf(data);
+      return toFileResponse(result.buffer, result.filename, PDF_CONTENT);
+    } catch (error: any) {
+      return { success: false, error: error?.message };
+    }
+  }
+
+  @Post('rfid-stock/data')
+  async getRfidStockData(@Body() data: {
+    cabinetId?: number;
+    cabinetCode?: string;
+    departmentId?: number;
+    keyword?: string;
+    statusFilter?: string;
+  }) {
+    try {
+      const result = await this.reportServiceService.getRfidStockData(data);
+      return { success: true, data: result };
     } catch (error: any) {
       return { success: false, error: error?.message };
     }

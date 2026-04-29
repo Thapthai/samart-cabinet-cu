@@ -35,6 +35,8 @@ import { WeighingRefillReportPdfService } from './services/weighing-refill-repor
 import { WeighingStockReportExcelService } from './services/weighing-stock-report-excel.service';
 import { WeighingStockReportPdfService } from './services/weighing-stock-report-pdf.service';
 import { ItemsStockCombinedExcelService } from './services/items-stock-combined-excel.service';
+import { ItemsStockLowCombinedExcelService } from './services/items-stock-low-combined-excel.service';
+import { ItemsStockLowCombinedPdfService } from './services/items-stock-low-combined-pdf.service';
 import { DispensedItemsForPatientsExcelService } from './services/dispensed-items-for-patients-excel.service';
 import { DispensedItemsForPatientsPdfService } from './services/dispensed-items-for-patients-pdf.service';
 @Module({
@@ -73,6 +75,8 @@ import { DispensedItemsForPatientsPdfService } from './services/dispensed-items-
     WeighingStockReportExcelService,
     WeighingStockReportPdfService,
     ItemsStockCombinedExcelService,
+    ItemsStockLowCombinedExcelService,
+    ItemsStockLowCombinedPdfService,
     DispensedItemsForPatientsExcelService,
     DispensedItemsForPatientsPdfService,
   ],

@@ -1,38 +1,19 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { AlertTriangle, Loader2, PackageSearch, Settings2 } from 'lucide-react';
-import { weighingApi } from '@/lib/api';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
+import { Loader2, PackageSearch } from 'lucide-react';
 import Pagination from '@/components/Pagination';
 import StockStatusChips, { type StockStatusChipDef } from './StockStatusChips';
-import type { ItemSlotInCabinetRow, StockStatusFilter } from '../items-stock-shared';
-import { rowFlags, STOCK_TABLE_FRAME } from '../items-stock-shared';
-import { WeighingSlotPill } from './WeighingSlotPill';
+import type { StockStatusFilter } from '../items-stock-shared';
+import { STOCK_TABLE_FRAME } from '../items-stock-shared';
+import WeighingStockRowsTable from './WeighingStockRowsTable';
+import { fetchWeighingItemSlots, type WeighingRow } from './weighingStockFetch';
 
 export interface WeighingListStats {
   systemTotal: number;
   rawOnPage: number;
   visibleCount: number;
-}
-
-/** WEIGHING: ItemSlotInCabinet ผ่าน GET /weighing เท่านั้น */
-async function fetchWeighingItemSlots(params: {
-  stockId: number;
-  page: number;
-  limit: number;
-  itemName?: string;
-  stock_status?: string;
-}) {
-  return weighingApi.getAll({
-    page: params.page,
-    limit: params.limit,
-    itemName: params.itemName,
-    stockId: params.stockId,
-    stock_status: params.stock_status,
-  });
 }
 
 interface WeighingStockTableProps {
@@ -44,10 +25,11 @@ interface WeighingStockTableProps {
   currentPage: number;
   itemsPerPage: number;
   onPageChange: (page: number) => void;
-  onManage: (row: ItemSlotInCabinetRow) => void;
   refetchSignal: number;
   onLoadingChange?: (loading: boolean) => void;
   onStatsChange?: (stats: WeighingListStats) => void;
+  /** ปุ่มรายงาน — แสดงในแถบเดียวกับ «กรองสถานะในหน้านี้» */
+  reportToolbar?: ReactNode;
 }
 
 export default function WeighingStockTable({
@@ -59,12 +41,12 @@ export default function WeighingStockTable({
   currentPage,
   itemsPerPage,
   onPageChange,
-  onManage,
   refetchSignal,
   onLoadingChange,
   onStatsChange,
+  reportToolbar,
 }: WeighingStockTableProps) {
-  const [rawRows, setRawRows] = useState<ItemSlotInCabinetRow[]>([]);
+  const [rawRows, setRawRows] = useState<WeighingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
   const [systemTotal, setSystemTotal] = useState(0);
@@ -158,6 +140,7 @@ export default function WeighingStockTable({
         chipDefs={chipDefs}
         statusFilter={statusFilter}
         onStatusFilterChange={onStatusFilterChange}
+        reportActions={reportToolbar}
       />
     </div>
   );
@@ -206,76 +189,12 @@ export default function WeighingStockTable({
     <>
       <div className={STOCK_TABLE_FRAME}>
         {chipsToolbar}
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-b bg-muted/50 hover:bg-muted/50">
-                <TableHead className="h-11 w-14 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  ลำดับ
-                </TableHead>
-                <TableHead className="min-w-[200px] text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  ชื่ออุปกรณ์
-                </TableHead>
-                <TableHead className="w-20 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  ช่อง
-                </TableHead>
-                <TableHead className="w-24 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  สล็อต
-                </TableHead>
-                <TableHead className="w-28 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  จำนวน
-                </TableHead>
-                <TableHead className="w-[110px] text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  จัดการ
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rawRows.map((row, index) => {
-                const name = row.item?.itemname || row.item?.Alternatename || '—';
-                const { low } = rowFlags(row);
-                return (
-                  <TableRow key={row.id} className="border-b border-border/50 transition-colors hover:bg-muted/40">
-                    <TableCell className="text-center text-muted-foreground tabular-nums">
-                      {(currentPage - 1) * itemsPerPage + index + 1}
-                    </TableCell>
-                    <TableCell className="max-w-[240px] truncate font-medium text-foreground" title={name}>
-                      {name}
-                    </TableCell>
-                    <TableCell className="text-center">{row.SlotNo ?? '—'}</TableCell>
-                    <TableCell className="text-center">
-                      <WeighingSlotPill sensor={row.Sensor} />
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">
-                      <span className="inline-flex items-center justify-end gap-1.5">
-                        {low && (
-                          <span className="inline-flex shrink-0" title="จำนวนต่ำกว่า Min">
-                            <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden />
-                          </span>
-                        )}
-                        {row.Qty}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 gap-1.5"
-                        disabled={!row.cabinet?.id}
-                        onClick={() => onManage(row)}
-                        title={!row.cabinet?.id ? 'ไม่มีข้อมูลตู้' : 'ตั้งค่า Min/Max ต่อตู้'}
-                      >
-                        <Settings2 className="h-3.5 w-3.5" />
-                        จัดการ
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        <WeighingStockRowsTable
+          rows={rawRows}
+          statusFilter={statusFilter}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
+        />
       </div>
       {totalPages > 1 && (
         <div className="pt-5">

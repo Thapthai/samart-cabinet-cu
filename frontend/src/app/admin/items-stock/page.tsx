@@ -20,6 +20,11 @@ import CabinetStockTabs, {
 import WeighingStockTable from './components/WeighingStockTable';
 import RfidStockTable from './components/RfidStockTable';
 import ItemsStockFilterBar from './components/ItemsStockFilterBar';
+import {
+  RfidStockReportDownloadGroups,
+  WeighingStockReportDownloadGroups,
+  type ItemsStockExportLoading,
+} from './components/ItemsStockReportDownloadGroups';
 import type { ItemSlotInCabinetRow, StockStatusFilter } from './items-stock-shared';
 import { effectiveMax, effectiveMin } from './items-stock-shared';
 
@@ -42,7 +47,7 @@ export default function ItemsStockPage() {
     rawOnPage: 0,
     visibleCount: 0,
   });
-  const [exportLoading, setExportLoading] = useState<'excel' | 'pdf' | 'combined' | null>(null);
+  const [exportLoading, setExportLoading] = useState<ItemsStockExportLoading>(null);
   const [minMaxOpen, setMinMaxOpen] = useState(false);
   const [minMaxRow, setMinMaxRow] = useState<ItemSlotInCabinetRow | null>(null);
   const [statusFilter, setStatusFilter] = useState<StockStatusFilter>('all');
@@ -133,7 +138,7 @@ export default function ItemsStockPage() {
   const chipDefs = useMemo(() => {
     const base: { id: StockStatusFilter; label: string }[] = [{ id: 'all', label: 'ทั้งหมด' }];
     if (showExpiryStatusChips) {
-      base.push({ id: 'expired', label: 'หมดอายุ' }, { id: 'soon', label: 'ใกล้หมด' });
+      base.push({ id: 'expired', label: 'หมดอายุ' }, { id: 'soon', label: 'ใกล้หมดอายุ' });
     }
     base.push({ id: 'low', label: 'สต็อกต่ำ' });
     return base;
@@ -186,13 +191,19 @@ export default function ItemsStockPage() {
     setMinMaxOpen(true);
   };
 
-  const handleDownloadWeighingStockExcel = async () => {
+  const weighingReportBase = () => ({
+    stockId: stockIdFilter ? parseInt(stockIdFilter, 10) : undefined,
+    itemName: appliedItemName.trim() || undefined,
+  });
+
+  const handleDownloadWeighingStockExcelAll = async () => {
     try {
-      setExportLoading('excel');
-      const stockId = stockIdFilter ? parseInt(stockIdFilter, 10) : undefined;
-      const itemName = appliedItemName.trim() || undefined;
-      await reportsApi.downloadWeighingStockExcel({ stockId, itemName, statusFilter });
-      toast.success('ดาวน์โหลดรายงาน Excel สำเร็จ');
+      setExportLoading('w-excel-all');
+      await reportsApi.downloadWeighingStockExcel({
+        ...weighingReportBase(),
+        statusFilter: 'all',
+      });
+      toast.success('ดาวน์โหลดรายงาน Excel (ทั้งหมด) สำเร็จ');
     } catch (e) {
       console.error(e);
       toast.error('ดาวน์โหลดรายงานไม่สำเร็จ');
@@ -201,13 +212,14 @@ export default function ItemsStockPage() {
     }
   };
 
-  const handleDownloadWeighingStockPdf = async () => {
+  const handleDownloadWeighingStockPdfAll = async () => {
     try {
-      setExportLoading('pdf');
-      const stockId = stockIdFilter ? parseInt(stockIdFilter, 10) : undefined;
-      const itemName = appliedItemName.trim() || undefined;
-      await reportsApi.downloadWeighingStockPdf({ stockId, itemName, statusFilter });
-      toast.success('ดาวน์โหลดรายงาน PDF สำเร็จ');
+      setExportLoading('w-pdf-all');
+      await reportsApi.downloadWeighingStockPdf({
+        ...weighingReportBase(),
+        statusFilter: 'all',
+      });
+      toast.success('ดาวน์โหลดรายงาน PDF (ทั้งหมด) สำเร็จ');
     } catch (e) {
       console.error(e);
       toast.error('ดาวน์โหลดรายงานไม่สำเร็จ');
@@ -216,17 +228,22 @@ export default function ItemsStockPage() {
     }
   };
 
-  const handleDownloadCabinetStockExcel = async () => {
+  const cabinetReportBase = () => ({
+    cabinetId: selectedCabinetId!,
+    cabinetCode: selectedCabinet?.cabinet_code ?? undefined,
+    keyword: appliedItemName.trim() || undefined,
+  });
+
+  /** กลุ่ม «ทั้งหมด» — ส่ง statusFilter ตามชิป (all / expired / soon) */
+  const handleDownloadCabinetStockExcelAll = async () => {
     if (selectedCabinetId == null) {
       toast.error('เลือกตู้ RFID ก่อนดาวน์โหลดรายงาน');
       return;
     }
     try {
-      setExportLoading('excel');
+      setExportLoading('r-excel-all');
       await reportsApi.downloadCabinetStockExcel({
-        cabinetId: selectedCabinetId,
-        cabinetCode: selectedCabinet?.cabinet_code ?? undefined,
-        keyword: appliedItemName.trim() || undefined,
+        ...cabinetReportBase(),
         statusFilter,
       });
       toast.success('ดาวน์โหลดรายงาน Excel (ตู้ RFID) สำเร็จ');
@@ -238,17 +255,15 @@ export default function ItemsStockPage() {
     }
   };
 
-  const handleDownloadCabinetStockPdf = async () => {
+  const handleDownloadCabinetStockPdfAll = async () => {
     if (selectedCabinetId == null) {
       toast.error('เลือกตู้ RFID ก่อนดาวน์โหลดรายงาน');
       return;
     }
     try {
-      setExportLoading('pdf');
+      setExportLoading('r-pdf-all');
       await reportsApi.downloadCabinetStockPdf({
-        cabinetId: selectedCabinetId,
-        cabinetCode: selectedCabinet?.cabinet_code ?? undefined,
-        keyword: appliedItemName.trim() || undefined,
+        ...cabinetReportBase(),
         statusFilter,
       });
       toast.success('ดาวน์โหลดรายงาน PDF (ตู้ RFID) สำเร็จ');
@@ -260,17 +275,48 @@ export default function ItemsStockPage() {
     }
   };
 
-  const handleDownloadItemsStockCombinedExcel = async () => {
+  /** รายงานรวม — ใช้ชิปปัจจุบัน (RFID) หรือบังคับทั้งหมด (กลุ่มรายงาน Weighing) */
+  const handleDownloadItemsStockCombinedExcel = async (forcedStatus?: StockStatusFilter) => {
     try {
-      setExportLoading('combined');
+      setExportLoading(forcedStatus === 'all' ? 'w-combined' : 'combined');
       await reportsApi.downloadItemsStockCombinedExcel({
         itemName: appliedItemName.trim() || undefined,
-        statusFilter,
+        statusFilter: forcedStatus ?? statusFilter,
       });
       toast.success('ดาวน์โหลดรายงานรวม (Excel) สำเร็จ');
     } catch (e) {
       console.error(e);
       toast.error('ดาวน์โหลดรายงานรวมไม่สำเร็จ');
+    } finally {
+      setExportLoading(null);
+    }
+  };
+
+  const handleDownloadItemsStockLowCombinedExcel = async () => {
+    try {
+      setExportLoading('low-excel');
+      await reportsApi.downloadItemsStockLowCombinedExcel({
+        itemName: appliedItemName.trim() || undefined,
+      });
+      toast.success('ดาวน์โหลดรายงานสต็อกต่ำรวม (Excel) สำเร็จ');
+    } catch (e) {
+      console.error(e);
+      toast.error('ดาวน์โหลดรายงานไม่สำเร็จ');
+    } finally {
+      setExportLoading(null);
+    }
+  };
+
+  const handleDownloadItemsStockLowCombinedPdf = async () => {
+    try {
+      setExportLoading('low-pdf');
+      await reportsApi.downloadItemsStockLowCombinedPdf({
+        itemName: appliedItemName.trim() || undefined,
+      });
+      toast.success('ดาวน์โหลดรายงานสต็อกต่ำรวม (PDF) สำเร็จ');
+    } catch (e) {
+      console.error(e);
+      toast.error('ดาวน์โหลดรายงานไม่สำเร็จ');
     } finally {
       setExportLoading(null);
     }
@@ -335,98 +381,26 @@ export default function ItemsStockPage() {
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
                     {tableMode === 'WEIGHING'
-                      ? 'รายการสต๊อกในตู้ Weighing (ช่อง / สล็อต) ตามตู้และคำค้นที่เลือก'
+                      ? 'รายการสต๊อกในตู้ Weighing ตามตู้และคำค้นที่เลือก'
                       : 'รายการสต๊อกในตู้ RFID (สรุปต่อรายการ / วันหมดอายุ) ตามตู้ที่เลือก'}
                   </p>
                   <p className="text-sm text-muted-foreground">ทั้งหมด {listStats.systemTotal} รายการจากระบบ</p>
                 </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  {tableMode === 'WEIGHING' ? (
-                    <>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDownloadWeighingStockExcel}
-                        disabled={exportLoading !== null}
-                        className="shadow-sm"
-                      >
-                        <Download className="h-4 w-4 mr-1.5" />
-                        {exportLoading === 'excel' ? 'กำลังโหลด...' : 'Excel'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDownloadWeighingStockPdf}
-                        disabled={exportLoading !== null}
-                        className="shadow-sm"
-                      >
-                        <Download className="h-4 w-4 mr-1.5" />
-                        {exportLoading === 'pdf' ? 'กำลังโหลด...' : 'PDF'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDownloadItemsStockCombinedExcel}
-                        disabled={exportLoading !== null}
-                        className="shadow-sm whitespace-nowrap"
-                      >
-                        <Download className="h-4 w-4 mr-1.5" />
-                        {exportLoading === 'combined' ? 'กำลังโหลด...' : 'Excel รวม'}
-                      </Button>
-                    </>
-                  ) : tableMode === 'RFID' && selectedCabinetId != null ? (
-                    <>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDownloadCabinetStockExcel}
-                        disabled={exportLoading !== null}
-                        className="shadow-sm"
-                      >
-                        <Download className="h-4 w-4 mr-1.5" />
-                        {exportLoading === 'excel' ? 'กำลังโหลด...' : 'Excel'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDownloadCabinetStockPdf}
-                        disabled={exportLoading !== null}
-                        className="shadow-sm"
-                      >
-                        <Download className="h-4 w-4 mr-1.5" />
-                        {exportLoading === 'pdf' ? 'กำลังโหลด...' : 'PDF'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDownloadItemsStockCombinedExcel}
-                        disabled={exportLoading !== null}
-                        className="shadow-sm whitespace-nowrap"
-                      >
-                        <Download className="h-4 w-4 mr-1.5" />
-                        {exportLoading === 'combined' ? 'กำลังโหลด...' : 'Excel รวม'}
-                      </Button>
-                    </>
-                  ) : (
+                {tableMode !== 'WEIGHING' && !(tableMode === 'RFID' && selectedCabinetId != null) && (
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={handleDownloadItemsStockCombinedExcel}
+                      onClick={() => handleDownloadItemsStockCombinedExcel()}
                       disabled={exportLoading !== null}
                       className="shadow-sm whitespace-nowrap"
                     >
                       <Download className="h-4 w-4 mr-1.5" />
                       {exportLoading === 'combined' ? 'กำลังโหลด...' : 'Excel รวม'}
                     </Button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent className="p-4 sm:p-5">
@@ -440,10 +414,22 @@ export default function ItemsStockPage() {
                   currentPage={currentPage}
                   itemsPerPage={itemsPerPage}
                   onPageChange={handlePageChange}
-                  onManage={openMinMaxDialog}
                   refetchSignal={refetchTick}
                   onLoadingChange={setListLoading}
                   onStatsChange={setListStats}
+                  reportToolbar={
+                    stockIdParsed ? (
+                      <WeighingStockReportDownloadGroups
+                        statusFilter={statusFilter}
+                        exportLoading={exportLoading}
+                        onExcelAll={handleDownloadWeighingStockExcelAll}
+                        onPdfAll={handleDownloadWeighingStockPdfAll}
+                        onCombinedAll={() => handleDownloadItemsStockCombinedExcel('all')}
+                        onLowStockExcel={handleDownloadItemsStockLowCombinedExcel}
+                        onLowStockPdf={handleDownloadItemsStockLowCombinedPdf}
+                      />
+                    ) : undefined
+                  }
                 />
               ) : tableMode === 'RFID' ? (
                 <RfidStockTable
@@ -467,6 +453,19 @@ export default function ItemsStockPage() {
                   refetchSignal={refetchTick}
                   onLoadingChange={setListLoading}
                   onStatsChange={setListStats}
+                  reportToolbar={
+                    selectedCabinetId != null ? (
+                      <RfidStockReportDownloadGroups
+                        statusFilter={statusFilter}
+                        exportLoading={exportLoading}
+                        onExcelAll={handleDownloadCabinetStockExcelAll}
+                        onPdfAll={handleDownloadCabinetStockPdfAll}
+                        onCombinedAll={() => handleDownloadItemsStockCombinedExcel()}
+                        onLowStockExcel={handleDownloadItemsStockLowCombinedExcel}
+                        onLowStockPdf={handleDownloadItemsStockLowCombinedPdf}
+                      />
+                    ) : undefined
+                  }
                 />
               ) : (
                 <div className="flex min-h-[200px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/80 text-sm text-gray-500">

@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AlertTriangle, ChevronDown, ChevronUp, Loader2, Radio, Settings2 } from 'lucide-react';
 import { itemsApi } from '@/lib/api';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import Pagination from '@/components/Pagination';
 import { cn } from '@/lib/utils';
 import StockStatusChips, { type StockStatusChipDef } from './StockStatusChips';
+import WeighingStockRowsTable from './WeighingStockRowsTable';
 import type { ItemSlotInCabinetRow, RfidStockLine, StockStatusFilter } from '../items-stock-shared';
 import {
   earliestExpireRawFromStocks,
@@ -17,6 +18,7 @@ import {
   filterRfidStockLinesForToolbar,
   formatExpireRelativeLabel,
   formatYmd,
+  itemsStockStatusKeyLabelTh,
   rfidLineBadge,
   rowBadge,
   rowFlags,
@@ -54,6 +56,8 @@ interface RfidStockTableProps {
   refetchSignal: number;
   onLoadingChange?: (loading: boolean) => void;
   onStatsChange?: (stats: RfidListStats) => void;
+  /** ปุ่มรายงาน — แสดงในแถบเดียวกับ «กรองสถานะในหน้านี้» */
+  reportToolbar?: ReactNode;
 }
 
 /** แมปจาก GET /items?cabinet_id= (item + itemStocks[]) */
@@ -127,6 +131,7 @@ export default function RfidStockTable({
   refetchSignal,
   onLoadingChange,
   onStatsChange,
+  reportToolbar,
 }: RfidStockTableProps) {
   const [pageRows, setPageRows] = useState<ItemSlotInCabinetRow[]>([]);
   const [rfidByItemcode, setRfidByItemcode] = useState<Record<string, RfidStockLine[]>>({});
@@ -290,6 +295,7 @@ export default function RfidStockTable({
         expiryAfterDay={stockExpiryAfterDay}
         onExpiryAfterDayChange={onStockExpiryAfterDayChange}
         onClearExpiryDate={onClearStockExpiryDate}
+        reportActions={reportToolbar}
       />
     </div>
   );
@@ -338,6 +344,14 @@ export default function RfidStockTable({
     <>
       <div className={STOCK_TABLE_FRAME}>
         {chipsToolbar}
+        {statusFilter === 'low' ? (
+          <WeighingStockRowsTable
+            rows={pageRows}
+            statusFilter={statusFilter}
+            currentPage={currentPage}
+            itemsPerPage={itemsPerPage}
+          />
+        ) : (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -381,7 +395,7 @@ export default function RfidStockTable({
                 statusFilter,
                 toolbarExpireRange,
               );
-              /** โหมดทั้งหมด: เน้นสีทั้งแถวให้เห็นว่าตัวไหนหมดอายุ/ใกล้หมด — กดขยาย RFID ได้ตรง */
+              /** โหมดทั้งหมด: เน้นสีทั้งแถวให้เห็นว่าตัวไหนหมดอายุ/ใกล้หมดอายุ — กดขยาย RFID ได้ตรง */
               const rowAllMode =
                 statusFilter === 'all' &&
                 cn(
@@ -439,7 +453,7 @@ export default function RfidStockTable({
                           badge.className,
                         )}
                       >
-                        {badge.key}
+                        {itemsStockStatusKeyLabelTh(badge.key)}
                       </span>
                     </TableCell>
                     <TableCell className="text-center">
@@ -559,7 +573,7 @@ export default function RfidStockTable({
                                                 lb.className,
                                               )}
                                             >
-                                              {lb.key}
+                                              {itemsStockStatusKeyLabelTh(lb.key)}
                                             </span>
                                           </td>
                                         </tr>
@@ -580,6 +594,7 @@ export default function RfidStockTable({
             </TableBody>
           </Table>
         </div>
+        )}
       </div>
       {totalPages > 1 && (
         <div className="pt-5">

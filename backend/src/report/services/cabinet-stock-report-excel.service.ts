@@ -8,6 +8,9 @@ export interface CabinetStockRow {
   device_name: string;
   expire_date_ymd: string;
   status_label: string;
+  /** min/max ต่อตู้ (จาก getCabinetStockData) — ใช้คำนวณต้องเติมเมื่อรวมแท็ก */
+  stock_min?: number | null;
+  stock_max?: number | null;
 }
 
 export interface CabinetStockReportData {
@@ -46,6 +49,18 @@ export function statusFontArgbCabinetStock(status: string): string {
   if (s === 'SOON') return 'FFB45309';
   if (s === 'OK') return 'FF15803D';
   return CABINET_STOCK_INK;
+}
+
+/** ป้ายสถานะใน Excel/PDF — สอดคล้องชิปหน้า items-stock (ใกล้หมดอายุ) */
+export function cabinetStockStatusLabelTh(raw: string | null | undefined): string {
+  const u = String(raw ?? '')
+    .trim()
+    .toUpperCase();
+  if (u === 'EXPIRED') return 'หมดอายุ';
+  if (u === 'SOON') return 'ใกล้หมดอายุ';
+  if (u === 'LOW') return 'สต็อกต่ำ';
+  if (u === 'OK') return 'ปกติ';
+  return String(raw ?? '').trim() || '—';
 }
 
 const EXCEL_SHEET_FORBIDDEN_C = /[\*\[\]\:\\/?]/g;
@@ -269,7 +284,7 @@ export function appendStandaloneCabinetStockSheet(
     const tint = rowFillForCabinetStockStatus(row.status_label);
     const bg = tint || rfidZebra[idx % 2];
     const seq = idx + 1;
-    [seq, row.device_name, row.expire_date_ymd, row.status_label].forEach((val, colIndex) => {
+    [seq, row.device_name, row.expire_date_ymd, cabinetStockStatusLabelTh(row.status_label)].forEach((val, colIndex) => {
       const cell = excelRow.getCell(colIndex + 1);
       cell.value = val;
       const isStatus = colIndex === 3;
@@ -336,7 +351,7 @@ export class CabinetStockReportExcelService {
     return Buffer.from(buffer);
   }
 
-  /** Excel หลายชีตตามชิป: ทั้งหมด / หมดอายุ / ใกล้หมด / สต็อกต่ำ */
+  /** Excel หลายชีตตามชิป: ทั้งหมด / หมดอายุ / ใกล้หมดอายุ (ไม่มีชีตสต็อกต่ำ; ใช้รายงานสต็อกต่ำรวมแยก) */
   async generateMultiTabReport(input: CabinetStockMultiTabExcelInput): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Report Service';
@@ -352,6 +367,7 @@ export class CabinetStockReportExcelService {
     appendCabinetStockSummarySheet(workbook, 'สรุป', summarySource, reportDate);
     const used = new Set<string>();
     for (const tab of input.tabs) {
+      if (tab.chipLabelTh === 'สต็อกต่ำ') continue;
       const sn = safeCabinetStockSheetName(`RFID · ${tab.chipLabelTh}`, used);
       const sheetData: CabinetStockReportData = {
         filters: input.filters,
@@ -372,6 +388,8 @@ export interface RfidStockCombinedExcelRow {
   device_name: string;
   expire_date_ymd: string;
   status_label: string;
+  stock_min?: number | null;
+  stock_max?: number | null;
 }
 
 /**
@@ -455,7 +473,7 @@ export function appendRfidStockCombinedExcelSheet(
       row.cabinet_label,
       row.device_name,
       row.expire_date_ymd,
-      row.status_label,
+      cabinetStockStatusLabelTh(row.status_label),
     ];
     vals.forEach((val, colIndex) => {
       const cell = excelRow.getCell(colIndex + 1);
