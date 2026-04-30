@@ -6,6 +6,7 @@ import {
     FileBarChart,
     Settings,
     Network,
+    Users,
 } from 'lucide-react';
 
 export interface AdminMenuSubItem {
@@ -100,6 +101,12 @@ export const adminMenuItems: AdminMenuItem[] = [
                 href: '/admin/management/cabinets-departments',
                 icon: Network,
                 description: 'จัดการตู้ Cabinet และเชื่อมโยงกับแผนก',
+            },
+            {
+                name: 'จัดการผู้ใช้งาน',
+                href: '/admin/management/admin-users',
+                icon: Users,
+                description: 'จัดการผู้ใช้งานระบบ',
             },
         ],
     },

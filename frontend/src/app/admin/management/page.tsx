@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Package, Users, Shield, Layers } from 'lucide-react';
+import { Package, Users, Shield, Layers, UserCog } from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +28,17 @@ const managementMenus = [
     borderColor: 'border-blue-200',
     iconBg: 'bg-blue-100',
     iconColor: 'text-blue-600',
+  },
+  {
+    name: 'เพิ่มผู้ใช้ Admin',
+    href: '/admin/management/admin-users',
+    icon: UserCog,
+    description: 'ลงทะเบียนบัญชีผู้ดูแลระบบ (JWT) ผ่าน /auth/register',
+    color: 'from-amber-500 to-orange-600',
+    bgLight: 'bg-amber-50',
+    borderColor: 'border-amber-200',
+    iconBg: 'bg-amber-100',
+    iconColor: 'text-amber-700',
   },
   {
     name: 'Staff Users',

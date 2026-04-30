@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getSession } from 'next-auth/react';
 import type { ApiResponse, PaginatedResponse, ItemsStats } from '@/types/common';
-import type { AuthResponse, User, RegisterDto, LoginDto } from '@/types/auth';
+import type { AdminJwtUserRow, AuthResponse, User, RegisterDto, LoginDto } from '@/types/auth';
 import type { Item, CreateItemDto, UpdateItemDto, GetItemsQuery } from '@/types/item';
 
 // ต้องตรงกับ backend main.ts: setGlobalPrefix('api/smart-cabinet-cu/v1') และ PORT (ค่าเริ่มต้น Nest มักเป็น 3000)
@@ -89,6 +89,19 @@ export const authApi = {
 
   getProfile: async (): Promise<ApiResponse<User>> => {
     const response = await api.get('/auth/profile');
+    return response.data;
+  },
+
+  /** รายการผู้ใช้ JWT (ต้องล็อกอิน) — query ตัวเลือก */
+  listAdminUsers: async (params?: {
+    search?: string;
+    is_active?: boolean;
+  }): Promise<ApiResponse<AdminJwtUserRow[]>> => {
+    const q: Record<string, string> = {};
+    if (params?.search?.trim()) q.search = params.search.trim();
+    if (params?.is_active === true) q.is_active = 'true';
+    if (params?.is_active === false) q.is_active = 'false';
+    const response = await api.get('/auth/admin-users', { params: q });
     return response.data;
   },
 

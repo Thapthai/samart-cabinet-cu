@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Patch, Post, Put, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, HttpStatus, Patch, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthGuard, AuthContext } from './guards/auth.guard';
 import { AuthService } from './auth.service';
@@ -92,6 +92,17 @@ export class AuthController {
     const user_id = (v as any).data?.user?.id;
     if (!user_id) return { success: false, message: 'Unauthorized' };
     return this.authService.sendEmailOTP(user_id, body.purpose);
+  }
+
+  @Get('admin-users')
+  @UseGuards(AuthGuard)
+  async listAdminUsers(
+    @Query('search') search?: string,
+    @Query('is_active') isActiveParam?: string,
+  ) {
+    const isActive =
+      isActiveParam === 'true' ? true : isActiveParam === 'false' ? false : undefined;
+    return this.authService.listAdminUsers({ search, isActive });
   }
 
   @Get('profile')

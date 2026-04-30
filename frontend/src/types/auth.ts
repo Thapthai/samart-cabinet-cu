@@ -44,3 +44,18 @@ export interface ChangePasswordDto {
   newPassword: string;
 }
 
+/** แถวจาก GET /auth/admin-users (ไม่มีรหัสผ่าน) */
+export interface AdminJwtUserRow {
+  id: number;
+  email: string;
+  name: string;
+  is_active: boolean;
+  email_verified: boolean;
+  preferred_auth_method: string;
+  last_login_at: string | null;
+  two_factor_enabled: boolean;
+  has_password: boolean;
+  created_at: string;
+  updated_at: string;
+}
+

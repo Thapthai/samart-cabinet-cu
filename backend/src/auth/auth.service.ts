@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { EmailTemplate } from '../email/dto/email.dto';
@@ -63,6 +64,47 @@ export class AuthService {
       message: 'User registered successfully',
       data: { user: { id: user.id, email: user.email, name: user.name }, token },
     };
+  }
+
+  /** รายการผู้ใช้ JWT (ตาราง app_microservice_users) — ไม่ส่งรหัสผ่าน */
+  async listAdminUsers(filters?: { search?: string; isActive?: boolean }) {
+    const where: Prisma.UserWhereInput = {};
+    const q = filters?.search?.trim();
+    if (q) {
+      where.OR = [
+        { email: { contains: q } },
+        { name: { contains: q } },
+      ];
+    }
+    if (filters?.isActive !== undefined) {
+      where.is_active = filters.isActive;
+    }
+
+    const rows = await this.prisma.user.findMany({
+      where,
+      take: 500,
+      orderBy: { created_at: 'desc' },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        is_active: true,
+        email_verified: true,
+        preferred_auth_method: true,
+        last_login_at: true,
+        two_factor_enabled: true,
+        created_at: true,
+        updated_at: true,
+        password: true,
+      },
+    });
+
+    const data = rows.map(({ password, ...rest }) => ({
+      ...rest,
+      has_password: Boolean(password),
+    }));
+
+    return { success: true, data };
   }
 
   async login(loginDto: LoginDto) {
