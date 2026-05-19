@@ -65,7 +65,7 @@ export function buildWeighingStockSummaryRows(rows: WeighingStockRow[]): {
   return out;
 }
 
-/** ชีตสรุปตามรายการ (ตู้ · สินค้า) — จำนวนช่อง */
+/** ชีตสรุปตามรายการ (ตู้ · อุปกรณ์) — จำนวนช่อง */
 export function appendWeighingStockSummarySheet(
   workbook: ExcelJS.Workbook,
   sheetName: string,
@@ -115,7 +115,7 @@ export function appendWeighingStockSummarySheet(
   worksheet.getRow(3).height = 20;
 
   const tableStartRow = 4;
-  const headers = ['ลำดับ', 'รายการ (ตู้ · สินค้า)', 'จำนวนช่อง'];
+  const headers = ['ลำดับ', 'รายการ (ตู้ · อุปกรณ์)', 'จำนวนช่อง'];
   const headerRow = worksheet.getRow(tableStartRow);
   headers.forEach((h, i) => {
     const cell = headerRow.getCell(i + 1);

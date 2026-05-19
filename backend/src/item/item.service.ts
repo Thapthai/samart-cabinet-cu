@@ -1186,7 +1186,7 @@ export class ItemService {
   // ====================================== Item Stock Return API ======================================
   /**
    * สรุปตาม ItemCode: ถอนวันนี้ - ใช้วันนี้ - คืนวันนี้ = max_available_qty
-   * ใช้ item_code จาก supply_item_return_records (อ้างอิงตามรหัสสินค้า)
+   * ใช้ item_code จาก supply_item_return_records (อ้างอิงตามรหัสอุปกรณ์)
    */
   async findAllItemStockWillReturn() {
     try {

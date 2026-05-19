@@ -74,7 +74,7 @@ export default function WeighingStockFilterSection({
           <div className="min-w-0 pt-0.5">
             <h2 className="text-base font-semibold text-slate-900">ค้นหาและกรอง</h2>
             <p className="text-[11px] text-slate-400 sm:text-xs">
-              กรอกเงื่อนไขแล้วกดค้นหา — ถ้ามีชื่ออุปกรณ์ ระบบจะใช้ค้นตามชื่อก่อน (รหัสสินค้าใช้เมื่อไม่กรอกชื่อ)
+              กรอกเงื่อนไขแล้วกดค้นหา — ถ้ามีชื่ออุปกรณ์ ระบบจะใช้ค้นตามชื่อก่อน (รหัสอุปกรณ์ใช้เมื่อไม่กรอกชื่อ)
             </p>
           </div>
         </div>
@@ -97,13 +97,13 @@ export default function WeighingStockFilterSection({
 
           <div className="space-y-2">
             <Label htmlFor="weighing-filter-code" className="text-slate-700">
-              รหัสสินค้า (itemcode)
+              รหัสอุปกรณ์ (itemcode)
             </Label>
             <Input
               id="weighing-filter-code"
               name="itemcode"
               autoComplete="off"
-              placeholder="ค้นหาจากรหัสสินค้า..."
+              placeholder="ค้นหาจากรหัสอุปกรณ์..."
               value={itemcodeDraft}
               onChange={(e) => onItemcodeDraftChange(e.target.value)}
               disabled={!!itemNameDraft.trim()}

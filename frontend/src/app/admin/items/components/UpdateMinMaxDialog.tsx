@@ -79,7 +79,7 @@ export default function UpdateMinMaxDialog({
     }
 
     if (!item?.itemcode) {
-      toast.error('ไม่พบข้อมูลสินค้า');
+      toast.error('ไม่พบข้อมูลอุปกรณ์');
       return;
     }
 
@@ -122,7 +122,7 @@ export default function UpdateMinMaxDialog({
         <DialogHeader>
           <DialogTitle>อัปเดต Min/Max</DialogTitle>
           <DialogDescription>
-            ตั้งค่าจำนวนขั้นต่ำและสูงสุดของสินค้าต่อตู้ (ต้องเลือกตู้ก่อนจึงจะบันทึกได้)
+            ตั้งค่าจำนวนขั้นต่ำและสูงสุดของอุปกรณ์ต่อตู้ (ต้องเลือกตู้ก่อนจึงจะบันทึกได้)
           </DialogDescription>
         </DialogHeader>
 

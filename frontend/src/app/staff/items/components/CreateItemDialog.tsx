@@ -85,13 +85,13 @@ export default function CreateItemDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* รหัสสินค้า */}
+            {/* รหัสอุปกรณ์ */}
             <FormField
               control={form.control}
               name="itemcode"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>รหัสสินค้า *</FormLabel>
+                  <FormLabel>รหัสอุปกรณ์ *</FormLabel>
                   <FormControl>
                     <Input
                       placeholder="เช่น MED2024001"
@@ -215,7 +215,7 @@ export default function CreateItemDialog({
                   <FormLabel>คำอธิบาย</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="รายละเอียดของสินค้า..."
+                      placeholder="รายละเอียดของอุปกรณ์..."
                       className="min-h-[100px]"
                       {...field}
                     />
@@ -235,7 +235,7 @@ export default function CreateItemDialog({
                 ยกเลิก
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? 'กำลังบันทึก...' : 'บันทึกสินค้า'}
+                {loading ? 'กำลังบันทึก...' : 'บันทึกอุปกรณ์'}
               </Button>
             </div>
           </form>

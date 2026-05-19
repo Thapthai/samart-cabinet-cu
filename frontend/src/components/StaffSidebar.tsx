@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { staffRolePermissionApi } from '@/lib/api';
 import { staffMenuItems, filterMenuByPermissions } from '@/app/staff/menus';
 import PortalSidebar from '@/components/PortalSidebar';
+import { ASSETS } from '@/lib/assets';
 
 interface StaffSidebarProps {
   staffUser?: {
@@ -71,6 +72,7 @@ export default function StaffSidebar({ staffUser, onLogout, isAdmin = false }: S
       portalSubtitle="Smart Cabinet"
       dashboardHref="/staff/dashboard"
       staffUser={staffUser}
+      logoSrc={ASSETS.LOGO}
       onLogout={onLogout}
       isAdmin={isAdmin}
       showAdminPortalLink={isAdmin}

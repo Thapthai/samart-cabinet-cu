@@ -82,10 +82,6 @@ export default function PortalSidebar({
   onLogout,
   staffUser,
   isAdmin = false,
-  showStaffPortalLink = false,
-  staffPortalHref = '/staff/dashboard',
-  showAdminPortalLink = false,
-  adminPortalHref = '/admin/dashboard',
 }: PortalSidebarProps) {
   const pathname = usePathname();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -150,28 +146,6 @@ export default function PortalSidebar({
           </div>
 
           <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto scrollbar-thin">
-            {showAdminPortalLink && (
-              <Link
-                href={adminPortalHref}
-                onClick={() => setIsMobileOpen(false)}
-                className="flex items-center w-full px-3 py-3 text-sm font-semibold rounded-xl mb-4 bg-gradient-to-r from-pink-400 to-rose-500 text-white shadow-lg shadow-pink-500/30 hover:from-pink-500 hover:to-rose-600"
-              >
-                <Shield className="h-5 w-5 flex-shrink-0 mr-3" />
-                <span>กลับไปหน้า Admin</span>
-              </Link>
-            )}
-
-            {showStaffPortalLink && (
-              <Link
-                href={staffPortalHref}
-                onClick={() => setIsMobileOpen(false)}
-                className="flex items-center w-full px-3 py-3 text-sm font-semibold rounded-xl mb-4 bg-gradient-to-r from-emerald-400 to-teal-500 text-white shadow-lg shadow-emerald-500/30 hover:from-emerald-500 hover:to-teal-600"
-              >
-                <Users className="h-5 w-5 flex-shrink-0 mr-3" />
-                <span>ไปหน้า Staff</span>
-              </Link>
-            )}
-
             {visibleMenu.map((item) => {
               const Icon = item.icon;
               if (!Icon) return null;

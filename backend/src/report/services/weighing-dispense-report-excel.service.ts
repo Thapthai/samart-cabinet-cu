@@ -81,41 +81,6 @@ export class WeighingDispenseReportExcelService {
     worksheet.getRow(3).height = 20;
 
     const filters = data.filters ?? {};
-    // const filterLabels = ['ตู้ (StockID)', 'รหัสสินค้า', 'จำนวนรายการ'];
-    // const filterValues = [
-    //   filters.stockId != null ? String(filters.stockId) : 'ทั้งหมด',
-    //   filters.itemcode ?? 'ทั้งหมด',
-    //   `${data.summary?.total_rows ?? 0} รายการ`,
-    // ];
-    // worksheet.mergeCells('A4:B4');
-    // worksheet.getCell('A4').value = `${filterLabels[0]}: ${filterValues[0]}`;
-    // worksheet.getCell('A4').font = { name: 'Tahoma', size: 11, bold: true, color: { argb: 'FF1A365D' } };
-    // worksheet.getCell('A4').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDF2' } };
-    // worksheet.getCell('A4').alignment = { horizontal: 'center', vertical: 'middle' };
-    // worksheet.mergeCells('C4:D4');
-    // worksheet.getCell('C4').value = `${filterLabels[1]}: ${filterValues[1]}`;
-    // worksheet.getCell('C4').font = { name: 'Tahoma', size: 11, bold: true, color: { argb: 'FF1A365D' } };
-    // worksheet.getCell('C4').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDF2' } };
-    // worksheet.getCell('C4').alignment = { horizontal: 'center', vertical: 'middle' };
-    // worksheet.mergeCells('E4:E4');
-    // worksheet.getCell('E4').value = `${filterLabels[2]}: ${filterValues[2]}`;
-    // worksheet.getCell('E4').font = { name: 'Tahoma', size: 11, bold: true, color: { argb: 'FF1A365D' } };
-    // worksheet.getCell('E4').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDF2' } };
-    // worksheet.getCell('E4').alignment = { horizontal: 'center', vertical: 'middle' };
-    // worksheet.getRow(4).height = 20;
-
-    // worksheet.mergeCells('A5:C5');
-    // worksheet.getCell('A5').value = `วันที่เริ่มต้น: ${filters.dateFrom ?? '-'}`;
-    // worksheet.getCell('A5').font = { name: 'Tahoma', size: 11, bold: true, color: { argb: 'FF1A365D' } };
-    // worksheet.getCell('A5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDF2' } };
-    // worksheet.getCell('A5').alignment = { horizontal: 'center', vertical: 'middle' };
-    // worksheet.mergeCells('D5:E5');
-    // worksheet.getCell('D5').value = `วันที่สิ้นสุด: ${filters.dateTo ?? '-'}`;
-    // worksheet.getCell('D5').font = { name: 'Tahoma', size: 11, bold: true, color: { argb: 'FF1A365D' } };
-    // worksheet.getCell('D5').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8EDF2' } };
-    // worksheet.getCell('D5').alignment = { horizontal: 'center', vertical: 'middle' };
-    // worksheet.getRow(5).height = 20;
-
     // const tableStartRow = 6;
     const tableStartRow = 4;
     const headers = ['ลำดับ', 'อุปกรณ์', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];

@@ -30,7 +30,7 @@ export default function DeleteItemDialog({
 
   const handleDelete = async () => {
     if (!item) {
-      toast.error('ไม่พบข้อมูลสินค้า');
+      toast.error('ไม่พบข้อมูลอุปกรณ์');
       return;
     }
 
@@ -39,15 +39,15 @@ export default function DeleteItemDialog({
       const response = await itemsApi.delete(item.itemcode);
 
       if (response.success) {
-        toast.success('ลบสินค้าสำเร็จ');
+        toast.success('ลบอุปกรณ์สำเร็จ');
         onOpenChange(false);
         onSuccess();
       } else {
-        toast.error(response.message || 'ไม่สามารถลบสินค้าได้');
+        toast.error(response.message || 'ไม่สามารถลบอุปกรณ์ได้');
       }
     } catch (error: any) {
       console.error('Delete item error:', error);
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการลบสินค้า');
+      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการลบอุปกรณ์');
     } finally {
       setLoading(false);
     }
@@ -62,7 +62,7 @@ export default function DeleteItemDialog({
               <AlertTriangle className="h-6 w-6 text-red-600" />
             </div>
             <div className="flex-1">
-              <DialogTitle>ยืนยันการลบสินค้า</DialogTitle>
+              <DialogTitle>ยืนยันการลบอุปกรณ์</DialogTitle>
               <DialogDescription className="mt-1">
                 การกระทำนี้ไม่สามารถยกเลิกได้
               </DialogDescription>
@@ -72,13 +72,13 @@ export default function DeleteItemDialog({
         
         <div className="py-4">
           <p className="text-sm text-gray-600">
-            คุณกำลังจะลบสินค้า{' '}
+            คุณกำลังจะลบอุปกรณ์{' '}
             <span className="font-semibold text-gray-900">&quot;{item?.itemname || item?.itemcode}&quot;</span>
           </p>
           {item && (
             <div className="mt-4 rounded-lg bg-gray-50 p-4 space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">รหัสสินค้า:</span>
+                <span className="text-gray-500">รหัสอุปกรณ์:</span>
                 <span className="font-medium font-mono">{item.itemcode}</span>
               </div>
               {item.CostPrice !== undefined && (
@@ -122,7 +122,7 @@ export default function DeleteItemDialog({
                 กำลังลบ...
               </>
             ) : (
-              'ลบสินค้า'
+              'ลบอุปกรณ์'
             )}
           </Button>
         </DialogFooter>

@@ -106,27 +106,7 @@ export class WeighingStockReportPdfService {
         doc.fillColor('#000000');
         doc.y += 6;
 
-        // const filters = data.filters ?? {};
-        // const filterRowHeight = 34;
-        // const filterY = doc.y;
-        // const filterCells = [
-        //   { label: 'ตู้ (StockID)', value: filters.stockId != null ? String(filters.stockId) : 'ทั้งหมด' },
-        //   { label: 'รหัสสินค้า', value: filters.itemcode ?? 'ทั้งหมด' },
-        //   { label: 'จำนวนรายการ', value: `${summary.total_rows} รายการ` },
-        // ];
-        // const filterColWidth = Math.floor(contentWidth / filterCells.length);
-        // let fx = margin;
-        // filterCells.forEach((fc, i) => {
-        //   const cw = i === filterCells.length - 1 ? contentWidth - filterColWidth * (filterCells.length - 1) : filterColWidth;
-        //   doc.rect(fx, filterY, cw, filterRowHeight).fillAndStroke('#E8EDF2', '#DEE2E6');
-        //   doc.fontSize(11).font(finalFontBoldName).fillColor('#444444');
-        //   doc.text(fc.label, fx + 3, filterY + 4, { width: cw - 6, align: 'center' });
-        //   doc.fontSize(13).font(finalFontName).fillColor('#1A365D');
-        //   doc.text(fc.value, fx + 3, filterY + 16, { width: cw - 6, align: 'center' });
-        //   fx += cw;
-        // });
-        // doc.fillColor('#000000');
-        // doc.y = filterY + filterRowHeight + 8;
+   
 
         const itemHeight = 28;
         const cellPadding = 4;

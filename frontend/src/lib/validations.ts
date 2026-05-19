@@ -19,7 +19,7 @@ export const registerAdminSchema = z.object({
 });
 
 export const itemSchema = z.object({
-  itemcode: z.string().min(1, 'รหัสสินค้าต้องไม่ว่าง').max(25, 'รหัสสินค้าต้องไม่เกิน 25 ตัวอักษร'),
+  itemcode: z.string().min(1, 'รหัสอุปกรณ์ต้องไม่ว่าง').max(25, 'รหัสอุปกรณ์ต้องไม่เกิน 25 ตัวอักษร'),
   itemname: z.string().min(2, 'อุปกรณ์ต้องมีอย่างน้อย 2 ตัวอักษร').max(255, 'อุปกรณ์ต้องไม่เกิน 255 ตัวอักษร'),
   Alternatename: z.string().max(100).optional(),
   Barcode: z.string().max(50).optional(),

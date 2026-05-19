@@ -92,7 +92,7 @@ export default function ItemsPage() {
       }
     } catch (error) {
       console.error('Failed to fetch items:', error);
-      toast.error('ไม่สามารถโหลดข้อมูลสินค้าได้');
+      toast.error('ไม่สามารถโหลดข้อมูลอุปกรณ์ได้');
     } finally {
       setLoading(false);
     }

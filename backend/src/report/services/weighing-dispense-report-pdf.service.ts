@@ -98,43 +98,7 @@ export class WeighingDispenseReportPdfService {
         doc.fillColor('#000000');
         doc.y += 6;
 
-        // const filters = data.filters ?? {};
-        // const filterRowHeight = 34;
-        // const filterY = doc.y;
-        // const filterCells = [
-        //   { label: 'ตู้ (StockID)', value: filters.stockId != null ? String(filters.stockId) : 'ทั้งหมด' },
-        //   { label: 'รหัสสินค้า', value: filters.itemcode ?? 'ทั้งหมด' },
-        //   { label: 'จำนวนรายการ', value: `${summary.total_rows} รายการ` },
-        // ];
-        // const filterColWidth = Math.floor(contentWidth / filterCells.length);
-        // let fx = margin;
-        // filterCells.forEach((fc, i) => {
-        //   const cw = i === filterCells.length - 1 ? contentWidth - filterColWidth * (filterCells.length - 1) : filterColWidth;
-        //   doc.rect(fx, filterY, cw, filterRowHeight).fillAndStroke('#E8EDF2', '#DEE2E6');
-        //   doc.fontSize(11).font(finalFontBoldName).fillColor('#444444');
-        //   doc.text(fc.label, fx + 3, filterY + 4, { width: cw - 6, align: 'center' });
-        //   doc.fontSize(13).font(finalFontName).fillColor('#1A365D');
-        //   doc.text(fc.value, fx + 3, filterY + 16, { width: cw - 6, align: 'center' });
-        //   fx += cw;
-        // });
-        // doc.fillColor('#000000');
-        // doc.y = filterY + filterRowHeight + 4;
-
-        // const dateFilterY = doc.y;
-        // const halfW = Math.floor(contentWidth / 2);
-        // doc.rect(margin, dateFilterY, halfW, filterRowHeight).fillAndStroke('#E8EDF2', '#DEE2E6');
-        // doc.fontSize(11).font(finalFontBoldName).fillColor('#444444');
-        // doc.text('วันที่เริ่มต้น', margin + 3, dateFilterY + 4, { width: halfW - 6, align: 'center' });
-        // doc.fontSize(13).font(finalFontName).fillColor('#1A365D');
-        // doc.text(filters.dateFrom ?? '-', margin + 3, dateFilterY + 16, { width: halfW - 6, align: 'center' });
-        // doc.rect(margin + halfW, dateFilterY, contentWidth - halfW, filterRowHeight).fillAndStroke('#E8EDF2', '#DEE2E6');
-        // doc.fontSize(11).font(finalFontBoldName).fillColor('#444444');
-        // doc.text('วันที่สิ้นสุด', margin + halfW + 3, dateFilterY + 4, { width: halfW - 6, align: 'center' });
-        // doc.fontSize(13).font(finalFontName).fillColor('#1A365D');
-        // doc.text(filters.dateTo ?? '-', margin + halfW + 3, dateFilterY + 16, { width: halfW - 6, align: 'center' });
-        // doc.fillColor('#000000');
-        // doc.y = dateFilterY + filterRowHeight + 8;
-
+  
         const itemHeight = 28;
         const cellPadding = 4;
         const totalTableWidth = contentWidth;

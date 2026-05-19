@@ -37,7 +37,7 @@ export default function EditItemDialog({
     e.preventDefault();
     
     if (!item) {
-      toast.error('ไม่พบข้อมูลสินค้า');
+      toast.error('ไม่พบข้อมูลอุปกรณ์');
       return;
     }
 
@@ -62,11 +62,11 @@ export default function EditItemDialog({
         onOpenChange(false);
         onSuccess();
       } else {
-        toast.error(response.message || 'ไม่สามารถแก้ไขสินค้าได้');
+        toast.error(response.message || 'ไม่สามารถแก้ไขอุปกรณ์ได้');
       }
     } catch (error: any) {
       console.error('Update item error:', error);
-      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการแก้ไขสินค้า');
+      toast.error(error.response?.data?.message || 'เกิดข้อผิดพลาดในการแก้ไขอุปกรณ์');
     } finally {
       setLoading(false);
     }

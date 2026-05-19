@@ -53,7 +53,7 @@ export default function WeighingPage() {
   /** ค่าที่ส่ง API หลังกดค้นหา — ชื่ออุปกรณ์ (itemName) */
   const [appliedItemName, setAppliedItemName] = useState('');
   const [itemNameDraft, setItemNameDraft] = useState('');
-  /** รหัสสินค้า — ใช้เมื่อไม่กรอกชื่อ (ตรงกับ backend) */
+  /** รหัสอุปกรณ์ — ใช้เมื่อไม่กรอกชื่อ (ตรงกับ backend) */
   const [appliedItemcode, setAppliedItemcode] = useState('');
   const [itemcodeDraft, setItemcodeDraft] = useState('');
   const [stockIdFilter, setStockIdFilter] = useState<string>('');

@@ -64,7 +64,7 @@ function cabinetStockModeForMinRow(c: {
   return 'WEIGHING';
 }
 
-/** เทียบคู่ StockID+รหัสสินค้า / ค้นหา Item — ลดเพี้ยนตัวพิมพ์ */
+/** เทียบคู่ StockID+รหัสอุปกรณ์ / ค้นหา Item — ลดเพี้ยนตัวพิมพ์ */
 function normalizeDashboardItemCode(code: string | null | undefined): string {
   return String(code ?? '').trim().toLowerCase();
 }
@@ -183,7 +183,7 @@ export class DashboardService {
         : Promise.resolve([] as { StockID: number | null; ItemCode: string | null; _count: { RowID: number } }[]),
     ]);
 
-    /** สล็อต Weighing ต่อรหัสสินค้า (itemcode unique ใน DB) */
+    /** สล็อต Weighing ต่อรหัสอุปกรณ์ (itemcode unique ใน DB) */
     const weighingSlotByNormCode = new Map<string, { stockId: number; qty: number; itemcode: string }>();
     for (const row of weighingSlots) {
       const nk = normalizeDashboardItemCode(row.itemcode);

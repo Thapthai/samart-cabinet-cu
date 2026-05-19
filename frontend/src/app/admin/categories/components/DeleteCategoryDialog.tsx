@@ -50,10 +50,10 @@ export default function DeleteCategoryDialog({
       const errorMessage = error.response?.data?.message || error.message || 'เกิดข้อผิดพลาดในการลบหมวดหมู่';
       
       // Check if error is about items using this category
-      if (errorMessage.includes('item') || errorMessage.includes('สินค้า')) {
+      if (errorMessage.includes('item') || errorMessage.includes('อุปกรณ์')) {
         toast.error(errorMessage, {
           duration: 5000,
-          description: 'กรุณาลบหรือย้ายสินค้าที่ใช้หมวดหมู่นี้ออกก่อน',
+          description: 'กรุณาลบหรือย้ายอุปกรณ์ที่ใช้หมวดหมู่นี้ออกก่อน',
         });
       } else {
         toast.error(errorMessage);
@@ -88,7 +88,7 @@ export default function DeleteCategoryDialog({
           <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
             <p className="text-xs text-amber-800">
               <AlertTriangle className="inline h-3 w-3 mr-1" />
-              <strong>หมายเหตุ:</strong> หากมีสินค้าใช้หมวดหมู่นี้อยู่ จะไม่สามารถลบได้ กรุณาลบหรือย้ายสินค้าก่อน
+              <strong>หมายเหตุ:</strong> หากมีอุปกรณ์ใช้หมวดหมู่นี้อยู่ จะไม่สามารถลบได้ กรุณาลบหรือย้ายอุปกรณ์ก่อน
             </p>
           </div>
           {category && (

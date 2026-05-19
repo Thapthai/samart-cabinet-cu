@@ -212,7 +212,7 @@ export class ItemStockController {
     return this.itemService.findRfidLinesGroupedByStock(stockId, keyword);
   }
 
-  /** รายการ RFID ใน itemstock ต่อรหัสสินค้า + StockID (ตู้) */
+  /** รายการ RFID ใน itemstock ต่อรหัสอุปกรณ์ + StockID (ตู้) */
   @Get('rfid-lines')
   async findRfidLines(
     @Query('itemcode') itemcode?: string,

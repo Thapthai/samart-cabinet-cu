@@ -153,7 +153,7 @@ function ItemsTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[80px]">ลำดับ</TableHead>
-            {/* <TableHead>รหัสสินค้า</TableHead> */}
+            {/* <TableHead>รหัสอุปกรณ์</TableHead> */}
             <TableHead>อุปกรณ์</TableHead>
             <TableHead className="text-center">Stock Balance</TableHead>
             <TableHead className="text-center">Min/Max</TableHead>
