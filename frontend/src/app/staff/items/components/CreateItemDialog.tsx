@@ -104,13 +104,13 @@ export default function CreateItemDialog({
               )}
             />
 
-            {/* ชื่อสินค้า */}
+            {/* อุปกรณ์ */}
             <FormField
               control={form.control}
               name="itemname"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>ชื่อสินค้า *</FormLabel>
+                  <FormLabel>อุปกรณ์ *</FormLabel>
                   <FormControl>
                     <Input
                       placeholder="เช่น ชุดเครื่องมือผ่าตัดใหญ่"

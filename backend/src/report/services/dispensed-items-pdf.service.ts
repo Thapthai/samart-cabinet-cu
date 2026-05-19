@@ -140,7 +140,7 @@ export class DispensedItemsPdfService {
         const colWidths = colPct.map((p) => Math.floor(totalTableWidth * p));
         let sumW = colWidths.reduce((a, b) => a + b, 0);
         if (sumW < totalTableWidth) colWidths[1] += totalTableWidth - sumW;
-        const headers = ['ลำดับ', 'ชื่อสินค้า', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
+        const headers = ['ลำดับ', 'อุปกรณ์', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
 
         const drawTableHeader = (y: number) => {
           doc.fontSize(13).font(finalFontBoldName);

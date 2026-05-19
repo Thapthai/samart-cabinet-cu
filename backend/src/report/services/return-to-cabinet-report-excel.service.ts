@@ -69,7 +69,7 @@ export class ReturnToCabinetReportExcelService {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Report Service';
     workbook.created = new Date();
-    const worksheet = workbook.addWorksheet('รายการคืน RFID', {
+    const worksheet = workbook.addWorksheet('รายการเติม RFID', {
       pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true },
       properties: { defaultRowHeight: 20 },
     });
@@ -113,7 +113,7 @@ export class ReturnToCabinetReportExcelService {
 
     worksheet.mergeCells('B1:F2');
     const headerCell = worksheet.getCell('B1');
-    headerCell.value = 'รายการคืนอุปกรณ์เข้าตู้ (RFID)\nReturn To Cabinet Report';
+    headerCell.value = 'รายการเติมอุปกรณ์เข้าตู้ (RFID)\nReturn To Cabinet Report';
     headerCell.font = { name: 'Tahoma', size: 14, bold: true, color: { argb: 'FF1A365D' } };
     headerCell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     headerCell.fill = {
@@ -132,7 +132,7 @@ export class ReturnToCabinetReportExcelService {
     worksheet.getRow(3).height = 20;
 
     const tableStartRow = 4;
-    const headers = ['ลำดับ', 'ชื่อสินค้า', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
+    const headers = ['ลำดับ', 'อุปกรณ์', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
     const headerRow = worksheet.getRow(tableStartRow);
     headers.forEach((h, i) => {
       const cell = headerRow.getCell(i + 1);

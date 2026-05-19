@@ -18,6 +18,7 @@ import WeighingDispenseSummaryCards from './components/WeighingDispenseSummaryCa
 import WeighingDispenseFiltersCard from './components/WeighingDispenseFiltersCard';
 import WeighingDispenseTableCard from './components/WeighingDispenseTableCard';
 import { getTodayISO, type RfidDispensedListRow, type WeighingDispenseDetailRow } from './components/types';
+import { resolveDispensedAllExportParams } from '@/lib/weighing-dispense/resolveDispensedAllExportParams';
 
 export default function WeighingDispensePage() {
   const { user } = useAuth();
@@ -241,6 +242,7 @@ export default function WeighingDispensePage() {
         const itemName = itemcodeFilter || undefined;
         await reportsApi.downloadWeighingDispenseExcel({
           stockId,
+          itemcode: itemcodeFilter || undefined,
           itemName,
           dateFrom: dateFromFilter,
           dateTo: dateToFilter,
@@ -270,21 +272,17 @@ export default function WeighingDispensePage() {
   const handleDownloadDispensedAllExcel = async () => {
     try {
       setCombinedExcelLoading(true);
-      await reportsApi.downloadDispensedAllExcel({
-        weighing: {
-          stockId: stockIdParsed ?? undefined,
-          itemName: itemcodeFilter || undefined,
-          dateFrom: dateFromFilter,
-          dateTo: dateToFilter,
-        },
-        rfid: {
-          keyword: itemcodeFilter || undefined,
-          startDate: dateFromFilter,
-          endDate: dateToFilter,
-          cabinetId:
-            selectedCabinetId != null && selectedCabinetId > 0 ? String(selectedCabinetId) : undefined,
-        },
-      });
+      await reportsApi.downloadDispensedAllExcel(
+        resolveDispensedAllExportParams({
+          cabinets,
+          selectedCabinet,
+          selectedCabinetId,
+          stockIdParsed,
+          itemcodeFilter,
+          dateFromFilter,
+          dateToFilter,
+        }),
+      );
       toast.success('ดาวน์โหลด Excel (Weighing + RFID) สำเร็จ');
     } catch (e) {
       console.error(e);

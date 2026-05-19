@@ -20,6 +20,7 @@ interface StaffUser {
   fname: string;
   lname: string;
   role: string;
+  role_id?: number | null;
   client_id: string;
   expires_at: string | null;
   is_active: boolean;
@@ -52,7 +53,7 @@ export default function StaffUsersPage() {
     email: '',
     fname: '',
     lname: '',
-    role: '',
+    role_id: '',
     password: 'password123',
     expires_at: '',
   });
@@ -96,7 +97,14 @@ export default function StaffUsersPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await staffUserApi.createStaffUser(formData);
+      const response = await staffUserApi.createStaffUser({
+        email: formData.email,
+        fname: formData.fname,
+        lname: formData.lname,
+        role_id: formData.role_id ? parseInt(formData.role_id, 10) : undefined,
+        password: formData.password || undefined,
+        expires_at: formData.expires_at || undefined,
+      });
       if (response.success) {
         showNotification('สำเร็จ!', 'สร้าง Staff User เรียบร้อยแล้ว');
         setClientCredentials({
@@ -104,7 +112,7 @@ export default function StaffUsersPage() {
           client_secret: response.data.client_secret,
         });
         fetchStaffUsers();
-        setFormData({ email: '', fname: '', lname: '', role: '', password: 'password123', expires_at: '' });
+        setFormData({ email: '', fname: '', lname: '', role_id: '', password: 'password123', expires_at: '' });
         // Don't close dialog yet - show credentials
       } else {
         showNotification('เกิดข้อผิดพลาด', response.message || 'ไม่สามารถสร้าง Staff User ได้', 'error');
@@ -125,8 +133,8 @@ export default function StaffUsersPage() {
         lname: formData.lname,
       };
 
-      if (formData.role) {
-        updateData.role_code = formData.role; // Use role_code instead of role
+      if (formData.role_id) {
+        updateData.role_id = parseInt(formData.role_id, 10);
       }
 
       if (formData.password && formData.password !== 'password123') {
@@ -192,7 +200,7 @@ export default function StaffUsersPage() {
       email: staff.email,
       fname: staff.fname,
       lname: staff.lname,
-      role: staff.role || '',
+      role_id: staff.role_id != null ? String(staff.role_id) : '',
       password: '',
       expires_at: staff.expires_at || '',
     });
@@ -213,7 +221,7 @@ export default function StaffUsersPage() {
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => {
-                setFormData({ email: '', fname: '', lname: '', role: '', password: 'password123', expires_at: '' });
+                setFormData({ email: '', fname: '', lname: '', role_id: '', password: 'password123', expires_at: '' });
                 setClientCredentials(null);
                 setIsCreateDialogOpen(true);
               }}>
@@ -259,8 +267,8 @@ export default function StaffUsersPage() {
                   <div>
                     <Label htmlFor="role">บทบาท (Role) *</Label>
                     <Select
-                      value={formData.role}
-                      onValueChange={(value) => setFormData({ ...formData, role: value })}
+                      value={formData.role_id}
+                      onValueChange={(value) => setFormData({ ...formData, role_id: value })}
                       required
                       disabled={staffRoles.length === 0}
                     >
@@ -269,7 +277,7 @@ export default function StaffUsersPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {staffRoles.map((role: { id: number; code: string; name: string; description: string | null }) => (
-                          <SelectItem key={role.id} value={role.code}>
+                          <SelectItem key={role.id} value={String(role.id)}>
                             {role.name}
                           </SelectItem>
                         ))}
@@ -469,8 +477,8 @@ export default function StaffUsersPage() {
             <div>
               <Label htmlFor="edit-role">บทบาท (Role) *</Label>
               <Select
-                value={formData.role}
-                onValueChange={(value) => setFormData({ ...formData, role: value })}
+                value={formData.role_id}
+                onValueChange={(value) => setFormData({ ...formData, role_id: value })}
                 required
               >
                 <SelectTrigger className="w-full">
@@ -478,7 +486,7 @@ export default function StaffUsersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {staffRoles.map((role: { id: number; code: string; name: string; description: string | null }) => (
-                    <SelectItem key={role.id} value={role.code}>
+                    <SelectItem key={role.id} value={String(role.id)}>
                       {role.name}
                     </SelectItem>
                   ))}

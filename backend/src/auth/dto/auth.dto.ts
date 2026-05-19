@@ -1,4 +1,5 @@
-import { IsEmail, IsNotEmpty, IsString, IsOptional, IsEnum, MinLength, Matches } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, IsOptional, IsEnum, IsInt, MinLength, Matches } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum AuthMethod {
   JWT = 'jwt',
@@ -7,7 +8,8 @@ export enum AuthMethod {
   FIREBASE = 'firebase'
 }
 
-export class RegisterDto {
+/** POST /auth/register/admin */
+export class RegisterAdminDto {
   @IsEmail()
   email: string;
 
@@ -15,17 +17,65 @@ export class RegisterDto {
   @IsString()
   @MinLength(8, { message: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร' })
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).+$/, {
-    message: 'รหัสผ่านต้องมีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก ตัวเลข และอักษรพิเศษ'
+    message: 'รหัสผ่านต้องมีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก ตัวเลข และอักษรพิเศษ',
   })
   password: string;
 
   @IsNotEmpty()
   @IsString()
-  name: string;
+  @MinLength(2)
+  fname: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(2)
+  lname: string;
 
   @IsOptional()
-  @IsEnum(AuthMethod)
-  preferred_auth_method?: AuthMethod;
+  @IsInt()
+  @Type(() => Number)
+  department_id?: number;
+
+  @IsOptional()
+  @IsString()
+  emp_code?: string;
+}
+
+/** POST /auth/register/staff */
+export class RegisterStaffDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(2)
+  fname: string;
+
+  @IsString()
+  @MinLength(2)
+  lname: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @MinLength(8, { message: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร' })
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).+$/, {
+    message: 'รหัสผ่านต้องมีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก ตัวเลข และอักษรพิเศษ',
+  })
+  password: string;
+
+  /** รับได้ทั้ง role_id หรือ role (alias) */
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  role_id?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  role?: number;
+
+  @IsOptional()
+  @IsString()
+  expires_at?: string;
 }
 
 export class LoginDto {

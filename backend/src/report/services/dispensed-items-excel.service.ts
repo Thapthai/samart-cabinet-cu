@@ -130,7 +130,7 @@ export class DispensedItemsExcelService {
     worksheet.getRow(3).height = 20;
 
     const tableStartRow = 4;
-    const headers = ['ลำดับ', 'ชื่อสินค้า', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
+    const headers = ['ลำดับ', 'อุปกรณ์', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
     const headerRow = worksheet.getRow(tableStartRow);
     headers.forEach((h, i) => {
       const cell = headerRow.getCell(i + 1);

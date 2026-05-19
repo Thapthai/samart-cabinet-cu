@@ -1,37 +1,4 @@
-// Type definitions for menu and submenu
-export interface StaffMenuSubItem {
-    name: string;
-    href: string;
-    description?: string;
-    icon?: any;
-}
-
-export interface StaffMenuItem {
-    name: string;
-    href: string;
-    icon?: any;
-    description?: string;
-    submenu?: StaffMenuSubItem[];
-    roles?: string[];
-    /** เมื่อเป็น true กดแล้วไม่นำทาง แค่เปิด/ปิด submenu */
-    noHref?: boolean;
-}
-// Utility to filter menu and submenu by permissions
-export function filterMenuByPermissions(
-    menuItems: StaffMenuItem[],
-    permissions: Record<string, boolean>
-): StaffMenuItem[] {
-    return menuItems
-        .filter((item) => permissions[item.href] !== false)
-        .map((item) => {
-            if (item.submenu) {
-                const filteredSubmenu = item.submenu.filter((sub) => permissions[sub.href] !== false);
-                return { ...item, submenu: filteredSubmenu };
-            }
-            return item;
-        })
-        .filter((item) => !item.submenu || item.submenu.length > 0);
-}
+import type { ComponentType } from 'react';
 import {
     LayoutDashboard,
     Box,
@@ -46,7 +13,42 @@ import {
     ClipboardList,
 } from 'lucide-react';
 
-export const staffMenuItems = [
+export interface StaffMenuSubItem {
+    name: string;
+    href: string;
+    description?: string;
+    icon?: ComponentType<{ className?: string }>;
+    roles?: string[];
+}
+
+export interface StaffMenuItem {
+    name: string;
+    href: string;
+    icon?: ComponentType<{ className?: string }>;
+    description?: string;
+    submenu?: StaffMenuSubItem[];
+    roles?: string[];
+    noHref?: boolean;
+}
+
+export function filterMenuByPermissions(
+    menuItems: StaffMenuItem[],
+    permissions: Record<string, boolean>,
+): StaffMenuItem[] {
+    return menuItems
+        .filter((item) => permissions[item.href] !== false)
+        .map((item) => {
+            if (item.submenu) {
+                const filteredSubmenu = item.submenu.filter((sub) => permissions[sub.href] !== false);
+                return { ...item, submenu: filteredSubmenu };
+            }
+            return item;
+        })
+        .filter((item) => !item.submenu || item.submenu.length > 0);
+}
+
+/** โครงสร้างเมนูสอดคล้องกับ admin/menus.ts (path เป็น /staff) */
+export const staffMenuItems: StaffMenuItem[] = [
     {
         name: 'Dashboard',
         href: '/staff/dashboard',
@@ -62,112 +64,69 @@ export const staffMenuItems = [
         submenu: [
 
             {
-                name: 'จัดการตู้ Cabinet - แผนก',
-                href: '/staff/cabinet-departments',
-                icon: Network,
-                description: 'จัดการตู้ Cabinet และเชื่อมโยงกับแผนก',
-            },
-            {
-                name: 'สต๊อกอุปกรณ์ในตู้',
-                href: '/staff/items',
-                description: 'เมนูสต๊อกอุปกรณ์ที่มีในตู้ SmartCabinet',
+                name: 'สต็อกอุปกรณ์ในตู้ ',
+                href: '/staff/items-stock',
+                description: 'เมนูสต๊อกอุปกรณ์ที่มีในตู้',
                 icon: Package,
             },
             {
                 name: 'เบิกอุปกรณ์จากตู้',
-                href: '/staff/dispense-from-cabinet',
-                description: 'การเบิกอุปกรณ์จากตู้ SmartCabinet',
+                href: '/staff/weighing-dispense',
+                description: 'การเบิกอุปกรณ์จากตู้ Weighing',
                 icon: FileBarChart,
             },
             {
                 name: 'เติมอุปกรณ์เข้าตู้',
-                href: '/staff/return-to-cabinet-report',
-                description: 'การเติมอุปกรณ์เข้าตู้ SmartCabinet',
-                icon: FileBarChart,
-            },
-            {
-                name: 'บันทึกใช้อุปกรณ์กับคนไข้',
-                href: '/staff/usage-record',
-                description: 'บันทึกใช้อุปกรณ์กับคนไข้ จากตู้ SmartCabinet',
-                icon: History,
-            },
-            {
-                name: 'แจ้งอุปกรณ์ที่ไม่ถูกใช้งาน',
-                href: '/staff/return',
-                description: 'แจ้งอุปกรณ์ที่ไม่ถูกใช้งาน',
-                icon: RotateCcw,
-            },
-
-            {
-                name: 'เปรียบเทียบตามเวชภัณฑ์',
-                href: '/staff/item-comparison',
-                description: 'เปรียบเทียบการเบิกกับการใช้งานตามเวชภัณฑ์',
+                href: '/staff/weighing-refill',
+                description: 'การเติมอุปกรณ์เข้าตู้ Weighing',
                 icon: FileBarChart,
             },
         ],
     },
-    // {
-    //     name: 'รายงาน',
-    //     href: '/reports',
-    //     icon: BarChart3,
-    //     description: 'รายงานและสถิติต่างๆ',
-    //     submenu: [
-    //         {
-    //             name: 'รายงาน Vending',
-    //             href: '/staff/reports/vending-reports',
-    //             description: 'รายงานการ Mapping และการเบิกอุปกรณ์จาก Vending',
-    //             icon: TrendingUp,
-    //         },
-    //         {
-    //             name: 'รายงานยกเลิก Bill',
-    //             href: '/staff/reports/cancel-bill-report',
-    //             description: 'รายงานการยกเลิก Bill และใบเสร็จ',
-    //             icon: TrendingUp,
-    //         },
-    //         {
-    //             name: 'คืนเวชภัณฑ์',
-    //             href: '/staff/reports/return-report',
-    //             description: 'รายงานอุปกรณ์ที่ไม่ถูกใช้งาน',
-    //             icon: TrendingUp,
-    //         },
-    //     ],
-    // },
-
     {
-        name: 'ตั้งค่า',
+        name: 'การจัดการ',
         href: '/staff/management',
         icon: Settings,
-        description: 'ตั้งค่าระบบ',
+        description: 'จัดการระบบ',
         noHref: true,
         submenu: [
             {
-                name: 'จัดการตู้ Cabinet',
+                name: 'จัดการประเภทตู้',
+                href: '/staff/management/cabinet_type',
+                icon: Package,
+                description: 'กำหนดพฤติกรรมประเภทตู้ (Weighing / RFID ฯลฯ)',
+            },
+            {
+                name: 'จัดการตู้',
                 href: '/staff/management/cabinets',
                 icon: Package,
                 description: 'จัดการตู้ Cabinet',
             },
             {
-                name: 'จัดการสิทธิ์',
-                href: '/staff/management/permission-users',
-                icon: Users,
-                description: 'จัดการ User',
-                roles: ['it1'],
+                name: 'จัดการตู้ - แผนก',
+                href: '/staff/management/cabinets-departments',
+                icon: Network,
+                description: 'จัดการตู้ Cabinet และเชื่อมโยงกับแผนก',
             },
             {
-                name: 'กำหนดสิทธิ์',
-                href: '/staff/management/permission-roles',
+                name: 'จัดการผู้ใช้ระบบ',
+                href: '/staff/management/admin-users',
+                icon: Users,
+                description: 'จัดการผู้ใช้ระบบ',
+            },
+            {
+                name: 'Role กับแผนก',
+                href: '/staff/management/staff-role-permission-department',
                 icon: Shield,
-                description: 'กำหนดสิทธิ์การเข้าถึงเมนู',
+                description: 'กำหนด Staff Role เข้าถึงแผนก (Division)',
                 roles: ['it1'],
             },
         ],
     },
-    {
-        name: 'ประวัติการใช้งาน',
-        href: '/staff/logs-history',
-        icon: ClipboardList,
-        description: 'ประวัติการใช้งานระบบ',
-    },
-
-
+    // {
+    //     name: 'ประวัติการใช้งาน',
+    //     href: '/staff/logs-history',
+    //     icon: ClipboardList,
+    //     description: 'ประวัติการใช้งานระบบ',
+    // },
 ];

@@ -59,7 +59,7 @@ export class AuthGuard implements CanActivate {
       const payload = this.jwtService.verify(token);
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
-        select: { id: true, email: true, name: true, is_active: true, preferred_auth_method: true },
+        select: { id: true, email: true, fname: true, lname: true, is_active: true, preferred_auth_method: true },
       });
       if (!user || !user.is_active) return null;
       return { user, authMethod: AuthMethod.JWT };
@@ -76,7 +76,7 @@ export class AuthGuard implements CanActivate {
         where: { prefix, is_active: true },
         include: {
           user: {
-            select: { id: true, email: true, name: true, is_active: true, preferred_auth_method: true },
+            select: { id: true, email: true, fname: true, lname: true, is_active: true, preferred_auth_method: true },
           },
         },
       });

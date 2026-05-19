@@ -14,98 +14,104 @@ datasource db {
   provider = "mysql"
 }
 
+/// บัญชีรวม — login ครั้งเดียว แยก admin/staff ด้วย is_admin
 model User {
   id                    Int       @id @default(autoincrement())
   email                 String    @unique
   password              String? // Optional for OAuth users
-  name                  String
+  fname                 String
+  lname                 String
+
   is_active             Boolean   @default(true)
   email_verified        Boolean   @default(false)
-  preferred_auth_method String    @default("jwt") // jwt, oauth2, api_key, firebase
+  preferred_auth_method String    @default("jwt")
   last_login_at         DateTime?
+  client_id             String    @unique @map("client_id")
+  client_secret         String    @map("client_secret") // Hashed secret
+  expires_at            DateTime? @map("expires_at")
+  is_admin              Boolean   @default(false) @map("is_admin")
+  role_id               Int?      @map("role_id")
+  emp_code              String?   @unique @map("emp_code") @db.VarChar(20)
 
-  // Firebase Authentication
+  // Firebase (optional)
   firebase_uid    String? @unique @map("firebase_uid")
   profile_picture String? @map("profile_picture")
 
-  // 2FA Fields
+  // 2FA
   two_factor_enabled     Boolean   @default(false) @map("two_factor_enabled")
-  two_factor_secret      String?   @map("two_factor_secret") // TOTP secret
-  backup_codes           String?   @map("backup_codes") @db.Text // JSON string of backup codes
+  two_factor_secret      String?   @map("two_factor_secret")
+  backup_codes           String?   @map("backup_codes") @db.Text
   two_factor_verified_at DateTime? @map("two_factor_verified_at")
 
-  created_at DateTime @default(now()) @map("created_at")
+  created_at DateTime @default(dbgenerated("NOW()")) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
-  // Relations
   oauth_accounts     OAuthAccount[]
   api_keys           ApiKey[]
   client_credentials ClientCredential[]
   refreshTokens      RefreshToken[]
   two_factor_tokens  TwoFactorToken[]
+  role               StaffRole?         @relation(fields: [role_id], references: [id])
+  /// ผูกกับ employee.EmpCode — ว่างได้ถ้ายังไม่ map พนักงานในระบบ HR
+  employee           Employee?          @relation(fields: [emp_code], references: [EmpCode])
 
-  @@map("app_microservice_users")
+  @@index([role_id], name: "idx_user_role_id")
+  @@index([email], name: "idx_user_email")
+  @@index([is_active], name: "idx_user_is_active")
+  @@index([is_admin], name: "idx_user_is_admin")
+ 
+  @@map("app_users")
 }
 
 model StaffRole {
   id          Int      @id @default(autoincrement())
-  code        String   @unique // 'it1', 'it2', 'it3', 'warehouse1', 'warehouse2', 'warehouse3'
-  name        String // 'IT 1', 'IT 2', 'Warehouse 1', etc.
-  description String?  @db.Text // Description of the role
+  code        String   @unique
+  name        String
+  description String?  @db.Text
   is_active   Boolean  @default(true) @map("is_active")
-  created_at  DateTime @default(now()) @map("created_at")
+  created_at  DateTime @default(dbgenerated("NOW()")) @map("created_at")
   updated_at  DateTime @updatedAt @map("updated_at")
 
-  // Relations
-  staffUsers      StaffUser[]
-  rolePermissions StaffRolePermission[]
+  rolePermissions       StaffRolePermission[]
+  /// ว่าง = role นี้เห็นข้อมูลทุกแผนกหลัก; มีแถว = เห็นเฉพาะแผนกหลักที่ระบุ
+  permissionDepartments StaffRolePermissionDepartment[]
+  users                 User[]
 
   @@index([code], name: "idx_code")
   @@index([is_active], name: "idx_is_active")
-  @@map("app_microservice_staff_roles")
-}
-
-model StaffUser {
-  id            Int       @id @default(autoincrement())
-  email         String    @unique
-  fname         String // First name
-  lname         String // Last name
-  department_id Int?      @map("department_id") // Department ID
-  role_id       Int       @map("role_id") // Foreign key to StaffRole
-  password      String // Hashed password, default: password123
-  client_id     String    @unique @map("client_id") // For API access
-  client_secret String    @map("client_secret") // Hashed secret
-  expires_at    DateTime? @map("expires_at") // Client credential expiration
-  is_active     Boolean   @default(true) @map("is_active")
-  created_at    DateTime  @default(now()) @map("created_at")
-  updated_at    DateTime  @updatedAt @map("updated_at")
-
-  // Relations
-  role       StaffRole   @relation(fields: [role_id], references: [id])
-  department Department? @relation(fields: [department_id], references: [ID])
-
-  @@index([role_id], name: "idx_role_id")
-  @@index([email], name: "idx_email")
-  @@index([is_active], name: "idx_is_active")
-  @@index([department_id], name: "idx_department_id")
-  @@map("app_microservice_staff_users")
+  @@map("app_staff_roles")
 }
 
 model StaffRolePermission {
   id         Int      @id @default(autoincrement())
-  role_id    Int      @map("role_id") // Foreign key to StaffRole
-  menu_href  String   @map("menu_href") // Menu href path, e.g., '/staff/dashboard'
+  role_id    Int      @map("role_id")
+  menu_href  String   @map("menu_href")
   can_access Boolean  @default(true) @map("can_access")
-  created_at DateTime @default(now()) @map("created_at")
+  created_at DateTime @default(dbgenerated("NOW()")) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
-  // Relations
   role StaffRole @relation(fields: [role_id], references: [id])
 
   @@unique([role_id, menu_href], name: "role_menu_href")
   @@index([role_id], name: "idx_role_id")
   @@index([menu_href], name: "idx_menu_href")
-  @@map("app_microservice_staff_role_permissions")
+  @@map("app_staff_role_permissions")
+}
+
+/// จำกัดแผนกหลักที่ Staff (ผ่าน StaffRole) ใช้ดูข้อมูล — ไม่มีแถว = ไม่จำกัด
+model StaffRolePermissionDepartment {
+  id            Int      @id @default(autoincrement())
+  role_id       Int      @map("role_id")
+  department_id Int      @map("department_id")
+  created_at    DateTime @default(dbgenerated("NOW()")) @map("created_at")
+  updated_at    DateTime @updatedAt @map("updated_at")
+
+  role       StaffRole  @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [department_id], references: [ID], onDelete: Cascade)
+
+  @@unique([role_id, department_id], name: "uniq_role_department")
+  @@index([role_id], name: "idx_srpd_role_id")
+  @@map("app_staff_role_permission_departments")
 }
 
 model OAuthAccount {
@@ -124,7 +130,7 @@ model OAuthAccount {
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([provider, provider_id])
-  @@map("app_microservice_oauth_accounts")
+  @@map("app_oauth_accounts")
 }
 
 model ApiKey {
@@ -142,7 +148,7 @@ model ApiKey {
 
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@map("app_microservice_api_keys")
+  @@map("app_api_keys")
 }
 
 model ClientCredential {
@@ -161,7 +167,7 @@ model ClientCredential {
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([client_id])
-  @@map("app_microservice_client_credentials")
+  @@map("app_client_credentials")
 }
 
 model RefreshToken {
@@ -174,7 +180,7 @@ model RefreshToken {
 
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@map("app_microservice_refresh_tokens")
+  @@map("app_refresh_tokens")
 }
 
 model TwoFactorToken {
@@ -189,7 +195,7 @@ model TwoFactorToken {
   user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id, type])
-  @@map("app_microservice_two_factor_tokens")
+  @@map("app_two_factor_tokens")
 }
 
 model Category {
@@ -202,7 +208,7 @@ model Category {
   created_at  DateTime @default(now()) @map("created_at")
   updated_at  DateTime @updatedAt @map("updated_at")
 
-  @@map("app_microservice_categories")
+  @@map("app_categories")
 }
 
 model Item {
@@ -387,7 +393,7 @@ model MedicalSupplyUsage {
   @@index([usage_datetime])
   @@index([department_code])
   @@index([billing_status])
-  @@map("app_microservice_medical_supply_usages")
+  @@map("app_medical_supply_usages")
 }
 
 // Supply Usage Items (Order Items)
@@ -433,10 +439,10 @@ model SupplyUsageItem {
   @@index([assession_no])
   @@index([supply_code])
   @@index([item_status])
-  @@map("app_microservice_supply_usage_items")
+  @@map("app_supply_usage_items")
 }
 
-// Supply Item Return Records - บันทึกรายการคืนอุปกรณ์แต่ละครั้ง
+// Supply Item Return Records - บันทึกรายการเติมอุปกรณ์แต่ละครั้ง
 model SupplyItemReturnRecord {
   id Int @id @default(autoincrement())
 
@@ -458,7 +464,7 @@ model SupplyItemReturnRecord {
 
   @@index([itemCode], map: "idx_return_itemCode")
   @@index([stock_id])
-  @@map("app_microservice_supply_item_return_records")
+  @@map("app_supply_item_return_records")
 }
 
 // Medical Supplies Usage Logs
@@ -479,7 +485,7 @@ model MedicalSupplyUsageLog {
 
   @@index([usage_id])
   @@index([created_at])
-  @@map("app_microservice_medical_supply_usages_logs")
+  @@map("app_medical_supply_usages_logs")
 }
 
 // Item Stock (Inventory Management)
@@ -606,8 +612,8 @@ model Department {
   RefDepID          String? @map("RefDepID") @db.VarChar(50)
 
   // Relations
-  staffUsers         StaffUser[]
-  cabinetDepartments cabinetDepartment[]
+  cabinetDepartments        cabinetDepartment[]
+  rolePermissionDepartments StaffRolePermissionDepartment[]
 
   @@map("department")
 }
@@ -630,7 +636,7 @@ model CabinetType {
 
   cabinets cabinet[]
 
-  @@map("app_microservice_cabinets_type")
+  @@map("app_cabinets_type")
 }
 
 model cabinet {
@@ -651,7 +657,7 @@ model cabinet {
   itemSlotInCabinet       ItemSlotInCabinet[]
 
   @@index([cabinet_type])
-  @@map("app_microservice_cabinets")
+  @@map("app_cabinets")
 }
 
 // Min/Max ต่อตู้ — override ของ item.stock_min/stock_max เมื่อมีแถวสำหรับ (cabinet_id, item_code)
@@ -669,7 +675,7 @@ model CabinetItemSetting {
   @@unique([cabinet_id, item_code])
   @@index([cabinet_id])
   @@index([item_code])
-  @@map("app_microservice_cabinet_item_settings")
+  @@map("app_cabinet_item_settings")
 }
 
 model cabinetDepartment {
@@ -685,7 +691,7 @@ model cabinetDepartment {
   cabinet    cabinet?    @relation(fields: [cabinet_id], references: [id])
   department Department? @relation(fields: [department_id], references: [ID])
 
-  @@map("app_microservice_cabinet_departments")
+  @@map("app_cabinet_departments")
 }
 
 model ItemSlotInCabinet {
@@ -720,19 +726,19 @@ model ItemSlotInCabinetDetail {
 
   // Relations
   itemSlotInCabinet ItemSlotInCabinet @relation("DetailToSlot", fields: [itemcode], references: [itemcode], map: "detail_to_slot_fkey")
-  item             Item?             @relation("DetailToItem", fields: [itemcode], references: [itemcode], map: "detail_to_item_fkey")
-  userCabinet      UserCabinet?      @relation(fields: [UserID], references: [user_id])
+  item              Item?             @relation("DetailToItem", fields: [itemcode], references: [itemcode], map: "detail_to_item_fkey")
+  userCabinet       UserCabinet?      @relation(fields: [UserID], references: [user_id])
 
   @@map("itemslotincabinet_detail")
 }
 
 // user_cabinet: ItemSlotInCabinetDetail.UserID -> cabinet_finger_id; itemstock.CabinetUserID -> user_id (Legacy users.id)
 model UserCabinet {
-  id                Int    @id @default(autoincrement())
-  cabinet_finger_id Int    @unique @map("cabinet_finger_id")
-  user_id           Int    @unique @map("user_id")
+  id                Int @id @default(autoincrement())
+  cabinet_finger_id Int @unique @map("cabinet_finger_id")
+  user_id           Int @unique @map("user_id")
 
-  legacyUser        LegacyUsers           @relation(fields: [user_id], references: [id])
+  legacyUser              LegacyUsers               @relation(fields: [user_id], references: [id])
   itemSlotInCabinetDetail ItemSlotInCabinetDetail[]
 
   @@map("user_cabinet")
@@ -740,21 +746,22 @@ model UserCabinet {
 
 // users (legacy) - links to employee by EmpCode
 model LegacyUsers {
-  id       Int     @id @default(autoincrement())
-  EmpCode  String? @unique @map("EmpCode") @db.VarChar(20)
+  id      Int     @id @default(autoincrement())
+  EmpCode String? @unique @map("EmpCode") @db.VarChar(20)
 
   userCabinet UserCabinet[]
-  employee    Employee?   @relation(fields: [EmpCode], references: [EmpCode])
+  employee    Employee?     @relation(fields: [EmpCode], references: [EmpCode])
 
   @@map("users")
 }
 
 model Employee {
-  EmpCode   String @id @map("EmpCode") @db.VarChar(20)
+  EmpCode   String  @id @map("EmpCode") @db.VarChar(20)
   FirstName String? @map("FirstName") @db.VarChar(100)
   LastName  String? @map("LastName") @db.VarChar(100)
 
   legacyUsers LegacyUsers[]
+  users       User[]
 
   @@map("employee")
 }

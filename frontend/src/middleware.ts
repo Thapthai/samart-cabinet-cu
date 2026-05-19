@@ -2,71 +2,77 @@ import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+function stripBasePath(pathname: string, basePath: string): string {
+  if (!basePath) return pathname;
+  if (pathname === basePath || pathname === `${basePath}/`) return "/";
+  if (pathname.startsWith(`${basePath}/`)) return pathname.slice(basePath.length) || "/";
+  return pathname;
+}
+
+function isAdminToken(
+  token: { is_admin?: boolean; user?: { is_admin?: boolean; userType?: string } } | null | undefined,
+): boolean {
+  if (!token) return false;
+  if (token.is_admin === true) return true;
+  if (token.user?.is_admin === true) return true;
+  if (token.user?.userType === "admin") return true;
+  return false;
+}
+
 export default withAuth(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function middleware(req: NextRequest & { nextauth: { token: any } }) {
     const pathname = req.nextUrl.pathname;
-    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
     const token = req.nextauth?.token;
+    const path = stripBasePath(pathname, basePath);
 
-    // Block staff from accessing /admin
-    if (pathname.startsWith(`${basePath}/admin`)) {
-      // If user is staff (role === 'staff' or role object with code 'staff')
-      const role = token?.role;
-      if (role === 'staff' || (typeof role === 'object' && (role.code === 'staff' || role.name === 'staff'))) {
-        return NextResponse.redirect(new URL(basePath + '/403', req.url));
-      }
+    const admin = path === "/admin" || path.startsWith("/admin/");
+
+    // Staff ห้ามเข้า /admin — ส่งไป staff dashboard (Admin เข้า /staff ได้ตามปกติ)
+    if (admin && token && !isAdminToken(token)) {
+      return NextResponse.redirect(new URL(`${basePath}/staff/dashboard`, req.url));
     }
+
     return NextResponse.next();
   },
   {
     callbacks: {
       authorized: ({ token, req }) => {
         const pathname = req.nextUrl.pathname;
-        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-        
-        // ข้าม auth routes และ root path
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+        const path = stripBasePath(pathname, basePath);
+
         if (
-          pathname.startsWith(`${basePath}/auth/`) ||
-          pathname === basePath ||
-          pathname === `${basePath}/`
+          path.startsWith("/auth/") ||
+          path === "/" ||
+          path === "/403" ||
+          path.startsWith("/403/")
         ) {
           return true;
         }
-        
-        // ตรวจสอบว่าเป็น protected route หรือไม่ (แยก admin กับ route อื่น)
-        const protectedRoutes = [
-          `${basePath}/admin`,
-          `${basePath}/items`,
-          `${basePath}/profile`,
-          `${basePath}/categories`,
+
+        const protectedPrefixes = [
+          "/admin",
+          "/staff",
+          "/items",
+          "/profile",
+          "/categories",
         ];
-        
-        const isProtectedRoute = protectedRoutes.some(route => 
-          pathname === route || pathname.startsWith(`${route}/`)
+
+        const needsAuth = protectedPrefixes.some(
+          (p) => path === p || path.startsWith(`${p}/`),
         );
-        
-        // ถ้าเป็น protected route ต้องมี token
-        return isProtectedRoute ? !!token : true;
+
+        return needsAuth ? !!token : true;
       },
     },
     pages: {
-      signIn: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/auth/login`,
+      signIn: `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/auth/login`,
     },
-  }
+  },
 );
 
-// ใช้ matcher ที่ match ทุก path แล้วจัดการ basePath ใน middleware function
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
-

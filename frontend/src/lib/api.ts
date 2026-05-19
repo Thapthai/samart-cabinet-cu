@@ -1,7 +1,14 @@
 import axios from 'axios';
 import { getSession } from 'next-auth/react';
 import type { ApiResponse, PaginatedResponse, ItemsStats } from '@/types/common';
-import type { AdminJwtUserRow, AuthResponse, User, RegisterDto, LoginDto } from '@/types/auth';
+import type {
+  AdminJwtUserRow,
+  AuthResponse,
+  User,
+  RegisterAdminDto,
+  RegisterStaffDto,
+  LoginDto,
+} from '@/types/auth';
 import type { Item, CreateItemDto, UpdateItemDto, GetItemsQuery } from '@/types/item';
 
 // ต้องตรงกับ backend main.ts: setGlobalPrefix('api/smart-cabinet-cu/v1') และ PORT (ค่าเริ่มต้น Nest มักเป็น 3000)
@@ -29,10 +36,12 @@ api.interceptors.request.use(async (config) => {
     const isStaffEndpoint = config.url?.startsWith('/staff') || config.url?.startsWith('/staff-users');
 
     if (isStaffEndpoint) {
-      // Use staff token from localStorage for staff endpoints
       const staffToken = localStorage.getItem('staff_token');
-      if (staffToken) {
-        config.headers.Authorization = `Bearer ${staffToken}`;
+      const session = await getSession();
+      const sessionToken = session && (session as { accessToken?: string }).accessToken;
+      const bearer = staffToken || sessionToken;
+      if (bearer) {
+        config.headers.Authorization = `Bearer ${bearer}`;
       }
     } else {
       // Use NextAuth session token for regular endpoints
@@ -66,7 +75,7 @@ api.interceptors.response.use(
         const currentPath = window.location.pathname;
         if (currentPath.includes('/staff/')) {
           // Next.js automatically handles basePath
-          window.location.href = '/auth/staff/login';
+          window.location.href = '/auth/login';
         }
       }
       // For non-staff endpoints, let the app handle the redirect
@@ -77,8 +86,15 @@ api.interceptors.response.use(
 
 // Auth API
 export const authApi = {
-  register: async (data: RegisterDto): Promise<ApiResponse<AuthResponse>> => {
-    const response = await api.post('/auth/register', data);
+  registerAdmin: async (data: RegisterAdminDto): Promise<ApiResponse<{ user: User }>> => {
+    const response = await api.post('/auth/register/admin', data);
+    return response.data;
+  },
+
+  registerStaff: async (
+    data: RegisterStaffDto,
+  ): Promise<ApiResponse<{ user: User; client_id: string; client_secret: string }>> => {
+    const response = await api.post('/auth/register/staff', data);
     return response.data;
   },
 
@@ -89,7 +105,11 @@ export const authApi = {
 
   getProfile: async (): Promise<ApiResponse<User>> => {
     const response = await api.get('/auth/profile');
-    return response.data;
+    const body = response.data as ApiResponse<User | { user: User }>;
+    if (body.success && body.data && typeof body.data === 'object' && 'user' in body.data) {
+      return { ...body, data: (body.data as { user: User }).user };
+    }
+    return body as ApiResponse<User>;
   },
 
   /** รายการผู้ใช้ JWT (ต้องล็อกอิน) — query ตัวเลือก */
@@ -134,8 +154,7 @@ export const authApi = {
 
   // User Management APIs — backend: GET/PATCH /auth/profile, PATCH /auth/change-password
   getUserProfile: async (): Promise<ApiResponse<User>> => {
-    const response = await api.get('/auth/profile');
-    return response.data;
+    return authApi.getProfile();
   },
 
   updateUserProfile: async (data: {
@@ -1491,7 +1510,7 @@ export const reportsApi = {
 };
 
 // =========================== Staff User API ===========================
-// Backend DTO: CreateStaffUserDto (email, fname, lname, role_code?, role_id?, department_id?, password?, expires_at?)
+// Backend DTO: CreateStaffUserDto (email, fname, lname, role_id?, password?, expires_at?)
 // Backend DTO: UpdateStaffUserDto (email?, fname?, lname?, role_code?, role_id?, department_id?, password?, is_active?, expires_at?)
 // Response shape: { success: boolean; data?: T; message?: string; error?: string }
 export const staffUserApi = {
@@ -1499,9 +1518,7 @@ export const staffUserApi = {
     email: string;
     fname: string;
     lname: string;
-    role: string;
-    role_code?: string;
-    department_id?: number | null;
+    role_id?: number;
     password?: string;
     expires_at?: string;
   }): Promise<ApiResponse<any>> => {
@@ -1509,9 +1526,8 @@ export const staffUserApi = {
       email: data.email.trim(),
       fname: data.fname.trim(),
       lname: data.lname.trim(),
-      role_code: data.role_code ?? data.role,
     };
-    if (data.department_id != null) body.department_id = Number(data.department_id);
+    if (data.role_id != null) body.role_id = Number(data.role_id);
     if (data.password && String(data.password).length >= 8) body.password = data.password;
     if (data.expires_at?.trim()) body.expires_at = data.expires_at.trim();
     const response = await api.post('/staff-users', body);
@@ -1662,6 +1678,33 @@ export const staffRoleApi = {
 
   delete: async (id: number): Promise<ApiResponse<void>> => {
     const response = await api.delete(`/staff-roles/${id}`);
+    return response.data;
+  },
+};
+
+// =========================== Staff Role ↔ Department ===========================
+export const staffRolePermissionDepartmentApi = {
+  getByRole: async (params: {
+    role_id?: number;
+    role_code?: string;
+  }): Promise<
+    ApiResponse<{
+      role_id: number;
+      role_code?: string;
+      role_name?: string;
+      unrestricted: boolean;
+      departments: Array<{ id: number; DepName?: string | null; DepName2?: string | null }>;
+    }>
+  > => {
+    const response = await api.get('/staff-role-permission-departments', { params });
+    return response.data;
+  },
+
+  set: async (body: {
+    role_id: number;
+    department_ids: number[];
+  }): Promise<ApiResponse<{ role_id: number; department_count?: number }>> => {
+    const response = await api.put('/staff-role-permission-departments', body);
     return response.data;
   },
 };

@@ -113,7 +113,7 @@ export class ReturnToCabinetReportPdfService {
         }
 
         doc.fontSize(16).font(finalFontBoldName).fillColor('#1A365D');
-        doc.text('รายการคืนอุปกรณ์เข้าตู้ (RFID)', margin, headerTop + 6, {
+        doc.text('รายการเติมมอุปกรณ์เข้าตู้ (RFID)', margin, headerTop + 6, {
           width: contentWidth,
           align: 'center',
         });
@@ -140,7 +140,7 @@ export class ReturnToCabinetReportPdfService {
         const colWidths = colPct.map((p) => Math.floor(totalTableWidth * p));
         let sumW = colWidths.reduce((a, b) => a + b, 0);
         if (sumW < totalTableWidth) colWidths[1] += totalTableWidth - sumW;
-        const headers = ['ลำดับ', 'ชื่อสินค้า', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
+        const headers = ['ลำดับ', 'อุปกรณ์', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
 
         const drawTableHeader = (y: number) => {
           doc.fontSize(13).font(finalFontBoldName);

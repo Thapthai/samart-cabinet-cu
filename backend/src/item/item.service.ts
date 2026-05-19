@@ -1231,10 +1231,10 @@ export class ItemService {
                 GROUP BY ist.StockID,
                 ist.ItemCode
             ) w
-            LEFT JOIN app_microservice_cabinets c ON c.stock_id = w.StockID
+            LEFT JOIN app_cabinets c ON c.stock_id = w.StockID
             LEFT JOIN (
                 SELECT cabinet_id, MIN(department_id) AS department_id
-                FROM app_microservice_cabinet_departments
+                FROM app_cabinet_departments
                 WHERE status = 'ACTIVE'
                 GROUP BY cabinet_id
             ) cd ON cd.cabinet_id = c.id
@@ -1244,8 +1244,8 @@ export class ItemService {
                     sui.order_item_code AS ItemCode,
                     msu.department_code,
                     SUM(sui.qty) AS used_qty
-                FROM app_microservice_supply_usage_items sui
-                INNER JOIN app_microservice_medical_supply_usages msu ON msu.id = sui.medical_supply_usage_id
+                FROM app_supply_usage_items sui
+                INNER JOIN app_medical_supply_usages msu ON msu.id = sui.medical_supply_usage_id
                 WHERE DATE(sui.created_at) = DATE(NOW())
                   AND (sui.order_item_status IS NULL OR sui.order_item_status != 'Discontinue')
                 GROUP BY sui.order_item_code, msu.department_code
@@ -1255,7 +1255,7 @@ export class ItemService {
                     srr.item_code AS ItemCode,
                     srr.stock_id AS StockID,
                     SUM(srr.qty_returned) AS return_qty
-                FROM app_microservice_supply_item_return_records srr
+                FROM app_supply_item_return_records srr
                 WHERE DATE(srr.return_datetime) = DATE(NOW())
                 GROUP BY srr.item_code, srr.stock_id
             ) r ON r.ItemCode = w.ItemCode AND r.StockID = w.StockID

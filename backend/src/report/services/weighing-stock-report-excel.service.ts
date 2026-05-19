@@ -179,7 +179,7 @@ export function appendWeighingStockSummarySheet(
   worksheet.getRow(footerRow).height = 18;
 
   worksheet.getColumn(1).width = 11;
-  worksheet.getColumn(2).width = 52;
+  worksheet.getColumn(2).width = 65;
   worksheet.getColumn(3).width = 16;
 }
 

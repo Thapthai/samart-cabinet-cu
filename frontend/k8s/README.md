@@ -65,7 +65,7 @@ kubectl get namespace pose-microservices
 ### **1. Build Docker Image**
 
 ```bash
-cd /var/www/app_microservice/frontend
+cd /var/www/app/frontend
 
 # Build image with build args (สำคัญ: ต้องส่ง NEXT_PUBLIC_BASE_PATH)
 docker build \

@@ -4,6 +4,7 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { isStaffUser } from '@/lib/auth/roles';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -19,12 +20,8 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       router.push('/auth/login');
       return;
     }
-    // Prevent staff from accessing /admin
-    if (!loading && isAuthenticated && pathname.startsWith('/admin')) {
-      const role = user?.role;
-      if (role === 'staff' || (typeof role === 'object' && (role.code === 'staff' || role.name === 'staff'))) {
-        router.replace('/403');
-      }
+    if (!loading && isAuthenticated && pathname.startsWith('/admin') && isStaffUser(user)) {
+      router.replace('/staff/dashboard');
     }
   }, [isAuthenticated, loading, router, pathname, user]);
 
@@ -41,11 +38,8 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   // Optionally, show nothing if staff is on /admin (redirect will happen)
-  if (isAuthenticated && pathname.startsWith('/admin')) {
-    const role = user?.role;
-    if (role === 'staff' || (typeof role === 'object' && (role.code === 'staff' || role.name === 'staff'))) {
-      return null;
-    }
+  if (isAuthenticated && pathname.startsWith('/admin') && isStaffUser(user)) {
+    return null;
   }
 
   return <>{children}</>;

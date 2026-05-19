@@ -310,7 +310,7 @@ export default function WeighingPage() {
                       <TableHeader>
                         <TableRow className="bg-slate-100/80 hover:bg-slate-100/80 border-b">
                           <TableHead className="w-14 text-center font-semibold">ลำดับ</TableHead>
-                          <TableHead className="min-w-[200px] font-semibold">ชื่อสินค้า</TableHead>
+                          <TableHead className="min-w-[200px] font-semibold">อุปกรณ์</TableHead>
                           <TableHead className="min-w-[120px] text-center font-semibold">ตู้</TableHead>
                           <TableHead className="w-20 text-center font-semibold">ช่อง</TableHead>
                           <TableHead className="w-20 text-center font-semibold">สล็อต</TableHead>

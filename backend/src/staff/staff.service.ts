@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AuthService } from '../auth/auth.service';
 import { ClientCredentialStrategy } from '../auth/strategies/client-credential.strategy';
 import {
   CreateStaffUserDto,
@@ -16,7 +18,14 @@ export class StaffService {
     private readonly prisma: PrismaService,
     private readonly clientCredentialStrategy: ClientCredentialStrategy,
     private readonly jwt: JwtService,
+    private readonly authService: AuthService,
   ) {}
+
+  private staffWhere(id?: number): Prisma.UserWhereInput {
+    const base: Prisma.UserWhereInput = { is_admin: false };
+    if (id != null) base.id = id;
+    return base;
+  }
 
   private async resolveRoleId(role_code?: string, role_id?: number): Promise<number | null> {
     if (role_id != null) return role_id;
@@ -28,42 +37,16 @@ export class StaffService {
     return role?.id ?? null;
   }
 
+  /** ใช้ login รวมจาก AuthService — response มี userType */
   async loginStaffUser(email: string, password: string) {
-    const staff = await this.prisma.staffUser.findUnique({
-      where: { email: email.trim() },
-      include: { role: { select: { id: true, code: true, name: true } } },
-    });
-    if (!staff) return { success: false, message: 'Invalid credentials' };
-    if (!staff.is_active) return { success: false, message: 'Account is deactivated' };
-    const valid = await bcrypt.compare(password, staff.password);
-    if (!valid) return { success: false, message: 'Invalid credentials' };
-    const token = this.jwt.sign(
-      { sub: staff.id, email: staff.email, staff: true, role_code: staff.role?.code },
-      { expiresIn: '24h' },
-    );
-    return {
-      success: true,
-      message: 'Login successful',
-      data: {
-        user: {
-          id: staff.id,
-          email: staff.email,
-          fname: staff.fname,
-          lname: staff.lname,
-          role: staff.role?.code ?? null,
-          role_id: staff.role_id,
-          department_id: staff.department_id,
-        },
-        token,
-      },
-    };
+    return this.authService.login({ email, password });
   }
 
   async findAllStaffUsers(params?: { page?: number; limit?: number; keyword?: string }) {
     const page = Math.max(1, params?.page ?? 1);
     const limit = Math.min(100, Math.max(1, params?.limit ?? 50));
     const skip = (page - 1) * limit;
-    const where: any = {};
+    const where: Prisma.UserWhereInput = { is_admin: false };
     if (params?.keyword?.trim()) {
       const k = params.keyword.trim();
       where.OR = [
@@ -74,17 +57,16 @@ export class StaffService {
       ];
     }
     const [data, total] = await Promise.all([
-      this.prisma.staffUser.findMany({
+      this.prisma.user.findMany({
         where,
         skip,
         take: limit,
         orderBy: { id: 'asc' },
         include: {
           role: { select: { id: true, code: true, name: true } },
-          department: { select: { ID: true, DepName: true, DepName2: true } },
         },
       }),
-      this.prisma.staffUser.count({ where }),
+      this.prisma.user.count({ where }),
     ]);
     const list = data.map((u) => ({
       id: u.id,
@@ -93,8 +75,6 @@ export class StaffService {
       lname: u.lname,
       role: u.role?.code ?? null,
       role_id: u.role_id,
-      department_id: u.department_id,
-      department_name: u.department?.DepName ?? u.department?.DepName2 ?? null,
       client_id: u.client_id,
       expires_at: u.expires_at?.toISOString?.() ?? null,
       is_active: u.is_active,
@@ -105,36 +85,38 @@ export class StaffService {
   }
 
   async createStaffUser(dto: CreateStaffUserDto) {
-    const existing = await this.prisma.staffUser.findUnique({ where: { email: dto.email.trim() } });
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email.trim() } });
     if (existing) throw new BadRequestException('Email already exists');
 
-    const roleId = await this.resolveRoleId(dto.role_code, dto.role_id);
-    if (roleId == null) throw new BadRequestException('role_code or role_id is required and must match an existing role');
-
-    const departmentId = dto.department_id ?? null;
-    if (departmentId != null) {
-      const dept = await this.prisma.department.findUnique({ where: { ID: departmentId }, select: { ID: true } });
-      if (!dept) throw new BadRequestException(`Department with ID ${departmentId} not found`);
+    let roleId: number | null = null;
+    const requestedRoleId = dto.role_id ?? dto.role;
+    if (requestedRoleId != null) {
+      const role = await this.prisma.staffRole.findUnique({
+        where: { id: requestedRoleId },
+        select: { id: true },
+      });
+      if (!role) throw new BadRequestException(`Role with ID ${requestedRoleId} not found`);
+      roleId = role.id;
     }
 
-    const password = dto.password?.trim() && dto.password.length >= 8
-      ? await bcrypt.hash(dto.password, 10)
-      : await bcrypt.hash('password123', 10);
+    const password =
+      dto.password?.trim() && dto.password.length >= 8
+        ? await bcrypt.hash(dto.password, 10)
+        : await bcrypt.hash('password123', 10);
 
-    const { client_id, client_secret, client_secret_hash } = this.clientCredentialStrategy.generateClientCredential();
+    const { client_id, client_secret, client_secret_hash } =
+      this.clientCredentialStrategy.generateClientCredential();
 
-    const expiresAt = dto.expires_at?.trim()
-      ? new Date(dto.expires_at)
-      : null;
+    const expiresAt = dto.expires_at?.trim() ? new Date(dto.expires_at) : null;
 
-    const user = await this.prisma.staffUser.create({
+    const user = await this.prisma.user.create({
       data: {
         email: dto.email.trim(),
         fname: dto.fname.trim(),
         lname: dto.lname.trim(),
         role_id: roleId,
-        department_id: departmentId,
         password,
+        is_admin: false,
         client_id,
         client_secret: client_secret_hash,
         expires_at: expiresAt,
@@ -155,11 +137,10 @@ export class StaffService {
   }
 
   async findOneStaffUser(id: number) {
-    const user = await this.prisma.staffUser.findUnique({
-      where: { id },
+    const user = await this.prisma.user.findFirst({
+      where: this.staffWhere(id),
       include: {
         role: { select: { id: true, code: true, name: true } },
-        department: { select: { ID: true, DepName: true, DepName2: true } },
       },
     });
     if (!user) throw new NotFoundException('Staff user not found');
@@ -171,8 +152,7 @@ export class StaffService {
         fname: user.fname,
         lname: user.lname,
         role: user.role?.code ?? null,
-        department_id: user.department_id,
-        department_name: user.department?.DepName ?? user.department?.DepName2 ?? null,
+        role_id: user.role_id,
         client_id: user.client_id,
         expires_at: user.expires_at?.toISOString?.() ?? null,
         is_active: user.is_active,
@@ -183,43 +163,46 @@ export class StaffService {
   }
 
   async updateStaffUser(id: number, dto: UpdateStaffUserDto) {
-    const user = await this.prisma.staffUser.findUnique({ where: { id } });
+    const user = await this.prisma.user.findFirst({ where: this.staffWhere(id) });
     if (!user) throw new NotFoundException('Staff user not found');
 
-    const data: any = {};
+    const data: Prisma.UserUpdateInput = {};
     if (dto.email !== undefined) data.email = dto.email.trim();
     if (dto.fname !== undefined) data.fname = dto.fname.trim();
     if (dto.lname !== undefined) data.lname = dto.lname.trim();
-    if (dto.department_id !== undefined) data.department_id = dto.department_id;
     if (dto.is_active !== undefined) data.is_active = dto.is_active;
     if (dto.expires_at !== undefined) data.expires_at = dto.expires_at?.trim() ? new Date(dto.expires_at) : null;
 
     const roleId = await this.resolveRoleId(dto.role_code, dto.role_id);
-    if (roleId != null) data.role_id = roleId;
+    if (dto.role_code !== undefined || dto.role_id !== undefined) {
+      if (roleId == null) throw new BadRequestException('role_code or role_id is invalid');
+      data.role = { connect: { id: roleId } };
+    }
 
     if (dto.password?.trim() && dto.password.length >= 8) {
       data.password = await bcrypt.hash(dto.password, 10);
     }
 
-    await this.prisma.staffUser.update({ where: { id }, data });
+    await this.prisma.user.update({ where: { id }, data });
     return { success: true, message: 'Staff user updated' };
   }
 
   async deleteStaffUser(id: number) {
-    const user = await this.prisma.staffUser.findUnique({ where: { id } });
+    const user = await this.prisma.user.findFirst({ where: this.staffWhere(id) });
     if (!user) throw new NotFoundException('Staff user not found');
-    await this.prisma.staffUser.delete({ where: { id } });
+    await this.prisma.user.delete({ where: { id } });
     return { success: true, message: 'Staff user deleted' };
   }
 
   async regenerateClientSecret(id: number, dto?: RegenerateClientSecretDto) {
-    const user = await this.prisma.staffUser.findUnique({ where: { id } });
+    const user = await this.prisma.user.findFirst({ where: this.staffWhere(id) });
     if (!user) throw new NotFoundException('Staff user not found');
 
-    const { client_id, client_secret, client_secret_hash } = this.clientCredentialStrategy.generateClientCredential();
+    const { client_id, client_secret, client_secret_hash } =
+      this.clientCredentialStrategy.generateClientCredential();
     const expiresAt = dto?.expires_at?.trim() ? new Date(dto.expires_at) : user.expires_at;
 
-    await this.prisma.staffUser.update({
+    await this.prisma.user.update({
       where: { id },
       data: { client_secret: client_secret_hash, client_id, expires_at: expiresAt },
     });
@@ -260,7 +243,7 @@ export class StaffService {
   async updateStaffRole(id: number, dto: UpdateStaffRoleDto) {
     const role = await this.prisma.staffRole.findUnique({ where: { id } });
     if (!role) throw new NotFoundException('Staff role not found');
-    const data: any = {};
+    const data: Prisma.StaffRoleUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name.trim();
     if (dto.description !== undefined) data.description = dto.description?.trim() ?? null;
     if (dto.is_active !== undefined) data.is_active = dto.is_active;
@@ -327,5 +310,80 @@ export class StaffService {
       updated++;
     }
     return { success: true, message: 'Permissions updated', updatedCount: updated };
+  }
+
+  /** แผนกที่ role เข้าถึงได้ — ไม่มีแถว = unrestricted (เห็นทุกแผนก) */
+  async getStaffRolePermissionDepartments(params: {
+    role_id?: number;
+    role_code?: string;
+  }) {
+    const roleId = await this.resolveRoleId(params.role_code, params.role_id);
+    if (roleId == null) throw new NotFoundException('Staff role not found');
+
+    const role = await this.prisma.staffRole.findUnique({
+      where: { id: roleId },
+      select: { id: true, code: true, name: true },
+    });
+    if (!role) throw new NotFoundException('Staff role not found');
+
+    const rows = await this.prisma.staffRolePermissionDepartment.findMany({
+      where: { role_id: roleId },
+      orderBy: { department_id: 'asc' },
+      include: {
+        department: { select: { ID: true, DepName: true, DepName2: true } },
+      },
+    });
+
+    return {
+      success: true,
+      data: {
+        role_id: roleId,
+        role_code: role.code,
+        role_name: role.name,
+        unrestricted: rows.length === 0,
+        departments: rows.map((r) => ({
+          id: r.department_id,
+          DepName: r.department?.DepName ?? null,
+          DepName2: r.department?.DepName2 ?? null,
+        })),
+      },
+    };
+  }
+
+  async setStaffRolePermissionDepartments(roleId: number, departmentIds: number[]) {
+    const role = await this.prisma.staffRole.findUnique({ where: { id: roleId } });
+    if (!role) throw new NotFoundException('Staff role not found');
+
+    const uniqueIds = [...new Set(departmentIds.filter((id) => Number.isInteger(id) && id > 0))];
+
+    if (uniqueIds.length > 0) {
+      const found = await this.prisma.department.findMany({
+        where: { ID: { in: uniqueIds } },
+        select: { ID: true },
+      });
+      const foundSet = new Set(found.map((d) => d.ID));
+      const missing = uniqueIds.filter((id) => !foundSet.has(id));
+      if (missing.length > 0) {
+        throw new BadRequestException(`ไม่พบแผนก ID: ${missing.join(', ')}`);
+      }
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.staffRolePermissionDepartment.deleteMany({ where: { role_id: roleId } });
+      if (uniqueIds.length > 0) {
+        await tx.staffRolePermissionDepartment.createMany({
+          data: uniqueIds.map((department_id) => ({ role_id: roleId, department_id })),
+        });
+      }
+    });
+
+    return {
+      success: true,
+      message:
+        uniqueIds.length === 0
+          ? 'ไม่จำกัดแผนก — Role นี้เห็นทุก Division'
+          : `บันทึกจำกัดแผนก ${uniqueIds.length} รายการ`,
+      data: { role_id: roleId, department_count: uniqueIds.length },
+    };
   }
 }

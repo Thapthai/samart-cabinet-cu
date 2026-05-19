@@ -144,7 +144,7 @@ export default function ItemsTable({
                     <TableHead className="w-12" />
                     <TableHead className="w-[100px]">ลำดับ</TableHead>
                     <TableHead>รหัสอุปกรณ์</TableHead>
-                    <TableHead>ชื่อสินค้า</TableHead>
+                    <TableHead>อุปกรณ์</TableHead>
                     <TableHead>แผนก</TableHead>
                     <TableHead className="text-center">จำนวนในตู้</TableHead>
                     <TableHead className="text-center">จำนวนอุปกรณ์ที่ถูกใช้งานในปัจจุบัน</TableHead>

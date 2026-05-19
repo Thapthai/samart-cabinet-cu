@@ -40,7 +40,7 @@ export default function ReturnedTable({
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>รายการคืนอุปกรณ์เข้าตู้</CardTitle>
+            <CardTitle>รายการเติมอุปกรณ์เข้าตู้</CardTitle>
             <CardDescription>
               รายการอุปกรณ์ทั้งหมดที่คืนเข้าตู้ SmartCabinet
               {(searchItemCode || itemTypeFilter !== 'all') && ' (กรองแล้ว)'}
@@ -75,7 +75,7 @@ export default function ReturnedTable({
         ) : items.length === 0 ? (
           <div className="text-center py-12">
             <RotateCcw className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">ไม่พบรายการคืนอุปกรณ์เข้าตู้</p>
+            <p className="text-gray-500">ไม่พบรายการเติมมอุปกรณ์เข้าตู้</p>
             <p className="text-sm text-gray-400 mt-2">กรุณาตรวจสอบว่ามีข้อมูลในระบบ</p>
           </div>
         ) : (

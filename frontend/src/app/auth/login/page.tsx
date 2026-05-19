@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { useCallback, useState } from 'react';
+import { getSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -11,24 +11,41 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { signInWithGoogle } from '@/lib/firebase';
 import TwoFactorModal from '@/components/TwoFactorModal';
 import { authApi } from '@/lib/api';
 import { ASSETS } from '@/lib/assets';
+import { isAdminUser } from '@/lib/auth/roles';
+
+function persistStaffSession(token: string, user: object) {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('staff_token', token);
+  localStorage.setItem('staff_user', JSON.stringify(user));
+}
 
 export default function LoginPage() {
   const [error, setError] = useState<string>('');
   const [emailError, setEmailError] = useState<string>('');
   const [passwordError, setPasswordError] = useState<string>('');
   const [loading, setLoading] = useState(false);
-  const [firebaseLoading, setFirebaseLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
   const [tempToken, setTempToken] = useState<string>('');
   const [twoFactorLoading, setTwoFactorLoading] = useState(false);
   const router = useRouter();
+
+  const completeSession = useCallback(async () => {
+    const session = await getSession();
+    const accessToken = (session as { accessToken?: string })?.accessToken;
+    const sessionUser = (session as { user?: Parameters<typeof isAdminUser>[0] })?.user;
+
+    if (accessToken && sessionUser) {
+      persistStaffSession(accessToken, sessionUser);
+    }
+
+    router.push(isAdminUser(sessionUser) ? '/admin/dashboard' : '/staff/dashboard');
+  }, [router]);
 
   const {
     register,
@@ -49,7 +66,6 @@ export default function LoginPage() {
       const result = await signIn('credentials', {
         email: data.email,
         password: data.password,
-        roleType: 'admin', // ระบุชัดเจนว่าเป็น admin login
         redirect: false,
       });
 
@@ -92,7 +108,7 @@ export default function LoginPage() {
         }
       } else {
         toast.success('เข้าสู่ระบบสำเร็จ');
-        router.push('/admin/dashboard');
+        await completeSession();
       }
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาด');
@@ -129,7 +145,7 @@ export default function LoginPage() {
         if (result?.ok) {
           setShow2FAModal(false);
           toast.success('เข้าสู่ระบบสำเร็จ');
-          router.push('/admin/dashboard');
+          await completeSession();
         } else if (result?.error) {
           throw new Error(result.error);
         } else {
@@ -140,36 +156,6 @@ export default function LoginPage() {
       throw new Error(err.response?.data?.message || err.message || 'รหัสไม่ถูกต้อง');
     } finally {
       setTwoFactorLoading(false);
-    }
-  };
-
-  // Firebase Login
-  const handleFirebaseLogin = async () => {
-    try {
-      setError('');
-      setFirebaseLoading(true);
-
-      // Sign in with Firebase to get ID token
-      const { idToken } = await signInWithGoogle();
-
-      // Use NextAuth with Firebase provider
-      const result = await signIn('firebase', {
-        idToken,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError(result.error);
-        toast.error(result.error);
-      } else {
-        toast.success('เข้าสู่ระบบสำเร็จ');
-        router.push('/admin/dashboard');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign in with Firebase');
-      toast.error(err.message || 'Failed to sign in with Firebase');
-    } finally {
-      setFirebaseLoading(false);
     }
   };
 
@@ -198,11 +184,14 @@ export default function LoginPage() {
               />
             </div>
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              เข้าสู่ระบบ
+              เข้าสู่ระบบ POSE
             </CardTitle>
-            <CardDescription className="text-gray-600">
-              เข้าสู่ระบบจัดการเวชภัณฑ์ POSE
-            </CardDescription>
+            {/* <CardDescription className="text-gray-600">
+              ล็อกอินครั้งเดียว — ระบบจะพาไปหน้าที่เหมาะกับสิทธิ์ของคุณ
+              <span className="block mt-1 text-xs text-slate-500">
+                Admin เข้าได้ทั้ง /admin และ /staff · Staff เข้าได้เฉพาะ /staff
+              </span>
+            </CardDescription> */}
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Firebase Login Button */}
@@ -343,7 +332,7 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 className="w-full h-13 bg-gradient-to-r from-blue-500 via-cyan-500 to-blue-600 hover:from-blue-600 hover:via-cyan-600 hover:to-blue-700 text-white font-semibold text-base transition-all duration-300 shadow-lg shadow-blue-200 hover:shadow-xl hover:shadow-blue-300 hover:scale-[1.02] active:scale-[0.98] rounded-xl border border-blue-400/20"
-                disabled={loading || firebaseLoading}
+                disabled={loading}
               >
                 {loading ? (
                   <div className="flex items-center space-x-2">
@@ -352,7 +341,7 @@ export default function LoginPage() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center space-x-2">
-                    <User className="w-5 h-5" />
+                    <LogIn className="w-5 h-5" />
                     <span>เข้าสู่ระบบ</span>
                   </div>
                 )}

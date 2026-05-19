@@ -6,44 +6,35 @@ import Navbar from './Navbar';
 
 interface AppLayoutProps {
   children: ReactNode;
-  /** ใช้ความกว้างเต็ม (ไม่มี max-width) เหมาะกับ Dashboard */
   fullWidth?: boolean;
 }
 
 export default function AppLayout({ children, fullWidth }: AppLayoutProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
 
-  // Sync zoom level with CSS variable (set by Navbar)
   useEffect(() => {
-    // Read initial value from CSS variable
-    const currentZoom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--admin-zoom') || '1') * 100;
+    const currentZoom =
+      parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--admin-zoom') || '1') *
+      100;
     setZoomLevel(currentZoom);
 
-    // Listen for changes to CSS variable
-    const checkZoom = () => {
-      const newZoom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--admin-zoom') || '1') * 100;
-      if (Math.abs(newZoom - zoomLevel) > 0.1) {
-        setZoomLevel(newZoom);
-      }
-    };
+    const interval = setInterval(() => {
+      const newZoom =
+        parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--admin-zoom') || '1') *
+        100;
+      setZoomLevel((prev) => (Math.abs(newZoom - prev) > 0.1 ? newZoom : prev));
+    }, 100);
 
-    const interval = setInterval(checkZoom, 100);
     return () => clearInterval(interval);
-  }, [zoomLevel]);
+  }, []);
 
   return (
-    <div className="flex h-screen bg-rose-50/30">
-      <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
-      
-      {/* Main Content - ขยายตามขนาด Sidebar */}
-      <div 
-        className={`flex-1 flex flex-col transition-all duration-300 ${
-          isCollapsed ? 'lg:ml-16' : 'lg:ml-64'
-        }`}
-      >
+    <div className="flex h-screen bg-rose-50/30 overflow-hidden">
+      <Sidebar />
+
+      <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
         <Navbar />
-        
+
         <main className="flex-1 overflow-y-auto" style={{ zoom: zoomLevel / 100 }}>
           <div
             className={

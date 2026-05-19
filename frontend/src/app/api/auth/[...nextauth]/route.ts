@@ -9,7 +9,7 @@ const authOptions: NextAuthOptions = {
       name: "Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
         if (!credentials?.email) {
@@ -37,17 +37,18 @@ const authOptions: NextAuthOptions = {
             }
 
             const profileData = await validateResponse.json();
-            
-            if (profileData.success && profileData.data && profileData.data.user) {
-              const userData = profileData.data.user;
-              
+            const userData =
+              profileData?.data?.user ??
+              (profileData?.data?.id != null ? profileData.data : null);
+
+            if (profileData.success && userData) {
               return {
                 id: userData.id.toString(),
                 email: userData.email,
                 name: userData.name,
                 image: userData.profile_image || userData.profile_picture,
                 accessToken: token,
-                user: userData
+                user: userData,
               };
             } else {
               console.error('❌ Profile data invalid:', profileData);
@@ -73,19 +74,16 @@ const authOptions: NextAuthOptions = {
 
           if (response.success && response.data) {
             const token = response.data.token;
+            const userData = response.data.user;
 
-            // Return user object with token
-            const userObj = {
-              id: response.data.user.id.toString(),
-              email: response.data.user.email,
-              name: response.data.user.name,
-              image: response.data.user.profile_image,
+            return {
+              id: userData.id.toString(),
+              email: userData.email,
+              name: userData.name,
+              image: userData.profile_image,
               accessToken: token,
-              user: response.data.user
+              user: userData,
             };
-
-
-            return userObj;
           } else {
             throw new Error(response.message || "Login failed");
           }
@@ -150,22 +148,28 @@ const authOptions: NextAuthOptions = {
       // Initial sign in
       if (user) {
         const accessToken = (user as any).accessToken;
+        const authUser = (user as any).user;
         token.accessToken = accessToken;
-        token.user = (user as any).user;
+        token.user = authUser;
         token.id = (user as any).id;
         token.email = (user as any).email;
         token.name = (user as any).name;
+        if (authUser?.is_admin != null) {
+          token.is_admin = authUser.is_admin;
+        }
       }
 
       // Handle session update (when updateSession is called)
       if (trigger === "update" && session) {
-
-        // Merge updated user data into token
         if (session.user) {
           token.user = {
             ...(token.user || {}),
             ...session.user,
           };
+          const merged = token.user as { is_admin?: boolean };
+          if (merged.is_admin != null) {
+            token.is_admin = merged.is_admin;
+          }
         }
       }
 

@@ -5,10 +5,12 @@ export const loginSchema = z.object({
   password: z.string().min(8, 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'),
 });
 
-export const registerSchema = z.object({
-  name: z.string().min(2, 'ชื่อต้องมีอย่างน้อย 2 ตัวอักษร'),
+export const registerAdminSchema = z.object({
+  fname: z.string().min(2, 'ชื่อต้องมีอย่างน้อย 2 ตัวอักษร'),
+  lname: z.string().min(2, 'นามสกุลต้องมีอย่างน้อย 2 ตัวอักษร'),
   email: z.string().email('กรุณาใส่อีเมลที่ถูกต้อง'),
-  password: z.string()
+  password: z
+    .string()
     .min(8, 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร')
     .regex(/[a-z]/, 'รหัสผ่านต้องมีตัวพิมพ์เล็กอย่างน้อย 1 ตัว')
     .regex(/[A-Z]/, 'รหัสผ่านต้องมีตัวพิมพ์ใหญ่อย่างน้อย 1 ตัว')
@@ -18,7 +20,7 @@ export const registerSchema = z.object({
 
 export const itemSchema = z.object({
   itemcode: z.string().min(1, 'รหัสสินค้าต้องไม่ว่าง').max(25, 'รหัสสินค้าต้องไม่เกิน 25 ตัวอักษร'),
-  itemname: z.string().min(2, 'ชื่อสินค้าต้องมีอย่างน้อย 2 ตัวอักษร').max(255, 'ชื่อสินค้าต้องไม่เกิน 255 ตัวอักษร'),
+  itemname: z.string().min(2, 'อุปกรณ์ต้องมีอย่างน้อย 2 ตัวอักษร').max(255, 'อุปกรณ์ต้องไม่เกิน 255 ตัวอักษร'),
   Alternatename: z.string().max(100).optional(),
   Barcode: z.string().max(50).optional(),
   Description: z.string().optional(),
@@ -40,6 +42,6 @@ export const categorySchema = z.object({
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
-export type RegisterFormData = z.infer<typeof registerSchema>;
+export type RegisterAdminFormData = z.infer<typeof registerAdminSchema>;
 export type ItemFormData = z.infer<typeof itemSchema>;
 export type CategoryFormData = z.infer<typeof categorySchema>;

@@ -85,7 +85,7 @@ export default function ReturnToCabinetReportPage() {
         if (returnedData.length === 0) {
           toast.info('ไม่พบข้อมูลการคืนอุปกรณ์เข้าตู้ กรุณาตรวจสอบว่ามีข้อมูลในระบบ');
         } else {
-          toast.success(`พบ ${total} รายการคืนอุปกรณ์เข้าตู้`);
+          toast.success(`พบ ${total} รายการเติมอุปกรณ์เข้าตู้`);
         }
       } else {
         toast.error((response as any)?.error || (response as any)?.message || 'ไม่สามารถโหลดข้อมูลได้');

@@ -7,6 +7,7 @@ import {
     Settings,
     Network,
     Users,
+    Shield,
 } from 'lucide-react';
 
 export interface AdminMenuSubItem {
@@ -103,10 +104,16 @@ export const adminMenuItems: AdminMenuItem[] = [
                 description: 'จัดการตู้ Cabinet และเชื่อมโยงกับแผนก',
             },
             {
-                name: 'จัดการผู้ใช้งาน',
+                name: 'จัดการผู้ใช้ระบบ',
                 href: '/admin/management/admin-users',
                 icon: Users,
-                description: 'จัดการผู้ใช้งานระบบ',
+                description: 'จัดการผู้ใช้ระบบ',
+            },
+            {
+                name: 'Role กับแผนก',
+                href: '/admin/management/staff-role-permission-department',
+                icon: Shield,
+                description: 'กำหนด Staff Role เข้าถึงแผนก (Division) ใดได้บ้าง',
             },
         ],
     },

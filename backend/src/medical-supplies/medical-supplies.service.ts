@@ -135,18 +135,37 @@ export class MedicalSuppliesService {
     }
   }
 
+  /** แปลง recorded_by / return_by user id (admin:N | staff:N | N) เป็นชื่อจาก app_users */
+  private async resolveRecordedByUser(
+    userType: string | null,
+    userId: string,
+  ): Promise<{ fullName: string; display: string } | null> {
+    const id = parseInt(userId, 10);
+    if (Number.isNaN(id)) return null;
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { fname: true, lname: true, is_admin: true },
+    });
+    if (!user) return null;
+    if ((userType === 'admin' || userType === 'user') && !user.is_admin) return null;
+    if (userType === 'staff' && user.is_admin) return null;
+    const fullName = `${user.fname} ${user.lname}`.trim();
+    const prefix = user.is_admin ? 'admin' : 'staff';
+    return { fullName, display: `${prefix}: ${fullName}` };
+  }
+
   // Check Staff User by client_id
   async checkStaffUser(client_id: string): Promise<{ user: any; userType: string } | null> {
     try {
-      const staffUser = await this.prisma.staffUser.findUnique({
-        where: { client_id },
+      const staffUser = await this.prisma.user.findFirst({
+        where: { client_id, is_admin: false },
         select: {
           id: true,
           email: true,
           fname: true,
           lname: true,
           is_active: true,
-        }
+        },
       });
 
       if (staffUser && staffUser.is_active) {
@@ -155,9 +174,9 @@ export class MedicalSuppliesService {
             id: staffUser.id,
             email: staffUser.email,
             name: `${staffUser.fname} ${staffUser.lname}`.trim(),
-            is_active: staffUser.is_active
+            is_active: staffUser.is_active,
           },
-          userType: 'staff'
+          userType: 'staff',
         };
       }
 
@@ -854,33 +873,20 @@ export class MedicalSuppliesService {
       if (query.user_name) {
         const userName = query.user_name.trim();
 
-        // Find admin users matching the name
-        const adminUsers = await this.prisma.user.findMany({
+        const matchingUsers = await this.prisma.user.findMany({
           where: {
-            name: { contains: userName },
             is_active: true,
-          },
-          select: { id: true },
-        });
-
-        // Find staff users matching fname or lname
-        const staffUsers = await this.prisma.staffUser.findMany({
-          where: {
             OR: [
               { fname: { contains: userName } },
               { lname: { contains: userName } },
+              { email: { contains: userName } },
             ],
-            is_active: true,
           },
-          select: { id: true },
+          select: { id: true, is_admin: true },
         });
 
-        // Build recorded_by_user_id conditions
-        adminUsers.forEach(user => {
-          recordedByConditions.push(`admin:${user.id}`);
-        });
-        staffUsers.forEach(user => {
-          recordedByConditions.push(`staff:${user.id}`);
+        matchingUsers.forEach((user) => {
+          recordedByConditions.push(`${user.is_admin ? 'admin' : 'staff'}:${user.id}`);
         });
 
         // Only add filter if we found matching users
@@ -988,52 +994,11 @@ export class MedicalSuppliesService {
           }
 
           if (userId) {
-            if (userType === 'admin') {
-              // Query admin user
-              const adminUser = await this.prisma.user.findUnique({
-                where: { id: parseInt(userId) },
-                select: { name: true },
-              });
-              if (adminUser) {
-                recordedByName = adminUser.name;
-                recordedByDisplay = `admin: ${adminUser.name}`;
-                recordedByUserId = userId;
-              }
-            } else if (userType === 'staff') {
-              // Query staff user
-              const staffUser = await this.prisma.staffUser.findUnique({
-                where: { id: parseInt(userId) },
-                select: { fname: true, lname: true },
-              });
-              if (staffUser) {
-                const fullName = `${staffUser.fname} ${staffUser.lname}`.trim();
-                recordedByName = fullName;
-                recordedByDisplay = `staff: ${fullName}`;
-                recordedByUserId = userId;
-              }
-            } else {
-              // No userType specified (just number) - try admin first, then staff
-              const adminUser = await this.prisma.user.findUnique({
-                where: { id: parseInt(userId) },
-                select: { name: true },
-              });
-              if (adminUser) {
-                recordedByName = adminUser.name;
-                recordedByDisplay = `admin: ${adminUser.name}`;
-                recordedByUserId = userId;
-              } else {
-                // Try staff
-                const staffUser = await this.prisma.staffUser.findUnique({
-                  where: { id: parseInt(userId) },
-                  select: { fname: true, lname: true },
-                });
-                if (staffUser) {
-                  const fullName = `${staffUser.fname} ${staffUser.lname}`.trim();
-                  recordedByName = fullName;
-                  recordedByDisplay = `staff: ${fullName}`;
-                  recordedByUserId = userId;
-                }
-              }
+            const resolved = await this.resolveRecordedByUser(userType, userId);
+            if (resolved) {
+              recordedByName = resolved.fullName;
+              recordedByDisplay = resolved.display;
+              recordedByUserId = userId;
             }
           }
         }
@@ -1167,7 +1132,7 @@ export class MedicalSuppliesService {
     else if (method === 'DELETE') typeFilter.push('DELETE');
     else if (method === 'OTHER') typeFilter.push(''); // will use NOT IN known types
 
-    const table = 'app_microservice_medical_supply_usages_logs';
+    const table = 'app_medical_supply_usages_logs';
     const hasTypeFilter = typeFilter.length > 0 && (method === 'OTHER' || typeFilter.some((t) => t.length > 0));
     const statusVal = (query as any).status?.toString?.()?.trim?.()?.toUpperCase?.();
     const hasStatusFilter = statusVal === 'SUCCESS' || statusVal === 'ERROR';
@@ -2249,38 +2214,11 @@ export class MedicalSuppliesService {
 
           if (userId.includes(':')) {
             const [userType, id] = userId.split(':');
-            const userIdNum = parseInt(id, 10);
-
-            if ((userType === 'user' || userType === 'admin') && !isNaN(userIdNum)) {
-              const adminUser = await this.prisma.user.findUnique({
-                where: { id: userIdNum },
-                select: { name: true },
-              });
-              if (adminUser) returnByName = adminUser.name;
-            } else if (userType === 'staff' && !isNaN(userIdNum)) {
-              const staffUser = await this.prisma.staffUser.findUnique({
-                where: { id: userIdNum },
-                select: { fname: true, lname: true },
-              });
-              if (staffUser) returnByName = `${staffUser.fname} ${staffUser.lname}`.trim();
-            }
+            const resolved = await this.resolveRecordedByUser(userType, id);
+            if (resolved) returnByName = resolved.fullName;
           } else {
-            const userIdNum = parseInt(userId, 10);
-            if (!isNaN(userIdNum)) {
-              const adminUser = await this.prisma.user.findUnique({
-                where: { id: userIdNum },
-                select: { name: true },
-              });
-              if (adminUser) {
-                returnByName = adminUser.name;
-              } else {
-                const staffUser = await this.prisma.staffUser.findUnique({
-                  where: { id: userIdNum },
-                  select: { fname: true, lname: true },
-                });
-                if (staffUser) returnByName = `${staffUser.fname} ${staffUser.lname}`.trim();
-              }
-            }
+            const resolved = await this.resolveRecordedByUser(null, userId);
+            if (resolved) returnByName = resolved.fullName;
           }
         }
 
@@ -2482,14 +2420,14 @@ export class MedicalSuppliesService {
       if (filters?.departmentId) {
         const deptId = parseInt(filters.departmentId, 10);
         if (!Number.isNaN(deptId)) {
-          sqlConditions.push(Prisma.sql`app_microservice_cabinet_departments.department_id = ${deptId}`);
+          sqlConditions.push(Prisma.sql`app_cabinet_departments.department_id = ${deptId}`);
         }
       }
 
       if (filters?.cabinetId) {
         const cabId = parseInt(filters.cabinetId, 10);
         if (!Number.isNaN(cabId)) {
-          sqlConditions.push(Prisma.sql`app_microservice_cabinets.ID = ${cabId}`);
+          sqlConditions.push(Prisma.sql`app_cabinets.ID = ${cabId}`);
         }
       }
 
@@ -2502,8 +2440,8 @@ export class MedicalSuppliesService {
         FROM itemstock ist
         INNER JOIN item i ON ist.ItemCode = i.itemcode
         LEFT JOIN itemtype it ON i.itemtypeID = it.ID
-        LEFT JOIN app_microservice_cabinets ON app_microservice_cabinets.stock_id = ist.StockID
-        LEFT JOIN app_microservice_cabinet_departments ON app_microservice_cabinet_departments.cabinet_id = app_microservice_cabinets.ID
+        LEFT JOIN app_cabinets ON app_cabinets.stock_id = ist.StockID
+        LEFT JOIN app_cabinet_departments ON app_cabinet_departments.cabinet_id = app_cabinets.ID
         WHERE ${whereClause}
       `;
       const totalCount = Number(countResult[0]?.total || 0);
@@ -2524,8 +2462,8 @@ export class MedicalSuppliesService {
           ist.CabinetUserID,
           COALESCE(CONCAT(employee.FirstName, ' ', employee.LastName), 'ไม่ระบุ') AS cabinetUserName,
           department.DepName AS departmentName,
-          app_microservice_cabinets.cabinet_name AS cabinetName,
-          app_microservice_cabinets.cabinet_code AS cabinetCode
+          app_cabinets.cabinet_name AS cabinetName,
+          app_cabinets.cabinet_code AS cabinetCode
         FROM itemstock ist
         LEFT JOIN item i ON ist.ItemCode = i.itemcode
         LEFT JOIN (
@@ -2540,9 +2478,9 @@ export class MedicalSuppliesService {
           ) user_cabinet ON ist.CabinetUserID = user_cabinet.user_id
         LEFT JOIN users ON user_cabinet.user_id = users.ID
         LEFT JOIN employee ON employee.EmpCode = users.EmpCode
-        LEFT JOIN app_microservice_cabinets on app_microservice_cabinets.stock_id = ist.StockID
-        LEFT JOIN app_microservice_cabinet_departments on app_microservice_cabinet_departments.cabinet_id = app_microservice_cabinets.ID
-        LEFT JOIN department on department.ID = app_microservice_cabinet_departments.department_id
+        LEFT JOIN app_cabinets on app_cabinets.stock_id = ist.StockID
+        LEFT JOIN app_cabinet_departments on app_cabinet_departments.cabinet_id = app_cabinets.ID
+        LEFT JOIN department on department.ID = app_cabinet_departments.department_id
         WHERE ${whereClause}
         ORDER BY ist.LastCabinetModify DESC , i.itemname ASC
         LIMIT ${limit}
@@ -2639,7 +2577,7 @@ export class MedicalSuppliesService {
       }
 
       if (filters?.cabinetId) {
-        sqlConditions.push(Prisma.raw(`app_microservice_cabinets.id = '${filters.cabinetId}'`));
+        sqlConditions.push(Prisma.raw(`app_cabinets.id = '${filters.cabinetId}'`));
       }
 
       // Combine WHERE conditions with AND
@@ -2653,9 +2591,9 @@ export class MedicalSuppliesService {
         LEFT JOIN user_cabinet ON ist.CabinetUserID = user_cabinet.user_id
         LEFT JOIN users ON user_cabinet.user_id = users.ID
         LEFT JOIN employee ON employee.EmpCode = users.EmpCode
-        LEFT JOIN app_microservice_cabinets on app_microservice_cabinets.stock_id = ist.StockID
-        LEFT JOIN app_microservice_cabinet_departments on app_microservice_cabinet_departments.cabinet_id = app_microservice_cabinets.ID
-        LEFT JOIN department on department.id = app_microservice_cabinet_departments.department_id
+        LEFT JOIN app_cabinets on app_cabinets.stock_id = ist.StockID
+        LEFT JOIN app_cabinet_departments on app_cabinet_departments.cabinet_id = app_cabinets.ID
+        LEFT JOIN department on department.id = app_cabinet_departments.department_id
         WHERE ${whereClause}
       `;
       const totalCount = Number(countResult[0]?.total || 0);
@@ -2675,8 +2613,8 @@ export class MedicalSuppliesService {
           ist.IsStock,
           ist.CabinetUserID,
           COALESCE(CONCAT(employee.FirstName, ' ', employee.LastName), 'ไม่ระบุ') AS cabinetUserName,
-          app_microservice_cabinets.cabinet_name AS cabinetName,
-          app_microservice_cabinets.cabinet_code AS cabinetCode,
+          app_cabinets.cabinet_name AS cabinetName,
+          app_cabinets.cabinet_code AS cabinetCode,
           department.DepName AS departmentName
         FROM itemstock ist
         INNER JOIN item i ON ist.ItemCode = i.itemcode
@@ -2692,9 +2630,9 @@ export class MedicalSuppliesService {
           ) user_cabinet ON ist.CabinetUserID = user_cabinet.user_id
         LEFT JOIN users ON user_cabinet.user_id = users.ID
         LEFT JOIN employee ON employee.EmpCode = users.EmpCode
-        LEFT JOIN app_microservice_cabinets on app_microservice_cabinets.stock_id = ist.StockID
-        LEFT JOIN app_microservice_cabinet_departments on app_microservice_cabinet_departments.cabinet_id = app_microservice_cabinets.ID
-        LEFT JOIN department on department.ID = app_microservice_cabinet_departments.department_id
+        LEFT JOIN app_cabinets on app_cabinets.stock_id = ist.StockID
+        LEFT JOIN app_cabinet_departments on app_cabinet_departments.cabinet_id = app_cabinets.ID
+        LEFT JOIN department on department.ID = app_cabinet_departments.department_id
         WHERE ${whereClause}
         ORDER BY ist.LastCabinetModify DESC , i.itemname ASC
         LIMIT ${limit}
@@ -3241,7 +3179,7 @@ export class MedicalSuppliesService {
         SELECT COALESCE(SUM(Qty), 0) AS total_dispensed FROM itemstock WHERE ${whereDispensed}
       `;
       const [usageRow] = await this.prisma.$queryRaw<Array<{ total_used: number | null }>>`
-        SELECT COALESCE(SUM(qty), 0) AS total_used FROM app_microservice_supply_usage_items WHERE ${whereUsage}
+        SELECT COALESCE(SUM(qty), 0) AS total_used FROM app_supply_usage_items WHERE ${whereUsage}
       `;
 
       const total_dispensed = Number(dispensedRow?.total_dispensed ?? 0);
@@ -3339,7 +3277,7 @@ export class MedicalSuppliesService {
         // 1. กรอง supply_usage_items ตาม department_code ใน MedicalSupplyUsage
         sqlConditionsUsage.push(
           Prisma.raw(
-            `EXISTS (SELECT 1 FROM app_microservice_medical_supply_usages msu WHERE msu.id = medical_supply_usage_id AND msu.department_code = '${deptCode}')`,
+            `EXISTS (SELECT 1 FROM app_medical_supply_usages msu WHERE msu.id = medical_supply_usage_id AND msu.department_code = '${deptCode}')`,
           ),
         );
 
@@ -3347,8 +3285,8 @@ export class MedicalSuppliesService {
         if (!Number.isNaN(deptIdNum)) {
           const cabinetRows = await this.prisma.$queryRaw<{ stock_id: number }[]>`
             SELECT c.stock_id
-            FROM app_microservice_cabinet_departments cd
-            INNER JOIN app_microservice_cabinets c ON c.id = cd.cabinet_id
+            FROM app_cabinet_departments cd
+            INNER JOIN app_cabinets c ON c.id = cd.cabinet_id
             WHERE cd.department_id = ${deptIdNum}
               AND c.stock_id IS NOT NULL
               AND cd.status = 'ACTIVE'
@@ -3365,7 +3303,7 @@ export class MedicalSuppliesService {
         }
       }
 
-      // จำนวนที่ยกเลิก ผ่าน app_microservice_supply_item_return_records (กรองวันที่ return_datetime ถ้ามี)
+      // จำนวนที่ยกเลิก ผ่าน app_supply_item_return_records (กรองวันที่ return_datetime ถ้ามี)
       const sqlConditionsReturn: Prisma.Sql[] = [];
       if (filters?.startDate && filters?.endDate) {
         sqlConditionsReturn.push(
@@ -3391,7 +3329,7 @@ export class MedicalSuppliesService {
                   UNION
 
                   SELECT order_item_code AS itemcode
-                  FROM app_microservice_supply_usage_items
+                  FROM app_supply_usage_items
                   WHERE ${whereClauseUsage}
               ) x
               JOIN item i ON i.itemcode = x.itemcode
@@ -3440,7 +3378,7 @@ export class MedicalSuppliesService {
                           UNION
 
                           SELECT order_item_code AS itemcode
-                          FROM app_microservice_supply_usage_items
+                          FROM app_supply_usage_items
                           WHERE ${whereClauseUsage}
                       ) x
                       JOIN item i ON i.itemcode = x.itemcode
@@ -3458,7 +3396,7 @@ export class MedicalSuppliesService {
                             SELECT
                                 order_item_code,
                                 SUM(qty) AS total_usage_items
-                            FROM app_microservice_supply_usage_items
+                            FROM app_supply_usage_items
                             WHERE ${whereClauseUsage}
                             GROUP BY order_item_code
                         ) u ON u.order_item_code = x.itemcode
@@ -3467,7 +3405,7 @@ export class MedicalSuppliesService {
                             SELECT
                                 srr.item_code AS ItemCode,
                                 SUM(srr.qty_returned) AS total_returned
-                            FROM app_microservice_supply_item_return_records srr
+                            FROM app_supply_item_return_records srr
                             WHERE ${whereClauseReturn}
                             GROUP BY srr.item_code
                         ) r ON r.ItemCode = x.itemcode
@@ -3917,12 +3855,11 @@ export class MedicalSuppliesService {
           it.TypeName AS itemType,
           i.itemtypeID,
           ist.CabinetUserID,
-          COALESCE(u.name, CONCAT(st.fname, ' ', st.lname), 'ไม่ระบุ') AS cabinetUserName
+          COALESCE(CONCAT(u.fname, ' ', u.lname), 'ไม่ระบุ') AS cabinetUserName
         FROM itemstock ist
         INNER JOIN item i ON ist.ItemCode = i.itemcode
         LEFT JOIN itemtype it ON i.itemtypeID = it.ID
-        LEFT JOIN app_microservice_users u ON ist.CabinetUserID = u.id
-        LEFT JOIN app_microservice_staff_users st ON ist.CabinetUserID = st.id
+        LEFT JOIN app_users u ON ist.CabinetUserID = u.id
         WHERE ${whereClause}
         ORDER BY ist.LastCabinetModify DESC, ist.RowID DESC
         LIMIT ${limit}

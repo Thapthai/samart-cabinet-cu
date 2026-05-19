@@ -3,7 +3,8 @@ import { Request } from 'express';
 import { AuthGuard, AuthContext } from './guards/auth.guard';
 import { AuthService } from './auth.service';
 import {
-  RegisterDto,
+  RegisterAdminDto,
+  RegisterStaffDto,
   LoginDto,
   FirebaseLoginDto,
   ApiKeyCreateDto,
@@ -21,9 +22,14 @@ import {
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
-  @Post('register')
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  @Post('register/admin')
+  async registerAdmin(@Body() dto: RegisterAdminDto) {
+    return this.authService.registerAdmin(dto);
+  }
+
+  @Post('register/staff')
+  async registerStaff(@Body() dto: RegisterStaffDto) {
+    return this.authService.registerStaff(dto);
   }
 
   @Post('login')

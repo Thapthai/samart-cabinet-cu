@@ -43,12 +43,12 @@ export default function EditItemDialog({
 
     // Validation
     if (!itemname || itemname.trim().length < 2) {
-      setError('ชื่อสินค้าต้องมีอย่างน้อย 2 ตัวอักษร');
+      setError('อุปกรณ์ต้องมีอย่างน้อย 2 ตัวอักษร');
       return;
     }
 
     if (itemname.length > 255) {
-      setError('ชื่อสินค้าต้องไม่เกิน 255 ตัวอักษร');
+      setError('อุปกรณ์ต้องไม่เกิน 255 ตัวอักษร');
       return;
     }
 
@@ -58,7 +58,7 @@ export default function EditItemDialog({
       const response = await itemsApi.update(item.itemcode, { itemname: itemname.trim() });
 
       if (response.success) {
-        toast.success('แก้ไขชื่อสินค้าเรียบร้อยแล้ว');
+        toast.success('แก้ไขอุปกรณ์เรียบร้อยแล้ว');
         onOpenChange(false);
         onSuccess();
       } else {
@@ -76,9 +76,9 @@ export default function EditItemDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>แก้ไขชื่อสินค้า</DialogTitle>
+          <DialogTitle>แก้ไขอุปกรณ์</DialogTitle>
           <DialogDescription>
-            แก้ไขชื่อสินค้า: {item?.itemcode || ''}
+            แก้ไขอุปกรณ์: {item?.itemcode || ''}
           </DialogDescription>
         </DialogHeader>
 
@@ -108,12 +108,12 @@ export default function EditItemDialog({
           {/* Item Name Input */}
           <div>
             <Label htmlFor="itemname">
-              ชื่อสินค้าใหม่ <span className="text-red-500">*</span>
+              อุปกรณ์ใหม่ <span className="text-red-500">*</span>
             </Label>
             <Input
               id="itemname"
               type="text"
-              placeholder="กรอกชื่อสินค้า..."
+              placeholder="กรอกอุปกรณ์..."
               value={itemname}
               onChange={(e) => {
                 setItemname(e.target.value);

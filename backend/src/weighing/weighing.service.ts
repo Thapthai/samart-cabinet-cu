@@ -84,7 +84,7 @@ export class WeighingService {
   /**
    * ดึงรายการ ItemSlotInCabinet แบบแบ่งหน้า (รวม relation cabinet)
    * itemName: ค้นหาจากชื่ออุปกรณ์ (itemname / Alternatename)
-   * ไม่แสดงรายการที่ชื่อสินค้าเป็น '-' หรือตู้ 0
+   * ไม่แสดงรายการที่อุปกรณ์เป็น '-' หรือตู้ 0
    */
   async findAll(params: {
     page?: number;

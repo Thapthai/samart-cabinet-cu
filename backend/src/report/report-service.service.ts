@@ -2378,7 +2378,14 @@ export class ReportServiceService {
           total_records: (rfidResult as any)?.total ?? dispensedItems.length,
           total_qty: dispensedItems.reduce((sum: number, item: any) => sum + (item.qty || 0), 0),
         },
-        data: dispensedItems,
+        data: dispensedItems.map((item: any) => ({
+          ...item,
+          modifyDate:
+            item?.modifyDate ??
+            item?.ModifyDate ??
+            item?.LastCabinetModify ??
+            item?.lastCabinetModify,
+        })),
       };
 
       const buffer = await this.dispensedAllExcelService.generateReport({
@@ -2582,7 +2589,7 @@ export class ReportServiceService {
 
       const kwSql = itemKeywordSql(params?.keyword);
       const rfidOnlySql = Prisma.sql`AND (ist.RfidCode IS NOT NULL AND TRIM(ist.RfidCode) <> '')`;
-      /** สอดคล้อง GET /items?cabinet_id= (findAllItems): IsStock + min/max ต่อตู้จาก app_microservice_cabinet_item_settings */
+      /** สอดคล้อง GET /items?cabinet_id= (findAllItems): IsStock + min/max ต่อตู้จาก app_settings */
       const inCabinetStockSql = Prisma.sql`AND (ist.IsStock = 1 OR ist.IsStock = TRUE)`;
       const inCabinetCountSql = Prisma.sql`AND (ist_cnt.IsStock = 1 OR ist_cnt.IsStock = TRUE)`;
       const activeItemSql = Prisma.sql`AND COALESCE(i.item_status, 0) = 0`;
@@ -2609,12 +2616,12 @@ export class ReportServiceService {
             ) AS tags_for_item_in_cabinet
           FROM item i
           INNER JOIN itemstock ist ON ist.ItemCode = i.itemcode
-          INNER JOIN app_microservice_cabinets c ON ist.StockID = c.stock_id AND ist.StockID > 0
-          LEFT JOIN app_microservice_cabinet_item_settings cis
+          INNER JOIN appN ist.StockID = c.stock_id AND ist.StockID > 0
+          LEFT JOIN app_settings cis
             ON cis.cabinet_id = c.id AND cis.item_code = i.itemcode
           LEFT JOIN (
             SELECT cd.cabinet_id, MIN(d.DepName) AS DepName
-            FROM app_microservice_cabinet_departments cd
+            FROM apprtments cd
             INNER JOIN department d ON d.ID = cd.department_id
             GROUP BY cd.cabinet_id
           ) dept ON dept.cabinet_id = c.id
@@ -2648,13 +2655,13 @@ export class ReportServiceService {
             ) AS tags_for_item_in_cabinet
           FROM item i
           INNER JOIN itemstock ist ON ist.ItemCode = i.itemcode
-          INNER JOIN app_microservice_cabinets c ON ist.StockID = c.stock_id AND ist.StockID > 0
-          LEFT JOIN app_microservice_cabinet_item_settings cis
+          INNER JOIN appN ist.StockID = c.stock_id AND ist.StockID > 0
+          LEFT JOIN app_settings cis
             ON cis.cabinet_id = c.id AND cis.item_code = i.itemcode
-          INNER JOIN app_microservice_cabinet_departments cd_filter ON cd_filter.cabinet_id = c.id AND cd_filter.department_id = ${params!.departmentId!} AND cd_filter.status = 'ACTIVE'
+          INNER JOIN apprtments cd_filter ON cd_filter.cabinet_id = c.id AND cd_filter.department_id = ${params!.departmentId!} AND cd_filter.status = 'ACTIVE'
           LEFT JOIN (
             SELECT cd.cabinet_id, MIN(d.DepName) AS DepName
-            FROM app_microservice_cabinet_departments cd
+            FROM apprtments cd
             INNER JOIN department d ON d.ID = cd.department_id
             WHERE cd.department_id = ${params!.departmentId!} AND cd.status = 'ACTIVE'
             GROUP BY cd.cabinet_id

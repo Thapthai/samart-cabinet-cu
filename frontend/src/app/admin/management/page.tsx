@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Package, Users, Shield, Layers, UserCog } from 'lucide-react';
+import { Package, Shield, Layers, UserCog } from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,26 +30,15 @@ const managementMenus = [
     iconColor: 'text-blue-600',
   },
   {
-    name: 'เพิ่มผู้ใช้ Admin',
+    name: 'จัดการผู้ใช้ระบบ',
     href: '/admin/management/admin-users',
     icon: UserCog,
-    description: 'ลงทะเบียนบัญชีผู้ดูแลระบบ (JWT) ผ่าน /auth/register',
-    color: 'from-amber-500 to-orange-600',
+    description: 'Admin (JWT) และ Staff (Client Credentials) — แท็บ Admin / Staff',
+    color: 'from-amber-500 to-indigo-600',
     bgLight: 'bg-amber-50',
     borderColor: 'border-amber-200',
     iconBg: 'bg-amber-100',
     iconColor: 'text-amber-700',
-  },
-  {
-    name: 'Staff Users',
-    href: '/admin/management/staff-users',
-    icon: Users,
-    description: 'จัดการ Staff Users และ Client Credentials',
-    color: 'from-emerald-500 to-teal-600',
-    bgLight: 'bg-emerald-50',
-    borderColor: 'border-emerald-200',
-    iconBg: 'bg-emerald-100',
-    iconColor: 'text-emerald-600',
   },
   {
     name: 'Staff Permission Role',

@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { User, Settings, LogOut, ChevronDown, ZoomIn, ZoomOut } from 'lucide-react';
+import { isAdminUser } from '@/lib/auth/roles';
 
 interface StaffLayoutProps {
   children: ReactNode;
@@ -135,17 +136,18 @@ export default function StaffLayout({ children }: StaffLayoutProps) {
     }
 
     // Check if admin is logged in (next-auth session)
-    if (isAdminAuth && adminUser) {
-      const role = adminUser?.role;
-      const isAdminRole = role === 'admin' || (typeof role === 'object' && (role.code === 'admin' || role.name === 'admin'));
-      
-      if (isAdminRole) {
-        // Admin can access staff pages
-        setIsAdmin(true);
-        setStaffUser(adminUser); // Use admin user data
-        setLoading(false);
-        return;
-      }
+    if (isAdminAuth && adminUser && isAdminUser(adminUser)) {
+      setIsAdmin(true);
+      setStaffUser(adminUser);
+      setLoading(false);
+      return;
+    }
+
+    if (isAdminAuth && adminUser && !isAdminUser(adminUser)) {
+      setIsAdmin(false);
+      setStaffUser(adminUser);
+      setLoading(false);
+      return;
     }
 
     // Check if staff is logged in (localStorage)
@@ -154,7 +156,7 @@ export default function StaffLayout({ children }: StaffLayoutProps) {
 
     if (!token || !user) {
       // Next.js automatically handles basePath, so we don't need to include it
-      router.push('/auth/staff/login');
+      router.push('/auth/login');
       return;
     }
 
@@ -164,7 +166,7 @@ export default function StaffLayout({ children }: StaffLayoutProps) {
     } catch (error) {
       console.error('Error parsing staff user:', error);
       // Next.js automatically handles basePath, so we don't need to include it
-      router.push('/auth/staff/login');
+      router.push('/auth/login');
     } finally {
       setLoading(false);
     }
@@ -178,7 +180,7 @@ export default function StaffLayout({ children }: StaffLayoutProps) {
       // Staff logout
       localStorage.removeItem('staff_token');
       localStorage.removeItem('staff_user');
-      router.push('/auth/staff/login');
+      router.push('/auth/login');
     }
   };
 

@@ -21,6 +21,10 @@ import {
 } from '../auth/dto/staff-user.dto';
 import { CreateStaffRoleDto, UpdateStaffRoleDto } from '../auth/dto/staff-role.dto';
 import { BulkUpdateStaffRolePermissionsDto } from '../auth/dto/staff-role-permission.dto';
+import {
+  GetStaffRolePermissionDepartmentsQueryDto,
+  SetStaffRolePermissionDepartmentsDto,
+} from '../auth/dto/staff-role-permission-department.dto';
 
 @Controller('staff-users')
 export class StaffUsersController {
@@ -141,5 +145,29 @@ export class StaffRolePermissionsController {
       can_access: p.can_access ?? true,
     }));
     return this.staffService.bulkUpdateStaffRolePermissions(list);
+  }
+}
+
+@Controller('staff-role-permission-departments')
+export class StaffRolePermissionDepartmentsController {
+  constructor(private readonly staffService: StaffService) {}
+
+  @Get()
+  async getByRole(@Query() query: GetStaffRolePermissionDepartmentsQueryDto) {
+    if (query.role_id == null && !query.role_code?.trim()) {
+      throw new BadRequestException('role_id or role_code is required');
+    }
+    return this.staffService.getStaffRolePermissionDepartments({
+      role_id: query.role_id,
+      role_code: query.role_code,
+    });
+  }
+
+  @Put()
+  async set(@Body() dto: SetStaffRolePermissionDepartmentsDto) {
+    return this.staffService.setStaffRolePermissionDepartments(
+      dto.role_id,
+      dto.department_ids ?? [],
+    );
   }
 }

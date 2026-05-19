@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
 import * as fs from 'fs';
-import { resolveReportLogoPath, ReportConfig } from '../config/report.config';
+import { resolveReportLogoPath } from '../config/report.config';
 import type { WeighingDispenseReportData } from './weighing-dispense-report-excel.service';
 import type { DispensedItemsReportData } from './dispensed-items-excel.service';
 
@@ -19,20 +19,15 @@ type SixColRow = {
   date: string;
 };
 
-function formatReportDateYmd(value?: string) {
-  if (!value) return '-';
-  const base = new Date(value);
-  const corrected =
-    typeof value === 'string' && value.endsWith('Z')
-      ? new Date(base.getTime() - 7 * 60 * 60 * 1000)
-      : base;
-  if (Number.isNaN(corrected.getTime())) return '-';
-  return corrected.toLocaleDateString('en-CA', {
-    timeZone: ReportConfig.timezone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
+/** สอดคล้อง reportModifyDateYmd ใน report-service (UTC วันที่เดียวกับตาราง Weighing) */
+function modifyDateYmdForReport(value?: string | Date | null) {
+  if (value == null || value === '') return '-';
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return '-';
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 function rfidCabinetLabel(item: { cabinetName?: string; cabinetCode?: string }): string {
@@ -75,7 +70,7 @@ export class DispensedAllExcelService {
       cabinet: rfidCabinetLabel(item),
       operator: item.cabinetUserName ?? 'ไม่ระบุ',
       qty: item.qty,
-      date: formatReportDateYmd(item.modifyDate),
+      date: modifyDateYmdForReport(item.modifyDate),
     }));
 
     this.appendDispensedSheet(
@@ -162,7 +157,7 @@ export class DispensedAllExcelService {
     worksheet.getRow(3).height = 20;
 
     const tableStartRow = 4;
-    const headers = ['ลำดับ', 'ชื่อสินค้า', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
+    const headers = ['ลำดับ', 'อุปกรณ์', 'ตู้', 'ผู้ดำเนินการ', 'จำนวน', 'วันที่แก้ไข'];
     const headerRow = worksheet.getRow(tableStartRow);
     headers.forEach((h, i) => {
       const cell = headerRow.getCell(i + 1);

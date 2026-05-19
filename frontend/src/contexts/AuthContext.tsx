@@ -3,13 +3,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { authApi } from '@/lib/api';
 import { signInWithGoogle, signOutFirebase } from '@/lib/firebase';
-import type { User, LoginDto, RegisterDto } from '@/types/api';
+import type { User, LoginDto, RegisterAdminDto } from '@/types/auth';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (data: LoginDto) => Promise<{ requiresTwoFactor?: boolean; tempToken?: string }>;
-  register: (data: RegisterDto) => Promise<void>;
+  registerAdmin: (data: RegisterAdminDto) => Promise<void>;
   loginWithFirebase: () => Promise<void>;
   loginWith2FA: (tempToken: string, code: string) => Promise<void>;
   setAuthData: (user: User, token: string) => void;
@@ -128,24 +128,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const register = async (data: RegisterDto) => {
+  const registerAdmin = async (data: RegisterAdminDto) => {
     try {
-      const response = await authApi.register(data);
-
-      // Handle new response format with nested data structure
-      if (response.success && response.data) {
-        const { user, token } = response.data;
-
-        if (user && token) {
-          setUser(user);
-          localStorage.setItem('token', token);
-          localStorage.setItem('user', JSON.stringify(user));
-        } else {
-          throw new Error(response.message || 'Registration failed - missing user or token');
-        }
-      } else {
-        throw new Error(response.message || 'Registration failed');
+      const response = await authApi.registerAdmin(data);
+      if (response.success && response.data?.user) {
+        return;
       }
+      throw new Error(response.message || 'Registration failed');
     } catch (error: any) {
       throw new Error(error.response?.data?.message || error.message || 'Registration failed');
     }
@@ -224,7 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     user,
     loading,
     login,
-    register,
+    registerAdmin,
     loginWithFirebase,
     loginWith2FA,
     setAuthData,

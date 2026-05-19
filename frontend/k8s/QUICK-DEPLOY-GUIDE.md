@@ -22,7 +22,7 @@
 
 ```bash
 # 1. ไปที่ folder k8s
-cd /var/www/app_microservice/frontend/k8s
+cd /var/www/app/frontend/k8s
 
 # 2. ให้สิทธิ์ execute (ทำครั้งแรกเท่านั้น)
 chmod +x deploy-first-time.sh
@@ -44,7 +44,7 @@ chmod +x deploy-first-time.sh
 
 ```bash
 # 1. ไปที่ folder k8s
-cd /var/www/app_microservice/frontend/k8s
+cd /var/www/app/frontend/k8s
 
 # 2. ให้สิทธิ์ execute (ทำครั้งแรกเท่านั้น)
 chmod +x update-service.sh

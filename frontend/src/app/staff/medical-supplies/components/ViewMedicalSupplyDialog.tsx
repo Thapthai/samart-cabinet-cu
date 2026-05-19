@@ -233,7 +233,7 @@ export default function ViewMedicalSupplyDialog({
                         รหัสสินค้า
                       </th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        ชื่อสินค้า
+                        อุปกรณ์
                       </th>
                       <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         จำนวน

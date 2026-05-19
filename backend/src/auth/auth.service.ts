@@ -7,7 +7,8 @@ import { EmailService } from '../email/email.service';
 import { EmailTemplate } from '../email/dto/email.dto';
 import {
   LoginDto,
-  RegisterDto,
+  RegisterAdminDto,
+  RegisterStaffDto,
   ApiKeyCreateDto,
   RefreshTokenDto,
   FirebaseLoginDto,
@@ -31,6 +32,90 @@ export class AuthService {
     private firebaseService: FirebaseService,
   ) {}
 
+  private readonly userRoleInclude = {
+    role: { select: { id: true, code: true, name: true } },
+  } as const;
+
+  private fullName(user: { fname: string; lname: string }) {
+    return `${user.fname ?? ''} ${user.lname ?? ''}`.trim() || '—';
+  }
+
+  private parseRegisterNames(dto: {
+    name?: string;
+    fname?: string;
+    lname?: string;
+  }): { fname: string; lname: string } {
+    if (dto.fname?.trim() && dto.lname?.trim()) {
+      return { fname: dto.fname.trim(), lname: dto.lname.trim() };
+    }
+    const parts = (dto.name ?? '').trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return { fname: 'User', lname: '-' };
+    if (parts.length === 1) return { fname: parts[0], lname: '-' };
+    return { fname: parts[0], lname: parts.slice(1).join(' ') };
+  }
+
+  private signAccessToken(user: {
+    id: number;
+    email: string;
+    is_admin: boolean;
+    role_id?: number | null;
+    role?: { id?: number; code: string } | null;
+  }) {
+    const roleId = user.role_id ?? user.role?.id ?? undefined;
+    return this.jwt.sign(
+      {
+        sub: user.id,
+        email: user.email,
+        is_admin: user.is_admin,
+        staff: !user.is_admin,
+        role_id: !user.is_admin ? roleId : undefined,
+        role_code: user.role?.code ?? undefined,
+      },
+      { expiresIn: '24h' },
+    );
+  }
+
+  private toAuthUserPayload(user: {
+    id: number;
+    email: string;
+    fname: string;
+    lname: string;
+    is_admin: boolean;
+    two_factor_enabled: boolean;
+    preferred_auth_method: string;
+    password?: string | null;
+    role_id?: number | null;
+    role?: { id: number; code: string; name: string } | null;
+  }) {
+    const name = this.fullName(user);
+    const roleId = user.role_id ?? user.role?.id ?? null;
+    const isStaff = !user.is_admin;
+
+    return {
+      id: user.id,
+      email: user.email,
+      fname: user.fname,
+      lname: user.lname,
+      name,
+      is_admin: user.is_admin,
+      userType: user.is_admin ? ('admin' as const) : ('staff' as const),
+      two_factor_enabled: user.two_factor_enabled,
+      preferred_auth_method: user.preferred_auth_method,
+      hasPassword: !!user.password,
+      role_id: roleId,
+      ...(isStaff
+        ? {
+            /** Staff: ใช้ role id เป็นหลัก (ไม่ใช่ role code) */
+            role: roleId,
+            role_code: user.role?.code ?? null,
+            role_name: user.role?.name ?? null,
+          }
+        : {
+            role: user.role?.code ?? null,
+          }),
+    };
+  }
+
   private async sendWelcomeEmail(email: string, name: string) {
     return this.email.sendTemplateEmail({
       to: email,
@@ -46,34 +131,116 @@ export class AuthService {
     });
   }
 
-  async register(registerDto: RegisterDto) {
-    const existing = await this.prisma.user.findUnique({ where: { email: registerDto.email } });
+  /** สร้างบัญชี Admin (is_admin = true) */
+  async registerAdmin(dto: RegisterAdminDto) {
+    const email = dto.email.trim();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) return { success: false, message: 'User already exists' };
-    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+
+    if (dto.department_id != null) {
+      const dept = await this.prisma.department.findUnique({
+        where: { ID: dto.department_id },
+        select: { ID: true },
+      });
+      if (!dept) return { success: false, message: 'Department not found' };
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const { client_id, client_secret, client_secret_hash } =
+      this.clientCredentialStrategy.generateClientCredential();
+
     const user = await this.prisma.user.create({
       data: {
-        email: registerDto.email,
+        email,
         password: hashedPassword,
-        name: registerDto.name,
+        fname: dto.fname.trim(),
+        lname: dto.lname.trim(),
+        is_admin: true,
+        role_id: null,
+        emp_code: dto.emp_code?.trim() || null,
+        client_id,
+        client_secret: client_secret_hash,
       },
+      include: this.userRoleInclude,
     });
-    const token = this.jwt.sign({ sub: user.id, email: user.email, name: user.name });
-    this.sendWelcomeEmail(user.email, user.name).catch((e) => console.error('Welcome email failed', e));
+
+    const displayName = this.fullName(user);
+    this.sendWelcomeEmail(user.email, displayName).catch((e) => console.error('Welcome email failed', e));
     return {
       success: true,
-      message: 'User registered successfully',
-      data: { user: { id: user.id, email: user.email, name: user.name }, token },
+      message: 'Admin user registered successfully',
+      data: { user: this.toAuthUserPayload(user) },
     };
   }
 
-  /** รายการผู้ใช้ JWT (ตาราง app_microservice_users) — ไม่ส่งรหัสผ่าน */
+  /** สร้างบัญชี Staff (is_admin = false, ต้องมี role) */
+  async registerStaff(dto: RegisterStaffDto) {
+    const email = dto.email.trim();
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    if (existing) return { success: false, message: 'User already exists' };
+
+    let roleId: number | null = null;
+    const requestedRoleId = dto.role_id ?? dto.role;
+
+    if (requestedRoleId != null) {
+      const role = await this.prisma.staffRole.findUnique({
+        where: { id: requestedRoleId },
+        select: { id: true },
+      });
+      if (!role) return { success: false, message: `Role with ID ${requestedRoleId} not found` };
+      roleId = role.id;
+    }
+
+    // if (dto.department_id != null) {
+    //   const dept = await this.prisma.department.findUnique({
+    //     where: { ID: dto.department_id },
+    //     select: { ID: true },
+    //   });
+    //   if (!dept) return { success: false, message: 'Department not found' };
+    // }
+
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const { client_id, client_secret, client_secret_hash } =
+      this.clientCredentialStrategy.generateClientCredential();
+    const expiresAt = dto.expires_at?.trim() ? new Date(dto.expires_at) : null;
+
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        fname: dto.fname.trim(),
+        lname: dto.lname.trim(),
+        is_admin: false,
+        role_id: roleId,
+        client_id,
+        client_secret: client_secret_hash,
+        expires_at: expiresAt,
+      },
+      include: this.userRoleInclude,
+    });
+
+    const displayName = this.fullName(user);
+    this.sendWelcomeEmail(user.email, displayName).catch((e) => console.error('Welcome email failed', e));
+    return {
+      success: true,
+      message: 'Staff user registered successfully',
+      data: {
+        user: this.toAuthUserPayload(user),
+        client_id,
+        client_secret,
+      },
+    };
+  }
+
+  /** รายการผู้ใช้ Admin (is_admin = true) */
   async listAdminUsers(filters?: { search?: string; isActive?: boolean }) {
-    const where: Prisma.UserWhereInput = {};
+    const where: Prisma.UserWhereInput = { is_admin: true };
     const q = filters?.search?.trim();
     if (q) {
       where.OR = [
         { email: { contains: q } },
-        { name: { contains: q } },
+        { fname: { contains: q } },
+        { lname: { contains: q } },
       ];
     }
     if (filters?.isActive !== undefined) {
@@ -87,28 +254,36 @@ export class AuthService {
       select: {
         id: true,
         email: true,
-        name: true,
+        fname: true,
+        lname: true,
         is_active: true,
+        is_admin: true,
         email_verified: true,
         preferred_auth_method: true,
         last_login_at: true,
         two_factor_enabled: true,
+        role_id: true,
         created_at: true,
         updated_at: true,
         password: true,
       },
     });
 
-    const data = rows.map(({ password, ...rest }) => ({
+    const data = rows.map(({ password, fname, lname, ...rest }) => ({
       ...rest,
+      name: `${fname} ${lname}`.trim(),
       has_password: Boolean(password),
     }));
 
     return { success: true, data };
   }
 
+  /** Login รวม — response มี userType: admin | staff */
   async login(loginDto: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: loginDto.email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email: loginDto.email.trim() },
+      include: this.userRoleInclude,
+    });
     if (!user) return { success: false, message: 'Invalid credentials' };
     if (!user.is_active) return { success: false, message: 'Account is deactivated' };
     if (!user.password) return { success: false, message: 'Please use OAuth login' };
@@ -124,25 +299,22 @@ export class AuthService {
         success: true,
         message: '2FA verification required',
         requiresTwoFactor: true,
-        data: { tempToken, user: { id: user.id, email: user.email, name: user.name, two_factor_enabled: true } },
+        data: {
+          tempToken,
+          user: { ...this.toAuthUserPayload(user), two_factor_enabled: true },
+        },
       };
     }
 
     await this.prisma.user.update({ where: { id: user.id }, data: { last_login_at: new Date() } });
-    const token = this.jwt.sign({ sub: user.id, email: user.email, name: user.name });
+    const token = this.signAccessToken(user);
     return {
       success: true,
       message: 'Login successful',
       data: {
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          two_factor_enabled: user.two_factor_enabled,
-          preferred_auth_method: user.preferred_auth_method,
-          hasPassword: !!user.password,
-        },
+        user: this.toAuthUserPayload(user),
         token,
+        userType: user.is_admin ? 'admin' : 'staff',
       },
     };
   }
@@ -152,20 +324,13 @@ export class AuthService {
       const payload = this.jwt.verify(token);
       const user = await this.prisma.user.findUnique({
         where: { id: payload.sub },
-        select: { id: true, email: true, name: true, is_active: true, two_factor_enabled: true, preferred_auth_method: true },
+        include: this.userRoleInclude,
       });
       if (!user || !user.is_active) return { success: false, message: 'User not found or inactive' };
       return {
         success: true,
         data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            two_factor_enabled: user.two_factor_enabled,
-            preferred_auth_method: user.preferred_auth_method,
-            hasPassword: true,
-          },
+          user: this.toAuthUserPayload(user),
         },
       };
     } catch {
@@ -185,32 +350,42 @@ export class AuthService {
             data: { firebase_uid: decoded.uid, profile_picture: decoded.picture ?? user.profile_picture },
           });
         } else {
+          const display = (decoded.name || decoded.email || 'User').trim();
+          const parts = display.split(/\s+/).filter(Boolean);
+          const fname = parts[0] ?? 'User';
+          const lname = parts.length > 1 ? parts.slice(1).join(' ') : '-';
+          const { client_id, client_secret, client_secret_hash } =
+            this.clientCredentialStrategy.generateClientCredential();
           user = await this.prisma.user.create({
             data: {
               email: decoded.email || `${decoded.uid}@firebase`,
-              name: decoded.name || decoded.email || 'User',
+              fname,
+              lname,
+              is_admin: true,
               firebase_uid: decoded.uid,
               profile_picture: decoded.picture,
+              client_id,
+              client_secret: client_secret_hash,
             },
+            include: this.userRoleInclude,
           });
         }
       }
       if (!user.is_active) return { success: false, message: 'Account is deactivated' };
       await this.prisma.user.update({ where: { id: user.id }, data: { last_login_at: new Date() } });
-      const token = this.jwt.sign({ sub: user.id, email: user.email, name: user.name });
+      const withRole = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        include: this.userRoleInclude,
+      });
+      const u = withRole ?? user;
+      const token = this.signAccessToken(u);
       return {
         success: true,
         message: 'Login successful',
         data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            two_factor_enabled: user.two_factor_enabled,
-            preferred_auth_method: user.preferred_auth_method,
-            hasPassword: !!user.password,
-          },
+          user: this.toAuthUserPayload(u),
           token,
+          userType: u.is_admin ? 'admin' : 'staff',
         },
       };
     } catch (err: any) {
@@ -286,20 +461,19 @@ export class AuthService {
       }
       if (!valid) return { success: false, message: 'Invalid 2FA code' };
       await this.prisma.user.update({ where: { id: user.id }, data: { last_login_at: new Date() } });
-      const token = this.jwt.sign({ sub: user.id, email: user.email, name: user.name });
+      const withRole = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        include: this.userRoleInclude,
+      });
+      const u = withRole ?? user;
+      const token = this.signAccessToken(u);
       return {
         success: true,
         message: 'Login successful',
         data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            two_factor_enabled: user.two_factor_enabled,
-            preferred_auth_method: user.preferred_auth_method,
-            hasPassword: !!user.password,
-          },
+          user: this.toAuthUserPayload(u),
           token,
+          userType: u.is_admin ? 'admin' : 'staff',
         },
       };
     } catch {
@@ -310,10 +484,23 @@ export class AuthService {
   async getUserProfile(user_id: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: user_id },
-      select: { id: true, email: true, name: true, profile_picture: true, email_verified: true, two_factor_enabled: true, preferred_auth_method: true, created_at: true },
+      include: this.userRoleInclude,
     });
     if (!user) return { success: false, message: 'User not found' };
-    return { success: true, data: user };
+    if (!user.is_active) return { success: false, message: 'Account is deactivated' };
+    const payload = this.toAuthUserPayload(user);
+    return {
+      success: true,
+      data: {
+        user: {
+          ...payload,
+          profile_picture: user.profile_picture,
+          email_verified: user.email_verified,
+          client_id: user.client_id,
+          created_at: user.created_at,
+        },
+      },
+    };
   }
 
   async updateUserProfile(user_id: number, updateData: { name?: string; email?: string; preferred_auth_method?: string }, currentPassword?: string) {
@@ -327,15 +514,20 @@ export class AuthService {
       const exists = await this.prisma.user.findUnique({ where: { email: updateData.email } });
       if (exists) return { success: false, message: 'Email already in use' };
     }
+    const patch: Prisma.UserUpdateInput = {
+      ...(updateData.email && { email: updateData.email }),
+      ...(updateData.preferred_auth_method && { preferred_auth_method: updateData.preferred_auth_method }),
+    };
+    if (updateData.name?.trim()) {
+      const { fname, lname } = this.parseRegisterNames({ name: updateData.name });
+      patch.fname = fname;
+      patch.lname = lname;
+    }
     const updated = await this.prisma.user.update({
       where: { id: user_id },
-      data: {
-        ...(updateData.name && { name: updateData.name }),
-        ...(updateData.email && { email: updateData.email }),
-        ...(updateData.preferred_auth_method && { preferred_auth_method: updateData.preferred_auth_method }),
-      },
+      data: patch,
     });
-    return { success: true, data: updated };
+    return { success: true, data: { ...updated, name: this.fullName(updated) } };
   }
 
   async changePassword(user_id: number, currentPassword: string, newPassword: string, confirmPassword: string) {
@@ -434,7 +626,7 @@ export class AuthService {
   async validateClientCredential(client_id: string, client_secret: string) {
     const cc = await this.prisma.clientCredential.findFirst({
       where: { client_id, is_active: true },
-      include: { user: { select: { id: true, email: true, name: true, is_active: true } } },
+      include: { user: { select: { id: true, email: true, fname: true, lname: true, is_active: true, is_admin: true } } },
     });
     if (!cc || !cc.user.is_active) return { success: false, message: 'Invalid client' };
     if (this.clientCredentialStrategy.isExpired(cc.expires_at)) return { success: false, message: 'Credential expired' };

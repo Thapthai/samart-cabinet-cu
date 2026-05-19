@@ -144,7 +144,7 @@ export default function MappingTable({ mappings, onEdit, onDelete }: MappingTabl
                   <span className="ml-2 font-medium font-mono">{row.itemcode}</span>
                 </div>
                 <div className="w-fit md:min-w-[500px]">
-                  <span className="text-gray-500">ชื่อสินค้า:</span>
+                  <span className="text-gray-500">อุปกรณ์:</span>
                   <span className="ml-2 font-medium">
                     {row.item?.itemname || row.item?.Alternatename || "-"}
                   </span>
