@@ -11,7 +11,7 @@ export function DashboardKpiCards({ loading, itemStockAlerts }: DashboardKpiCard
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <Link
-        href="/admin/items"
+        href="/admin/items-stock"
         className="group rounded-2xl border border-red-100 bg-white p-5 shadow-sm transition hover:border-red-200 hover:shadow-md"
       >
         <div className="flex items-start justify-between gap-3">
@@ -33,7 +33,7 @@ export function DashboardKpiCards({ loading, itemStockAlerts }: DashboardKpiCard
       </Link>
 
       <Link
-        href="/admin/items"
+        href="/admin/items-stock"
         className="group rounded-2xl border border-amber-100 bg-white p-5 shadow-sm transition hover:border-amber-200 hover:shadow-md"
       >
         <div className="flex items-start justify-between gap-3">
@@ -55,7 +55,7 @@ export function DashboardKpiCards({ loading, itemStockAlerts }: DashboardKpiCard
       </Link>
 
       <Link
-        href="/admin/items"
+        href="/admin/items-stock"
         className="group rounded-2xl border border-orange-100 bg-white p-5 shadow-sm transition hover:border-orange-200 hover:shadow-md"
       >
         <div className="flex items-start justify-between gap-3">

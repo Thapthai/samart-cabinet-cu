@@ -140,7 +140,7 @@ export default function UsageSearchStep({
             ) : usages.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-12 text-slate-500">
-                  ไม่พบข้อมูล — กรุณากด &quot;ค้นหา&quot; หรือปรับวันที่/ชื่อรายการ
+                  ไม่พบข้อมูล — กรุณากด ค้นหา หรือปรับวันที่/ชื่อรายการ
                 </TableCell>
               </TableRow>
             ) : (

@@ -3085,7 +3085,7 @@ export class ReportServiceService {
         r?.cabinet ? r.cabinet.cabinet_name || r.cabinet.cabinet_code || '-' : '-';
       const slotDisplay = (v: any) => (v === 1 ? 'ใน' : v === 2 ? 'นอก' : v != null ? String(v) : '-');
       const baseFilters = { stockId: params?.stockId, itemName: params?.itemName, itemcode: params?.itemcode };
-      const toReportData = (rows: any[]): WeighingStockReportData => {
+      const toReportData = (rows: any[], chip: 'all' | 'expired' | 'soon' | 'low'): WeighingStockReportData => {
         const totalQty = rows.reduce((sum: number, r: any) => sum + (Number(r?.Qty) || 0), 0);
         return {
           filters: baseFilters,
@@ -3099,18 +3099,20 @@ export class ReportServiceService {
             channel_display: r?.SlotNo != null ? String(r.SlotNo) : '-',
             slot_display: slotDisplay(r?.Sensor),
             qty: Number(r?.Qty) || 0,
+            ...(chip === 'low' ? { refill_qty: this.weighingRefillQtyForLowCombinedRow(r) } : {}),
           })),
         };
       };
       const chipTabs = [
         { id: 'all' as const, labelTh: 'ทั้งหมด' },
-        { id: 'expired' as const, labelTh: 'หมดอายุ' },
-        { id: 'soon' as const, labelTh: 'ใกล้หมดอายุ' },
         { id: 'low' as const, labelTh: 'สต็อกต่ำ' },
       ];
       const tabs = chipTabs.map((c) => ({
         chipLabelTh: c.labelTh,
-        data: toReportData(rawRows.filter((r: any) => weighingStockRowMatchesStatusFilter(r, c.id))),
+        data: toReportData(
+          rawRows.filter((r: any) => weighingStockRowMatchesStatusFilter(r, c.id)),
+          c.id,
+        ),
       }));
       const buffer = await this.weighingStockReportExcelService.generateMultiTabReport({
         filters: baseFilters,
@@ -3176,8 +3178,8 @@ export class ReportServiceService {
   }
 
   /**
-   * รายงานรวมหน้า admin/items-stock — Excel แยกชีตตามชิปสถานะ (ทั้งหมด / หมดอายุ / ใกล้หมดอายุ / สต็อกต่ำ)
-   * ลำดับชีต: Weighing ตามชิปทั้งหมดก่อน แล้ว RFID ตามชิปทั้งหมด — สอดคล้องการกรองบนหน้าเว็บ
+   * รายงานรวมหน้า admin/items-stock — Excel แยกชีต
+   * Weighing: ทั้งหมด + สต็อกต่ำ | RFID: ทั้งหมด + หมดอายุ + ใกล้หมดอายุ + สต็อกต่ำ
    */
   async generateItemsStockCombinedExcel(params: {
     itemName?: string;
@@ -3241,6 +3243,9 @@ export class ReportServiceService {
               channel_display: r?.SlotNo != null ? String(r.SlotNo) : '-',
               slot_display: slotDisplay(r?.Sensor),
               qty: Number(r?.Qty) || 0,
+              ...(chip === 'low'
+                ? { refill_qty: this.weighingRefillQtyForLowCombinedRow(r) }
+                : {}),
             })),
           };
 
@@ -3259,6 +3264,8 @@ export class ReportServiceService {
                 device_name: d.device_name,
                 expire_date_ymd: d.expire_date_ymd,
                 status_label: d.status_label,
+                stock_min: d.stock_min,
+                stock_max: d.stock_max,
               });
             }
           }

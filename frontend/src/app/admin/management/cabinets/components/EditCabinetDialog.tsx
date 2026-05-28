@@ -120,7 +120,7 @@ export default function EditCabinetDialog({
             <span>แก้ไขตู้ Cabinet</span>
           </DialogTitle>
           <DialogDescription>
-            เลือก &quot;ไม่ระบุ&quot; เพื่อถอดประเภทตู้ออกจากตู้นี้
+            เลือก ไม่ระบุ เพื่อถอดประเภทตู้ออกจากตู้นี้
           </DialogDescription>
         </DialogHeader>
 

@@ -197,7 +197,7 @@ function appendWeighingLowWebExcelSheet(
   wsW.getCell(`A${wFoot}`).alignment = { horizontal: 'center', vertical: 'middle' };
   wsW.getRow(wFoot).height = 18;
 
-  wsW.getColumn(1).width = 11;
+  wsW.getColumn(1).width = 13;
   wsW.getColumn(2).width = 35;
   wsW.getColumn(3).width = 44;
   wsW.getColumn(4).width = 14;
@@ -311,7 +311,7 @@ function appendRfidLowWebExcelSheet(
   wsR.getCell(`A${rFoot}`).alignment = { horizontal: 'center', vertical: 'middle' };
   wsR.getRow(rFoot).height = 18;
 
-  wsR.getColumn(1).width = 11;
+  wsR.getColumn(1).width = 13;
   wsR.getColumn(2).width = 28;
   wsR.getColumn(3).width = 44;
   wsR.getColumn(4).width = 14;

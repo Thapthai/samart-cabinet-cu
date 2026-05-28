@@ -171,7 +171,7 @@ export default function WeighingStockTable({
             <PackageSearch className="h-10 w-10 opacity-35" />
             <p>{filteredEmpty ? 'ไม่มีรายการที่ตรงกับชิปสถานะ' : 'ไม่พบข้อมูลตามเงื่อนไข'}</p>
             <p className="text-xs">
-              {filteredEmpty ? 'ลองเลือก &quot;ทั้งหมด&quot; หรือเปลี่ยนคำค้น' : 'ลองเปลี่ยนคำค้น'}
+              {filteredEmpty ? 'ลองเลือก ทั้งหมด หรือเปลี่ยนคำค้น' : 'ลองเปลี่ยนคำค้น'}
             </p>
           </div>
         </div>

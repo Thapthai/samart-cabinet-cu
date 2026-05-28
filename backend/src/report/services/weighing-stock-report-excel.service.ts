@@ -29,9 +29,16 @@ const SLOT_PILL = {
   นอก: { fill: 'FF3D5C8C', fg: 'FFF8FAFC' },
 } as const;
 
-/** คอลัมน์สุดท้ายของ merge หัวรายงาน/วันที่/ท้าย (คู่กับ B1:F2 — โลโก้คอลัมน์ A เหมือน cabinet-stock B1:D2) */
+/** ชิปที่ส่งออกในรายงาน Weighing (สอดคล้อง items-stock-combined / หน้าเว็บ) */
+export const WEIGHING_STOCK_EXCEL_CHIP_LABELS = ['ทั้งหมด', 'สต็อกต่ำ'] as const;
+
+/** คอลัมน์สุดท้ายของ merge หัวรายงาน/วันที่/ท้าย (รายละเอียดช่อง) */
 const LAST_MERGE_COL = 'F';
 const DATA_COL_COUNT = 6;
+
+/** คอลัมน์สุดท้าย — รายงานสต็อกต่ำ */
+const LOW_LAST_MERGE_COL = 'E';
+const LOW_DATA_COL_COUNT = 5;
 
 const EXCEL_SHEET_FORBIDDEN = /[\*\[\]\:\\/?]/g;
 
@@ -181,6 +188,11 @@ export function appendWeighingStockSummarySheet(
   worksheet.getColumn(1).width = 11;
   worksheet.getColumn(2).width = 65;
   worksheet.getColumn(3).width = 16;
+}
+
+export function weighingRefillCell(row: WeighingStockRow): number | string {
+  if (row.refill_qty != null && typeof row.refill_qty === 'number') return row.refill_qty;
+  return '—';
 }
 
 function safeWeighingStockSheetName(name: string, used: Set<string>): string {
@@ -360,7 +372,7 @@ export class WeighingStockReportExcelService {
     return Buffer.from(buffer);
   }
 
-  /** Excel หลายชีตตามชิป: สรุปจากทั้งหมด — แล้วทั้งหมด / หมดอายุ / ใกล้หมดอายุ (ไม่มีชีตสต็อกต่ำ; ใช้รายงานสต็อกต่ำรวมแยก) */
+  /** Excel หลายชีต: สรุป + Weighing · ทั้งหมด + Weighing · สต็อกต่ำ (ไม่มีหมดอายุ/ใกล้หมดอายุ) */
   async generateMultiTabReport(input: WeighingStockMultiTabExcelInput): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Report Service';
@@ -371,19 +383,32 @@ export class WeighingStockReportExcelService {
       day: 'numeric',
       timeZone: 'Asia/Bangkok',
     });
+    const logoPath = resolveReportLogoPath();
     const summarySource =
       input.tabs.find((t) => t.chipLabelTh === 'ทั้งหมด')?.data.data ?? input.tabs[0]?.data.data ?? [];
     appendWeighingStockSummarySheet(workbook, 'สรุป', summarySource, reportDate);
     const used = new Set<string>();
+    const exportLabels = new Set<string>(WEIGHING_STOCK_EXCEL_CHIP_LABELS);
     for (const tab of input.tabs) {
-      if (tab.chipLabelTh === 'สต็อกต่ำ') continue;
+      if (!exportLabels.has(tab.chipLabelTh)) continue;
       const sn = safeWeighingStockSheetName(`Weighing · ${tab.chipLabelTh}`, used);
       const sheetData: WeighingStockReportData = {
         filters: input.filters ?? tab.data.filters,
         summary: tab.data.summary,
         data: tab.data.data,
       };
-      appendStandaloneWeighingStockSheet(workbook, sn, sheetData, reportDate);
+      if (tab.chipLabelTh === 'สต็อกต่ำ') {
+        appendWeighingLowStockExcelSheet(workbook, {
+          sheetName: sn,
+          reportDate,
+          logoPath,
+          bannerLines: [`กรองชิป: ${tab.chipLabelTh}`],
+          wData: sheetData,
+          titleLine: 'รายการสต๊อกในตู้ (Weighing)',
+        });
+      } else {
+        appendStandaloneWeighingStockSheet(workbook, sn, sheetData, reportDate);
+      }
     }
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);
@@ -397,6 +422,129 @@ export const ITEMS_STOCK_COMBINED_THIN_BORDER: Partial<ExcelJS.Borders> = {
   bottom: { style: 'thin' as const },
   right: { style: 'thin' as const },
 };
+
+/**
+ * ชีต Weighing สต็อกต่ำ — ลำดับ · ตู้ · ชื่อ · คงเหลือ · ต้องเติม (สอดคล้องหน้าเว็บ)
+ */
+export function appendWeighingLowStockExcelSheet(
+  workbook: ExcelJS.Workbook,
+  options: {
+    sheetName: string;
+    reportDate: string;
+    logoPath: string | null;
+    bannerLines: string[];
+    wData: WeighingStockReportData;
+    /** บรรทัดหัวรายงาน — default สต็อกต่ำรวม */
+    titleLine?: string;
+  },
+): void {
+  const { sheetName, reportDate, logoPath, bannerLines, wData, titleLine } = options;
+  const thinBorder = ITEMS_STOCK_COMBINED_THIN_BORDER;
+  const headerTitle = titleLine ?? 'สต็อกต่ำ Weighing (รวมทุกตู้)';
+
+  const wsW = workbook.addWorksheet(sheetName, {
+    pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true },
+    properties: { defaultRowHeight: 20 },
+  });
+
+  wsW.mergeCells('A1:A2');
+  wsW.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } };
+  wsW.getCell('A1').border = thinBorder;
+  if (logoPath && fs.existsSync(logoPath)) {
+    try {
+      const imageId = workbook.addImage({ filename: logoPath, extension: 'png' });
+      wsW.addImage(imageId, 'A1:A2');
+    } catch {
+      // skip
+    }
+  }
+  wsW.getRow(1).height = 20;
+  wsW.getRow(2).height = 20;
+  wsW.getColumn(1).width = 12;
+
+  wsW.mergeCells(`B1:${LOW_LAST_MERGE_COL}2`);
+  const h1 = wsW.getCell('B1');
+  h1.value = `${headerTitle}\n${sheetName}`;
+  h1.font = { name: 'Tahoma', size: 14, bold: true, color: { argb: 'FF1A365D' } };
+  h1.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  h1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } };
+  h1.border = thinBorder;
+
+  wsW.mergeCells(`A3:${LOW_LAST_MERGE_COL}3`);
+  wsW.getCell('A3').value = `วันที่รายงาน: ${reportDate}`;
+  wsW.getCell('A3').font = { name: 'Tahoma', size: 12, color: { argb: 'FF6C757D' } };
+  wsW.getCell('A3').alignment = { horizontal: 'right', vertical: 'middle' };
+  wsW.getCell('A3').border = thinBorder;
+  wsW.getRow(3).height = 20;
+
+  wsW.mergeCells(`A4:${LOW_LAST_MERGE_COL}4`);
+  wsW.getCell('A4').value = [...bannerLines, `${wData.data.length} แถว`].join('   ·   ');
+  wsW.getCell('A4').font = { name: 'Tahoma', size: 11, color: { argb: 'FF495057' } };
+  wsW.getCell('A4').alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+  wsW.getCell('A4').border = thinBorder;
+  wsW.getRow(4).height = 22;
+
+  const wTableStart = 5;
+  const wHeaders = ['ลำดับ', 'ตู้จัดเก็บ', 'ชื่ออุปกรณ์', 'คงเหลือ', 'ต้องเติม'];
+  const wHeaderRow = wsW.getRow(wTableStart);
+  wHeaders.forEach((h, i) => {
+    const cell = wHeaderRow.getCell(i + 1);
+    cell.value = h;
+    cell.font = { name: 'Tahoma', size: 12, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A365D' } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.border = thinBorder;
+  });
+  wHeaderRow.height = 26;
+
+  let wRowIdx = wTableStart + 1;
+  wData.data.forEach((row, idx) => {
+    const excelRow = wsW.getRow(wRowIdx);
+    const bg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8F9FA';
+    const vals: (string | number)[] = [
+      row.seq,
+      row.cabinet_name ?? '-',
+      row.item_name ?? '-',
+      row.qty ?? 0,
+      weighingRefillCell(row),
+    ];
+    vals.forEach((val, colIndex) => {
+      const cell = excelRow.getCell(colIndex + 1);
+      cell.value = val;
+      cell.font = { name: 'Tahoma', size: 12, color: { argb: 'FF212529' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bg } };
+      cell.alignment = {
+        horizontal: colIndex === 1 || colIndex === 2 ? 'left' : 'center',
+        vertical: 'middle',
+        wrapText: true,
+      };
+      cell.border = thinBorder;
+    });
+    excelRow.height = 22;
+    wRowIdx++;
+  });
+
+  if (wData.data.length > 0) {
+    wsW.autoFilter = {
+      from: { row: wTableStart, column: 1 },
+      to: { row: wRowIdx - 1, column: LOW_DATA_COL_COUNT },
+    };
+  }
+
+  wsW.addRow([]);
+  const wFoot = wRowIdx + 1;
+  wsW.mergeCells(`A${wFoot}:${LOW_LAST_MERGE_COL}${wFoot}`);
+  wsW.getCell(`A${wFoot}`).value = 'เอกสารนี้สร้างจากระบบรายงานอัตโนมัติ';
+  wsW.getCell(`A${wFoot}`).font = { name: 'Tahoma', size: 11, color: { argb: 'FFADB5BD' } };
+  wsW.getCell(`A${wFoot}`).alignment = { horizontal: 'center', vertical: 'middle' };
+  wsW.getRow(wFoot).height = 18;
+
+  wsW.getColumn(1).width = 13;
+  wsW.getColumn(2).width = 40;
+  wsW.getColumn(3).width = 55;
+  wsW.getColumn(4).width = 12;
+  wsW.getColumn(5).width = 14;
+}
 
 /**
  * เพิ่มชีต Weighing (รวมทุกตู้ ตามชิปกรอง) ลง workbook — ใช้ร่วมกับ `ItemsStockCombinedExcelService`

@@ -83,7 +83,7 @@ export default function DeleteCategoryDialog({
         <div className="py-4">
           <p className="text-sm text-gray-600">
             คุณกำลังจะลบหมวดหมู่{' '}
-            <span className="font-semibold text-gray-900">&quot;{category?.name}&quot;</span>
+            <span className="font-semibold text-gray-900">"{category?.name}"</span>
           </p>
           <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
             <p className="text-xs text-amber-800">
