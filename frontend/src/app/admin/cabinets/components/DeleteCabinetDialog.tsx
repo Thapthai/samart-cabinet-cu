@@ -91,7 +91,7 @@ export default function DeleteCabinetDialog({
           <p className="text-sm text-gray-600">
             คุณกำลังจะลบตู้{' '}
             <span className="font-semibold text-gray-900">
-              "{cabinet?.cabinet_name || cabinet?.cabinet_code || `ID: ${cabinet?.id}`}"
+              &ldquo;{cabinet?.cabinet_name || cabinet?.cabinet_code || `ID: ${cabinet?.id}`}&rdquo;
             </span>
           </p>
           <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
