@@ -113,7 +113,7 @@ export class ReturnToCabinetReportPdfService {
         }
 
         doc.fontSize(16).font(finalFontBoldName).fillColor('#1A365D');
-        doc.text('รายการเติมมอุปกรณ์เข้าตู้ (RFID)', margin, headerTop + 6, {
+        doc.text('รายการเติมอุปกรณ์เข้าตู้ (RFID)', margin, headerTop + 6, {
           width: contentWidth,
           align: 'center',
         });

@@ -218,7 +218,7 @@ export default function WeighingRefillPage() {
       return 'เลือกตู้ชั่ง (Weighing) จากแท็บด้านบนเพื่อแสดงรายการเติม';
     }
     if (tableMode === 'RFID' && (selectedCabinetId == null || selectedCabinetId <= 0)) {
-      return 'เลือกตู้ RFID จากแท็บด้านบนเพื่อแสดงรายการเติมมเข้าตู้';
+      return 'เลือกตู้ RFID จากแท็บด้านบนเพื่อแสดงรายการเติมเข้าตู้';
     }
     return null;
   }, [tableMode, stockIdParsed, selectedCabinetId]);
