@@ -13,6 +13,7 @@ type Props = {
   onClear: () => void;
   listLoading: boolean;
   className?: string;
+  variant?: 'default' | 'compact';
 };
 
 export default function ItemsStockFilterBar({
@@ -23,9 +24,63 @@ export default function ItemsStockFilterBar({
   onClear,
   listLoading,
   className,
+  variant = 'default',
 }: Props) {
   const hasActiveKeyword = Boolean(appliedKeyword.trim());
   const showClear = keywordDraft.length > 0 || hasActiveKeyword;
+
+  if (variant === 'compact') {
+    return (
+      <form
+        className={cn('flex min-w-0 flex-1 items-stretch gap-1.5', className)}
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSearch();
+        }}
+      >
+        <label htmlFor="items-stock-filter-keyword-compact" className="sr-only">
+          ค้นหาอุปกรณ์ในตู้
+        </label>
+        <div className="relative min-w-0 flex-1">
+          <Search
+            className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            aria-hidden
+          />
+          <Input
+            id="items-stock-filter-keyword-compact"
+            name="items-stock-q"
+            autoComplete="off"
+            placeholder="ค้นหาชื่อหรือรหัสอุปกรณ์..."
+            value={keywordDraft}
+            onChange={(e) => onKeywordDraftChange(e.target.value)}
+            className="h-9 border-slate-200 bg-slate-50/50 pl-9 pr-3 text-sm shadow-none focus-visible:bg-white"
+          />
+        </div>
+        {showClear ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0 border-slate-200 bg-white text-slate-500 shadow-sm"
+            onClick={onClear}
+            disabled={listLoading}
+            aria-label="ล้างคำค้นหา"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        ) : null}
+        <Button
+          type="submit"
+          variant="outline"
+          size="sm"
+          disabled={listLoading}
+          className="h-9 shrink-0 border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+        >
+          {listLoading ? '...' : 'ค้นหา'}
+        </Button>
+      </form>
+    );
+  }
 
   return (
     <form

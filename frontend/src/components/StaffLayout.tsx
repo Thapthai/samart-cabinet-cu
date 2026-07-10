@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { User, Settings, LogOut, ChevronDown, ZoomIn, ZoomOut } from 'lucide-react';
 import { isAdminUser } from '@/lib/auth/roles';
+import ScrollToTopButton from './ScrollToTopButton';
 
 interface StaffLayoutProps {
   children: ReactNode;
@@ -29,6 +30,7 @@ export default function StaffLayout({ children }: StaffLayoutProps) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const hasUserInteracted = useRef(false);
+  const mainRef = useRef<HTMLElement>(null);
 
   // Load zoom level from localStorage on mount (per user)
   useEffect(() => {
@@ -319,10 +321,11 @@ export default function StaffLayout({ children }: StaffLayoutProps) {
         </header>
         
         {/* Main Content Area - เต็มความกว้างเหมือน admin */}
-        <main className="flex-1 overflow-y-auto bg-rose-50/30" style={{ zoom: zoomLevel / 100 }}>
+        <main ref={mainRef} className="relative flex-1 overflow-y-auto bg-rose-50/30" style={{ zoom: zoomLevel / 100 }}>
           <div className="w-full max-w-full px-4 sm:px-6 lg:px-8 py-6">
             {children}
           </div>
+          <ScrollToTopButton scrollRef={mainRef} />
         </main>
       </div>
     </div>

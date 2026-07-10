@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -29,14 +29,12 @@ type Props = {
   chipDefs: StockStatusChipDef[];
   statusFilter: StockStatusFilter;
   onStatusFilterChange: (value: StockStatusFilter) => void;
-  /** แสดงดรอปดาวน์พรีเซ็ตช่วงวันหมด — กรองวันหมดเร็วสุดภายใน <= n วันจากวันนี้ (ตู้ RFID) */
   showExpiryDateRange?: boolean;
-  /** จำนวนวันนับจากวันนี้ (สตริงตัวเลข) จากพรีเซ็ต — ใช้กับ GET /items */
   expiryAfterDay?: string;
   onExpiryAfterDayChange?: (value: string) => void;
   onClearExpiryDate?: () => void;
-  /** ปุ่มดาวน์โหลดรายงาน — แถวเดียวกับหัวข้อ «กรองสถานะในหน้านี้» */
   reportActions?: ReactNode;
+  searchToolbar?: ReactNode;
 };
 
 export default function StockStatusChips({
@@ -48,6 +46,7 @@ export default function StockStatusChips({
   onExpiryAfterDayChange,
   onClearExpiryDate,
   reportActions,
+  searchToolbar,
 }: Props) {
   const rawDays = (expiryAfterDay ?? '').trim();
   const hasDays = Boolean(rawDays);
@@ -57,21 +56,20 @@ export default function StockStatusChips({
   const daysHint = hasDays ? hintForExpireAfterDaysInput(rawDays) : null;
 
   return (
-    <div className="space-y-2">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-2">
-          <p className="text-xs font-medium text-slate-500 shrink-0">กรองสถานะในหน้านี้</p>
-          <div className="flex min-w-0 flex-wrap items-end gap-2">
-            {chipDefs.map((c) => {
-          const active = statusFilter === c.id;
-          return (
-            <Fragment key={c.id}>
+    <div className="space-y-1.5">
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-slate-500">กรองสถานะในหน้านี้</p>
+        <div className="flex flex-wrap gap-1.5 sm:gap-2">
+          {chipDefs.map((c) => {
+            const active = statusFilter === c.id;
+            return (
               <Button
+                key={c.id}
                 type="button"
                 size="sm"
                 variant="outline"
                 className={cn(
-                  'rounded-xl',
+                  'h-8 rounded-lg px-3 text-xs sm:h-9 sm:rounded-xl sm:text-sm',
                   active
                     ? 'border-transparent bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20 hover:from-blue-600 hover:to-indigo-700'
                     : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
@@ -80,74 +78,76 @@ export default function StockStatusChips({
               >
                 {c.label}
               </Button>
-              {c.id === 'low' && showExpiryDateRange && onExpiryAfterDayChange && (
-                <div
-                  className="flex min-w-0 max-w-full flex-nowrap items-center gap-2 border-l border-slate-200/90 pl-3 sm:ml-0.5"
-                  title="เลือกช่วงวันหมดอายุ — แสดงเฉพาะรายการที่วันหมดเร็วสุดภายใน <= จำนวนวันที่คำนวณจากพรีเซ็ต"
-                >
-                  <Select
-                    value={selectValue}
-                    onValueChange={(v) => {
-                      if (v === SELECT_NONE) onExpiryAfterDayChange('');
-                      else if (v === SELECT_LEGACY) return;
-                      else
-                        onExpiryAfterDayChange(
-                          String(expireAfterDaysForPreset(v as ExpireAfterPresetValue)),
-                        );
-                    }}
-                  >
-                    <SelectTrigger
-                      id="items-stock-expire-after-preset"
-                      size="sm"
-                      className="h-9 w-[9rem] shrink-0"
-                    >
-                      <SelectValue placeholder="เลือกช่วง" />
-                    </SelectTrigger>
-                    <SelectContent position="popper">
-                      <SelectItem value={SELECT_NONE}>ไม่กรอง</SelectItem>
-                      {isLegacy && (
-                        <SelectItem value={SELECT_LEGACY} disabled>
-                          ค่าที่เก็บไว้ ({rawDays} วัน) — เลือกช่วงใหม่
-                        </SelectItem>
-                      )}
-                      {EXPIRE_AFTER_PRESET_ORDER.map((key) => (
-                        <SelectItem key={key} value={key}>
-                          {EXPIRE_AFTER_DAY_PRESET_LABELS[key]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {onClearExpiryDate && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 shrink-0 px-2 text-slate-600"
-                      disabled={!hasDays}
-                      onClick={() => onClearExpiryDate()}
-                    >
-                      ล้าง
-                    </Button>
-                  )}
-                  {daysHint && (
-                    <p
-                      className="min-w-0 flex-1 truncate text-left text-[11px] leading-tight text-slate-500"
-                      title={daysHint}
-                    >
-                      {daysHint}
-                    </p>
-                  )}
-                </div>
-              )}
-            </Fragment>
-          );
-        })}
-          </div>
+            );
+          })}
         </div>
-        {reportActions ? (
-          <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">{reportActions}</div>
-        ) : null}
+
+        {showExpiryDateRange && onExpiryAfterDayChange && (
+          <div
+            className="flex flex-col gap-1.5 rounded-lg border border-slate-100 bg-slate-50/70 px-2.5 py-1.5 sm:flex-row sm:flex-wrap sm:items-center"
+            title="เลือกช่วงวันหมดอายุ — แสดงเฉพาะรายการที่วันหมดเร็วสุดภายใน <= จำนวนวันที่คำนวณจากพรีเซ็ต"
+          >
+            <span className="shrink-0 text-[11px] font-medium text-slate-500">ช่วงวันหมดอายุ</span>
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+              <Select
+                value={selectValue}
+                onValueChange={(v) => {
+                  if (v === SELECT_NONE) onExpiryAfterDayChange('');
+                  else if (v === SELECT_LEGACY) return;
+                  else onExpiryAfterDayChange(String(expireAfterDaysForPreset(v as ExpireAfterPresetValue)));
+                }}
+              >
+                <SelectTrigger
+                  id="items-stock-expire-after-preset"
+                  size="sm"
+                  className="h-8 w-full min-w-0 bg-white sm:h-9 sm:w-[9.5rem]"
+                >
+                  <SelectValue placeholder="เลือกช่วง" />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value={SELECT_NONE}>ไม่กรอง</SelectItem>
+                  {isLegacy && (
+                    <SelectItem value={SELECT_LEGACY} disabled>
+                      ค่าที่เก็บไว้ ({rawDays} วัน) — เลือกช่วงใหม่
+                    </SelectItem>
+                  )}
+                  {EXPIRE_AFTER_PRESET_ORDER.map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {EXPIRE_AFTER_DAY_PRESET_LABELS[key]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {onClearExpiryDate && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 shrink-0 px-2.5 text-slate-600 sm:h-9"
+                  disabled={!hasDays}
+                  onClick={() => onClearExpiryDate()}
+                >
+                  ล้าง
+                </Button>
+              )}
+            </div>
+            {daysHint ? (
+              <p className="text-[11px] leading-snug text-slate-500 sm:min-w-0 sm:flex-1" title={daysHint}>
+                {daysHint}
+              </p>
+            ) : null}
+          </div>
+        )}
       </div>
+
+      {(searchToolbar || reportActions) && (
+        <div className="space-y-1.5 border-t border-slate-100 pt-2">
+          {searchToolbar}
+          {reportActions ? (
+            <div className={searchToolbar ? 'border-t border-slate-100 pt-2' : undefined}>{reportActions}</div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

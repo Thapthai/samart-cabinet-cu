@@ -1,8 +1,9 @@
 'use client';
 
-import React, { ReactNode, useState, useEffect } from 'react';
+import React, { ReactNode, useState, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
+import ScrollToTopButton from './ScrollToTopButton';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -11,6 +12,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children, fullWidth }: AppLayoutProps) {
   const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const currentZoom =
@@ -35,7 +37,7 @@ export default function AppLayout({ children, fullWidth }: AppLayoutProps) {
       <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
         <Navbar />
 
-        <main className="flex-1 overflow-y-auto" style={{ zoom: zoomLevel / 100 }}>
+        <main ref={mainRef} className="relative flex-1 overflow-y-auto" style={{ zoom: zoomLevel / 100 }}>
           <div
             className={
               fullWidth
@@ -45,6 +47,7 @@ export default function AppLayout({ children, fullWidth }: AppLayoutProps) {
           >
             {children}
           </div>
+          <ScrollToTopButton scrollRef={mainRef} />
         </main>
       </div>
     </div>

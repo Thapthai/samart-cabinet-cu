@@ -1,5 +1,6 @@
 'use client';
 
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { cabinetDepartmentLine } from '../items-stock-shared';
 
@@ -25,7 +26,6 @@ export interface CabinetTabCabinet {
     department?: { ID?: number; DepName?: string | null; DepName2?: string | null } | null;
   }[];
 }
-
 
 /** ค่าตรงกับ code ใน master ประเภทตู้ (WEIGHING / RFID) */
 export type CabinetStockTableMode = 'WEIGHING' | 'RFID';
@@ -85,6 +85,115 @@ function cabinetTitle(c: CabinetTabCabinet): string {
   return (c.cabinet_name || c.cabinet_code || `Stock ${c.stock_id ?? ''}`).trim();
 }
 
+function typeBadgeClass(mode: CabinetStockTableMode, selected: boolean) {
+  if (mode === 'RFID') {
+    return selected
+      ? 'border-violet-400 bg-violet-100/90 text-violet-900'
+      : 'border-violet-300/90 bg-violet-50 text-violet-900';
+  }
+  return selected
+    ? 'border-amber-400 bg-amber-100/80 text-amber-950'
+    : 'border-amber-300/90 bg-amber-50 text-amber-950';
+}
+
+function CabinetTypeBadge({
+  cabinet,
+  selected,
+  compact,
+}: {
+  cabinet: CabinetTabCabinet;
+  selected: boolean;
+  compact?: boolean;
+}) {
+  const mode = cabinetStockTableMode(cabinet);
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center rounded-md border font-bold leading-tight tracking-wide',
+        compact ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[10px]',
+        typeBadgeClass(mode, selected),
+      )}
+      title={typeLabel(cabinet)}
+    >
+      <span className="min-w-0 truncate">{typeBadgeText(cabinet)}</span>
+    </span>
+  );
+}
+
+function CabinetTabButton({
+  cabinet,
+  selected,
+  onSelect,
+  variant,
+}: {
+  cabinet: CabinetTabCabinet;
+  selected: boolean;
+  onSelect: () => void;
+  variant: 'mobile' | 'desktop';
+}) {
+  const depLine = cabinetDepartmentLine(cabinet.cabinetDepartments);
+  const title = cabinetTitle(cabinet);
+
+  if (variant === 'mobile') {
+    return (
+      <button
+        type="button"
+        onClick={onSelect}
+        className={cn(
+          'flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-all duration-200',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2',
+          selected
+            ? 'border-blue-500 bg-blue-50 shadow-sm ring-1 ring-blue-500/25'
+            : 'border-slate-200/90 bg-white shadow-sm active:bg-slate-50',
+        )}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <CabinetTypeBadge cabinet={cabinet} selected={selected} compact />
+            <p className="min-w-0 truncate text-sm font-semibold text-gray-900" title={title}>
+              {title}
+            </p>
+          </div>
+          {depLine ? (
+            <p className="mt-0.5 truncate text-xs text-gray-500" title={depLine}>
+              {depLine}
+            </p>
+          ) : null}
+        </div>
+        {selected ? (
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white">
+            <Check className="size-3.5" strokeWidth={3} />
+          </span>
+        ) : (
+          <span className="size-6 shrink-0 rounded-full border border-slate-200/90 bg-slate-50" aria-hidden />
+        )}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        'shrink-0 text-left rounded-xl border px-4 py-3 min-w-[168px] max-w-[260px] transition-all duration-200',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2',
+        selected
+          ? 'border-blue-500 bg-blue-50 shadow-md ring-1 ring-blue-500/30'
+          : 'border-slate-200/80 bg-white shadow-sm hover:border-slate-300 hover:bg-slate-50',
+      )}
+    >
+      <CabinetTypeBadge cabinet={cabinet} selected={selected} />
+      <p className="mt-2 truncate text-sm font-semibold text-gray-900" title={title}>
+        {title}
+      </p>
+      <p className="mt-1 truncate text-xs text-gray-500" title={depLine}>
+        {depLine}
+      </p>
+    </button>
+  );
+}
+
 export default function CabinetStockTabs({
   cabinets,
   selectedCabinetId,
@@ -95,7 +204,7 @@ export default function CabinetStockTabs({
 
   if (loading) {
     return (
-      <div className="flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-4 py-6 text-sm text-gray-500">
+      <div className="flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-4 py-5 text-sm text-gray-500 md:py-6">
         กำลังโหลดรายการตู้...
       </div>
     );
@@ -110,52 +219,39 @@ export default function CabinetStockTabs({
   }
 
   return (
-    <div className="relative -mx-1">
-      <div className="overflow-x-auto overscroll-x-contain pb-1 scrollbar-thin">
-        <div className="flex min-w-min gap-3 px-1 pt-0.5">
-          {withStock.map((c) => {
-            const selected = selectedCabinetId != null && c.id === selectedCabinetId;
-            const mode = cabinetStockTableMode(c);
-            const depLine = cabinetDepartmentLine(c.cabinetDepartments);
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => onSelectCabinet(c)}
-                className={cn(
-                  'shrink-0 text-left rounded-xl border px-4 py-3 min-w-[168px] max-w-[260px] transition-all duration-200',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2',
-                  selected
-                    ? 'border-blue-500 bg-blue-50 shadow-md ring-1 ring-blue-500/30'
-                    : 'border-slate-200/80 bg-white shadow-sm hover:border-slate-300 hover:bg-slate-50',
-                )}
-              >
-                <span
-                  className={cn(
-                    'inline-flex max-w-full items-center rounded-md border px-2 py-0.5 text-[10px] font-bold leading-tight tracking-wide',
-                    mode === 'RFID'
-                      ? selected
-                        ? 'border-violet-400 bg-violet-100/90 text-violet-900'
-                        : 'border-violet-300/90 bg-violet-50 text-violet-900'
-                      : selected
-                        ? 'border-amber-400 bg-amber-100/80 text-amber-950'
-                        : 'border-amber-300/90 bg-amber-50 text-amber-950',
-                  )}
-                  title={typeLabel(c)}
-                >
-                  <span className="min-w-0 truncate">{typeBadgeText(c)}</span>
-                </span>
-                <p className="mt-2 truncate text-sm font-semibold text-gray-900" title={cabinetTitle(c)}>
-                  {cabinetTitle(c)}
-                </p>
-                <p className="mt-1 truncate text-xs text-gray-500" title={depLine}>
-                  {depLine}
-                </p>
-              </button>
-            );
-          })}
+    <>
+      {/* มือถือ — รายการแนวตั้งเต็มความกว้าง */}
+      <div className="space-y-2 px-1 py-2 md:hidden">
+        <p className="px-1 text-xs font-medium text-muted-foreground">เลือกตู้</p>
+        <div className="space-y-2">
+          {withStock.map((c) => (
+            <CabinetTabButton
+              key={c.id}
+              cabinet={c}
+              selected={selectedCabinetId != null && c.id === selectedCabinetId}
+              onSelect={() => onSelectCabinet(c)}
+              variant="mobile"
+            />
+          ))}
         </div>
       </div>
-    </div>
+
+      {/* Desktop — เลื่อนแนวนอน */}
+      <div className="relative -mx-1 hidden md:block">
+        <div className="overflow-x-auto overscroll-x-contain pb-1 scrollbar-thin">
+          <div className="flex min-w-min gap-3 px-1 pt-0.5">
+            {withStock.map((c) => (
+              <CabinetTabButton
+                key={c.id}
+                cabinet={c}
+                selected={selectedCabinetId != null && c.id === selectedCabinetId}
+                onSelect={() => onSelectCabinet(c)}
+                variant="desktop"
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

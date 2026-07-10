@@ -19,7 +19,6 @@ import CabinetStockTabs, {
 } from './components/CabinetStockTabs';
 import WeighingStockTable from './components/WeighingStockTable';
 import RfidStockTable from './components/RfidStockTable';
-import ItemsStockFilterBar from './components/ItemsStockFilterBar';
 import {
   RfidStockReportDownloadGroups,
   WeighingStockReportDownloadGroups,
@@ -339,12 +338,12 @@ export default function ItemsStockPage() {
           }}
         />
         <div className="w-full max-w-full space-y-6">
-          <div className="flex items-center space-x-3">
-            <div className="rounded-lg bg-blue-100 p-2">
+          <div className="flex items-start gap-3 sm:items-center">
+            <div className="shrink-0 rounded-lg bg-blue-100 p-2">
               <Package className="h-6 w-6 text-blue-600" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">สต๊อกอุปกรณ์ตามตู้</h1>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">สต๊อกอุปกรณ์ตามตู้</h1>
               <p className="text-sm text-gray-500">
                 เลือกตู้ — ตู้ชั่งแสดงช่อง/สล็อต ตู้ RFID แสดงวันหมดอายุและแท็ก
               </p>
@@ -363,27 +362,13 @@ export default function ItemsStockPage() {
             </CardContent>
           </Card>
 
-          <ItemsStockFilterBar
-            keywordDraft={itemNameDraft}
-            onKeywordDraftChange={setItemNameDraft}
-            appliedKeyword={appliedItemName}
-            onSearch={handleSearch}
-            onClear={handleClearSearch}
-            listLoading={listLoading}
-          />
-
-          <Card className="shadow-sm border-gray-200/80 overflow-hidden">
-            <CardHeader className="space-y-2 border-b bg-slate-50/50 pb-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0 space-y-1">
+          <Card className="gap-0 overflow-hidden border-gray-200/80 py-0 shadow-sm">
+            <CardHeader className="space-y-1 border-b bg-slate-50/50 px-3 py-3 sm:px-5 sm:py-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 space-y-0.5">
                   <CardTitle className="text-lg leading-tight">
                     {tableMode === 'RFID' ? 'รายการในตู้ (RFID)' : 'รายการในตู้ (Weighing)'}
                   </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {tableMode === 'WEIGHING'
-                      ? 'รายการสต๊อกในตู้ Weighing ตามตู้และคำค้นที่เลือก'
-                      : 'รายการสต๊อกในตู้ RFID (สรุปต่อรายการ / วันหมดอายุ) ตามตู้ที่เลือก'}
-                  </p>
                   <p className="text-sm text-muted-foreground">ทั้งหมด {listStats.systemTotal} รายการจากระบบ</p>
                 </div>
                 {tableMode !== 'WEIGHING' && !(tableMode === 'RFID' && selectedCabinetId != null) && (
@@ -403,7 +388,7 @@ export default function ItemsStockPage() {
                 )}
               </div>
             </CardHeader>
-            <CardContent className="p-4 sm:p-5">
+            <CardContent className="p-0">
               {tableMode === 'WEIGHING' ? (
                 <WeighingStockTable
                   stockId={stockIdParsed}
@@ -418,6 +403,11 @@ export default function ItemsStockPage() {
                   onLoadingChange={setListLoading}
                   onStatsChange={setListStats}
                   onManage={openMinMaxDialog}
+                  keywordDraft={itemNameDraft}
+                  onKeywordDraftChange={setItemNameDraft}
+                  onSearch={handleSearch}
+                  onClearSearch={handleClearSearch}
+                  listLoading={listLoading}
                   reportToolbar={
                     stockIdParsed ? (
                       <WeighingStockReportDownloadGroups
@@ -454,6 +444,11 @@ export default function ItemsStockPage() {
                   refetchSignal={refetchTick}
                   onLoadingChange={setListLoading}
                   onStatsChange={setListStats}
+                  keywordDraft={itemNameDraft}
+                  onKeywordDraftChange={setItemNameDraft}
+                  onSearch={handleSearch}
+                  onClearSearch={handleClearSearch}
+                  listLoading={listLoading}
                   reportToolbar={
                     selectedCabinetId != null ? (
                       <RfidStockReportDownloadGroups

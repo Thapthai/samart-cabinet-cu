@@ -9,6 +9,7 @@ import type { StockStatusFilter } from '../items-stock-shared';
 import { STOCK_TABLE_FRAME } from '../items-stock-shared';
 import WeighingStockLowRowsTable from './WeighingStockLowRowsTable';
 import WeighingStockRowsTable from './WeighingStockRowsTable';
+import ItemsStockFilterBar from './ItemsStockFilterBar';
 import { fetchWeighingItemSlots, type WeighingRow } from './weighingStockFetch';
 
 export interface WeighingListStats {
@@ -29,8 +30,13 @@ interface WeighingStockTableProps {
   refetchSignal: number;
   onLoadingChange?: (loading: boolean) => void;
   onStatsChange?: (stats: WeighingListStats) => void;
-  /** ปุ่มรายงาน — แสดงในแถบเดียวกับ «กรองสถานะในหน้านี้» */
+  /** ปุ่มรายงาน — แถวเดียวกับช่องค้นหา */
   reportToolbar?: ReactNode;
+  keywordDraft: string;
+  onKeywordDraftChange: (value: string) => void;
+  onSearch: () => void;
+  onClearSearch: () => void;
+  listLoading: boolean;
   /** คอลัมน์จัดการ — Min/Max ต่อตู้ */
   onManage?: (row: WeighingRow) => void;
 }
@@ -48,6 +54,11 @@ export default function WeighingStockTable({
   onLoadingChange,
   onStatsChange,
   reportToolbar,
+  keywordDraft,
+  onKeywordDraftChange,
+  onSearch,
+  onClearSearch,
+  listLoading,
   onManage,
 }: WeighingStockTableProps) {
   const [rawRows, setRawRows] = useState<WeighingRow[]>([]);
@@ -139,11 +150,22 @@ export default function WeighingStockTable({
   }
 
   const chipsToolbar = (
-    <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-3">
+    <div className="border-b border-slate-100 bg-slate-50/60 px-3 py-2.5 sm:px-5 sm:py-3">
       <StockStatusChips
         chipDefs={chipDefs}
         statusFilter={statusFilter}
         onStatusFilterChange={onStatusFilterChange}
+        searchToolbar={
+          <ItemsStockFilterBar
+            variant="compact"
+            keywordDraft={keywordDraft}
+            onKeywordDraftChange={onKeywordDraftChange}
+            appliedKeyword={appliedItemName}
+            onSearch={onSearch}
+            onClear={onClearSearch}
+            listLoading={listLoading}
+          />
+        }
         reportActions={reportToolbar}
       />
     </div>
@@ -164,19 +186,17 @@ export default function WeighingStockTable({
   if (rawRows.length === 0) {
     const filteredEmpty = statusFilter !== 'all';
     return (
-      <>
-        <div className={STOCK_TABLE_FRAME}>
-          {chipsToolbar}
-          <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
-            <PackageSearch className="h-10 w-10 opacity-35" />
-            <p>{filteredEmpty ? 'ไม่มีรายการที่ตรงกับชิปสถานะ' : 'ไม่พบข้อมูลตามเงื่อนไข'}</p>
-            <p className="text-xs">
-              {filteredEmpty ? 'ลองเลือก ทั้งหมด หรือเปลี่ยนคำค้น' : 'ลองเปลี่ยนคำค้น'}
-            </p>
-          </div>
+      <div className={STOCK_TABLE_FRAME}>
+        {chipsToolbar}
+        <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 px-3 py-12 text-center text-sm text-muted-foreground sm:px-5">
+          <PackageSearch className="h-10 w-10 opacity-35" />
+          <p>{filteredEmpty ? 'ไม่มีรายการที่ตรงกับชิปสถานะ' : 'ไม่พบข้อมูลตามเงื่อนไข'}</p>
+          <p className="text-xs">
+            {filteredEmpty ? 'ลองเลือก ทั้งหมด หรือเปลี่ยนคำค้น' : 'ลองเปลี่ยนคำค้น'}
+          </p>
         </div>
         {totalPages > 1 && (
-          <div className="pt-5">
+          <div className="border-t border-slate-100 px-3 py-2 sm:px-5 sm:py-3">
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
@@ -185,27 +205,25 @@ export default function WeighingStockTable({
             />
           </div>
         )}
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <div className={STOCK_TABLE_FRAME}>
-        {chipsToolbar}
-        {statusFilter === 'low' ? (
-          <WeighingStockLowRowsTable rows={rawRows} currentPage={currentPage} itemsPerPage={itemsPerPage} />
-        ) : (
-          <WeighingStockRowsTable
-            rows={rawRows}
-            currentPage={currentPage}
-            itemsPerPage={itemsPerPage}
-            onManage={onManage}
-          />
-        )}
-      </div>
+    <div className={STOCK_TABLE_FRAME}>
+      {chipsToolbar}
+      {statusFilter === 'low' ? (
+        <WeighingStockLowRowsTable rows={rawRows} currentPage={currentPage} itemsPerPage={itemsPerPage} />
+      ) : (
+        <WeighingStockRowsTable
+          rows={rawRows}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
+          onManage={onManage}
+        />
+      )}
       {totalPages > 1 && (
-        <div className="pt-5">
+        <div className="border-t border-slate-100 px-3 py-2 sm:px-5 sm:py-3">
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
@@ -214,6 +232,6 @@ export default function WeighingStockTable({
           />
         </div>
       )}
-    </>
+    </div>
   );
 }

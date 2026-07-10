@@ -25,9 +25,8 @@ export type StockStatusFilter = 'all' | 'expired' | 'soon' | 'low';
 
 export const NEAR_EXPIRY_DAYS = 30;
 
-/** กรอบรอบตาราง — ให้สอดคล้องการ์ดหน้า items (slate border) */
-export const STOCK_TABLE_FRAME =
-  'rounded-xl border border-slate-200/80 bg-white shadow-sm overflow-hidden';
+/** กรอบรอบตาราง — อยู่ใน Card หลักแล้ว ไม่ซ้อนขอบ */
+export const STOCK_TABLE_FRAME = 'overflow-hidden';
 
 export function startOfDay(d: Date): Date {
   const x = new Date(d);

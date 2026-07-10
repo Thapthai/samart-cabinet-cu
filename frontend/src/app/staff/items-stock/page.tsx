@@ -17,7 +17,6 @@ import CabinetStockTabs, {
 } from './components/CabinetStockTabs';
 import WeighingStockTable from './components/WeighingStockTable';
 import RfidStockTable from './components/RfidStockTable';
-import ItemsStockFilterBar from './components/ItemsStockFilterBar';
 import {
   RfidStockReportDownloadGroups,
   WeighingStockReportDownloadGroups,
@@ -359,27 +358,13 @@ export default function ItemsStockPage() {
           </CardContent>
         </Card>
 
-        <ItemsStockFilterBar
-          keywordDraft={itemNameDraft}
-          onKeywordDraftChange={setItemNameDraft}
-          appliedKeyword={appliedItemName}
-          onSearch={handleSearch}
-          onClear={handleClearSearch}
-          listLoading={listLoading}
-        />
-
-        <Card className="shadow-sm border-gray-200/80 overflow-hidden">
-          <CardHeader className="space-y-2 border-b bg-slate-50/50 pb-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0 space-y-1">
+        <Card className="gap-0 overflow-hidden border-gray-200/80 py-0 shadow-sm">
+          <CardHeader className="space-y-1 border-b bg-slate-50/50 px-3 py-3 sm:px-5 sm:py-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 space-y-0.5">
                 <CardTitle className="text-lg leading-tight">
                   {tableMode === 'RFID' ? 'รายการในตู้ (RFID)' : 'รายการในตู้ (Weighing)'}
                 </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {tableMode === 'WEIGHING'
-                    ? 'รายการสต๊อกในตู้ Weighing ตามตู้และคำค้นที่เลือก'
-                    : 'รายการสต๊อกในตู้ RFID (สรุปต่อรายการ / วันหมดอายุ) ตามตู้ที่เลือก'}
-                </p>
                 <p className="text-sm text-muted-foreground">ทั้งหมด {listStats.systemTotal} รายการจากระบบ</p>
               </div>
               {tableMode !== 'WEIGHING' && !(tableMode === 'RFID' && selectedCabinetId != null) && (
@@ -399,7 +384,7 @@ export default function ItemsStockPage() {
               )}
             </div>
           </CardHeader>
-          <CardContent className="p-4 sm:p-5">
+          <CardContent className="p-0">
             {tableMode === 'WEIGHING' ? (
               <WeighingStockTable
                 stockId={stockIdParsed}
@@ -414,6 +399,11 @@ export default function ItemsStockPage() {
                 onLoadingChange={setListLoading}
                 onStatsChange={setListStats}
                 onManage={openMinMaxDialog}
+                keywordDraft={itemNameDraft}
+                onKeywordDraftChange={setItemNameDraft}
+                onSearch={handleSearch}
+                onClearSearch={handleClearSearch}
+                listLoading={listLoading}
                 reportToolbar={
                   stockIdParsed ? (
                     <WeighingStockReportDownloadGroups
@@ -450,6 +440,11 @@ export default function ItemsStockPage() {
                 refetchSignal={refetchTick}
                 onLoadingChange={setListLoading}
                 onStatsChange={setListStats}
+                keywordDraft={itemNameDraft}
+                onKeywordDraftChange={setItemNameDraft}
+                onSearch={handleSearch}
+                onClearSearch={handleClearSearch}
+                listLoading={listLoading}
                 reportToolbar={
                   selectedCabinetId != null ? (
                     <RfidStockReportDownloadGroups

@@ -15,7 +15,6 @@ import CabinetStockTabs, {
 } from '../items-stock/components/CabinetStockTabs';
 import WeighingDispensePageHeader from './components/WeighingDispensePageHeader';
 import WeighingDispenseSummaryCards from './components/WeighingDispenseSummaryCards';
-import WeighingDispenseFiltersCard from './components/WeighingDispenseFiltersCard';
 import WeighingDispenseTableCard from './components/WeighingDispenseTableCard';
 import { getTodayISO, type RfidDispensedListRow, type WeighingDispenseDetailRow } from './components/types';
 import { resolveDispensedAllExportParams } from '@/lib/weighing-dispense/resolveDispensedAllExportParams';
@@ -345,19 +344,6 @@ export default function WeighingDispensePage() {
           </Card>
           <WeighingDispenseSummaryCards totalItems={totalItems} totalQty={totalQty} />
 
-          <WeighingDispenseFiltersCard
-            searchTerm={searchTerm}
-            onSearchTermChange={setSearchTerm}
-            onSearchTermEnter={handleSearch}
-            dateFrom={dateFrom}
-            onDateFromChange={setDateFrom}
-            dateTo={dateTo}
-            onDateToChange={setDateTo}
-            loading={loading}
-            hasActiveFilters={hasActiveFilters}
-            onSearch={handleSearch}
-            onClear={handleClear}
-          />
           <WeighingDispenseTableCard
             tableMode={tableMode}
             loading={loading}
@@ -374,6 +360,15 @@ export default function WeighingDispensePage() {
             onDownloadPdf={handleDownloadWeighingDispensePdf}
             cabinetDisplayFallback={cabinetDisplayFallback}
             emptyHint={listEmptyHint}
+            searchTerm={searchTerm}
+            onSearchTermChange={setSearchTerm}
+            dateFrom={dateFrom}
+            onDateFromChange={setDateFrom}
+            dateTo={dateTo}
+            onDateToChange={setDateTo}
+            hasActiveFilters={hasActiveFilters}
+            onSearch={handleSearch}
+            onClear={handleClear}
           />
         </div>
       </AppLayout>

@@ -64,8 +64,8 @@ export default function WeighingDispenseTableCard({
 }: WeighingDispenseTableCardProps) {
   const tabDescription =
     tableMode === 'WEIGHING'
-      ? 'รายการเบิกจากตู้ Weighing (รายละเอียด Slot, Sign = -)'
-      : 'รายการเบิก RFID (IsStock = 0, มีรหัส RFID) ตามตู้ที่เลือก';
+      ? ''
+      : 'รายการเบิก RFID ตามตู้ที่เลือก';
 
   return (
     <Card className="shadow-sm border-gray-200/80 overflow-hidden">

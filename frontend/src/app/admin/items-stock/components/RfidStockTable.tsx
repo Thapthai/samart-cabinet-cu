@@ -10,7 +10,10 @@ import { Button } from '@/components/ui/button';
 import Pagination from '@/components/Pagination';
 import { cn } from '@/lib/utils';
 import StockStatusChips, { type StockStatusChipDef } from './StockStatusChips';
+import ItemsStockFilterBar from './ItemsStockFilterBar';
 import RfidStockLowRowsTable from './RfidStockLowRowsTable';
+import RfidStockMobileCardList from './RfidStockMobileCardList';
+import { RfidTagLinesPanel } from './ItemsStockMobileCards';
 import type { ItemSlotInCabinetRow, RfidStockLine, StockStatusFilter } from '../items-stock-shared';
 import {
   earliestExpireRawFromStocks,
@@ -19,7 +22,6 @@ import {
   formatExpireRelativeLabel,
   formatYmd,
   itemsStockStatusKeyLabelTh,
-  rfidLineBadge,
   rowBadge,
   rowFlags,
   stableRfidSummaryRowId,
@@ -56,8 +58,13 @@ interface RfidStockTableProps {
   refetchSignal: number;
   onLoadingChange?: (loading: boolean) => void;
   onStatsChange?: (stats: RfidListStats) => void;
-  /** ปุ่มรายงาน — แสดงในแถบเดียวกับ «กรองสถานะในหน้านี้» */
+  /** ปุ่มรายงาน — แถวเดียวกับช่องค้นหา */
   reportToolbar?: ReactNode;
+  keywordDraft: string;
+  onKeywordDraftChange: (value: string) => void;
+  onSearch: () => void;
+  onClearSearch: () => void;
+  listLoading: boolean;
 }
 
 /** แมปจาก GET /items?cabinet_id= (item + itemStocks[]) */
@@ -132,6 +139,11 @@ export default function RfidStockTable({
   onLoadingChange,
   onStatsChange,
   reportToolbar,
+  keywordDraft,
+  onKeywordDraftChange,
+  onSearch,
+  onClearSearch,
+  listLoading,
 }: RfidStockTableProps) {
   const [pageRows, setPageRows] = useState<ItemSlotInCabinetRow[]>([]);
   const [rfidByItemcode, setRfidByItemcode] = useState<Record<string, RfidStockLine[]>>({});
@@ -286,7 +298,7 @@ export default function RfidStockTable({
   }
 
   const chipsToolbar = (
-    <div className="border-b border-slate-100 bg-slate-50/60 px-4 py-3">
+    <div className="border-b border-slate-100 bg-slate-50/60 px-3 py-2.5 sm:px-5 sm:py-3">
       <StockStatusChips
         chipDefs={chipDefs}
         statusFilter={statusFilter}
@@ -295,6 +307,17 @@ export default function RfidStockTable({
         expiryAfterDay={stockExpiryAfterDay}
         onExpiryAfterDayChange={onStockExpiryAfterDayChange}
         onClearExpiryDate={onClearStockExpiryDate}
+        searchToolbar={
+          <ItemsStockFilterBar
+            variant="compact"
+            keywordDraft={keywordDraft}
+            onKeywordDraftChange={onKeywordDraftChange}
+            appliedKeyword={appliedItemName}
+            onSearch={onSearch}
+            onClear={onClearSearch}
+            listLoading={listLoading}
+          />
+        }
         reportActions={reportToolbar}
       />
     </div>
@@ -315,19 +338,17 @@ export default function RfidStockTable({
   if (pageRows.length === 0) {
     const filteredEmpty = statusFilter !== 'all';
     return (
-      <>
-        <div className={STOCK_TABLE_FRAME}>
-          {chipsToolbar}
-          <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
-            <Radio className="h-10 w-10 opacity-35" />
-            <p>{filteredEmpty ? 'ไม่มีรายการที่ตรงกับชิปสถานะ' : 'ไม่พบข้อมูลตามเงื่อนไข'}</p>
-            <p className="text-xs">
-              {filteredEmpty ? 'ลองเลือกชิปทั้งหมดหรือเปลี่ยนคำค้น' : 'ลองเปลี่ยนคำค้น'}
-            </p>
-          </div>
+      <div className={STOCK_TABLE_FRAME}>
+        {chipsToolbar}
+        <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 px-3 py-12 text-center text-sm text-muted-foreground sm:px-5">
+          <Radio className="h-10 w-10 opacity-35" />
+          <p>{filteredEmpty ? 'ไม่มีรายการที่ตรงกับชิปสถานะ' : 'ไม่พบข้อมูลตามเงื่อนไข'}</p>
+          <p className="text-xs">
+            {filteredEmpty ? 'ลองเลือกชิปทั้งหมดหรือเปลี่ยนคำค้น' : 'ลองเปลี่ยนคำค้น'}
+          </p>
         </div>
         {totalPages > 1 && (
-          <div className="pt-5">
+          <div className="border-t border-slate-100 px-3 py-2 sm:px-5 sm:py-3">
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
@@ -336,13 +357,12 @@ export default function RfidStockTable({
             />
           </div>
         )}
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <div className={STOCK_TABLE_FRAME}>
+    <div className={STOCK_TABLE_FRAME}>
         {chipsToolbar}
         {statusFilter === 'low' ? (
           <RfidStockLowRowsTable
@@ -355,7 +375,15 @@ export default function RfidStockTable({
             onToggleExpand={toggleExpand}
           />
         ) : (
-        <div className="overflow-x-auto">
+        <>
+        <RfidStockMobileCardList
+          pageRows={pageRows}
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
+          statusFilter={statusFilter}
+          onManage={onManage}
+        />
+        <div className="hidden overflow-x-auto md:block">
           <Table>
             <TableHeader>
               <TableRow className="border-b bg-muted/50 hover:bg-muted/50">
@@ -499,94 +527,7 @@ export default function RfidStockTable({
                     <TableRow className="border-0 hover:bg-transparent">
                       <TableCell colSpan={6} className="border-b border-border/60 bg-muted/25 p-0">
                         <div className="px-4 py-4 sm:px-5">
-                          {lines.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">ไม่พบแท็ก RFID ใน itemstock</p>
-                          ) : filteredLines.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">
-                              ไม่มีแท็ก RFID ที่ตรงกับชิปสถานะหรือช่วงวันหมดอายุที่กรอง
-                              {lines.length > 0 ? ` (ทั้งหมด ${lines.length} แท็ก)` : ''}
-                            </p>
-                          ) : (
-                            <div className="space-y-3">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                รายการ RFID ({filteredLines.length}
-                                {filteredLines.length !== lines.length ? ` / ${lines.length}` : ''})
-                              </p>
-                              <div className="overflow-x-auto rounded-lg border border-slate-200/80 bg-white shadow-sm">
-                                <table className="w-full table-fixed border-collapse text-sm">
-                                  <colgroup>
-                                    <col className="w-[52%]" />
-                                    <col className="w-[28%]" />
-                                    <col className="w-[20%]" />
-                                  </colgroup>
-                                  <thead>
-                                    <tr className="border-b border-slate-200/80 bg-slate-50/90">
-                                      <th className="h-10 min-w-0 px-3 py-2 text-left align-middle text-xs font-semibold text-gray-500">
-                                        รหัส RFID
-                                      </th>
-                                      <th className="h-10 px-3 py-2 text-left align-middle text-xs font-semibold text-gray-500">
-                                        วันหมดอายุ / เหลือ
-                                      </th>
-                                      <th className="h-10 px-3 py-2 text-center align-middle text-xs font-semibold text-gray-500">
-                                        สถานะ
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {filteredLines.map((line) => {
-                                      const lb = rfidLineBadge(line.expireDate);
-                                      const rel = formatExpireRelativeLabel(line.expireDate);
-                                      const expCls =
-                                        lb.key === 'EXPIRED'
-                                          ? 'text-red-600 font-medium'
-                                          : lb.key === 'SOON'
-                                            ? 'text-amber-700 font-medium'
-                                            : 'text-gray-900';
-                                      const relCls =
-                                        lb.key === 'EXPIRED'
-                                          ? 'text-red-600/90'
-                                          : lb.key === 'SOON'
-                                            ? 'text-amber-700/85'
-                                            : 'text-gray-500';
-                                      return (
-                                        <tr
-                                          key={`${line.rowId}-${line.rfidCode}`}
-                                          className="border-b border-slate-100 last:border-0 transition-colors hover:bg-slate-50/80"
-                                        >
-                                          <td className="min-w-0 px-3 py-2.5 align-middle font-mono text-xs leading-relaxed text-gray-900 break-all">
-                                            {line.rfidCode}
-                                          </td>
-                                          <td
-                                            className={cn(
-                                              'min-w-0 px-3 py-2.5 align-middle text-sm tabular-nums',
-                                              expCls,
-                                            )}
-                                          >
-                                            <div className="flex flex-col gap-0.5">
-                                              <span>{formatYmd(line.expireDate)}</span>
-                                              {rel && (
-                                                <span className={cn('text-xs font-normal', relCls)}>{rel}</span>
-                                              )}
-                                            </div>
-                                          </td>
-                                          <td className="min-w-0 px-3 py-2.5 align-middle text-center">
-                                            <span
-                                              className={cn(
-                                                'inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-semibold',
-                                                lb.className,
-                                              )}
-                                            >
-                                              {itemsStockStatusKeyLabelTh(lb.key)}
-                                            </span>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          )}
+                          <RfidTagLinesPanel lines={lines} filteredLines={filteredLines} />
                         </div>
                       </TableCell>
                     </TableRow>
@@ -597,10 +538,10 @@ export default function RfidStockTable({
             </TableBody>
           </Table>
         </div>
+        </>
         )}
-      </div>
       {totalPages > 1 && (
-        <div className="pt-5">
+        <div className="border-t border-slate-100 px-3 py-2 sm:px-5 sm:py-3">
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
@@ -609,6 +550,6 @@ export default function RfidStockTable({
           />
         </div>
       )}
-    </>
+    </div>
   );
 }

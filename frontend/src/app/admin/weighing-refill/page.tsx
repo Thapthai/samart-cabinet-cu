@@ -15,7 +15,6 @@ import CabinetStockTabs, {
 } from '../items-stock/components/CabinetStockTabs';
 import WeighingRefillPageHeader from './components/WeighingRefillPageHeader';
 import WeighingRefillSummaryCards from './components/WeighingRefillSummaryCards';
-import WeighingRefillFiltersCard from './components/WeighingRefillFiltersCard';
 import WeighingRefillTableCard from './components/WeighingRefillTableCard';
 import { getTodayISO, type RfidReturnedListRow, type WeighingRefillDetailRow } from './components/types';
 
@@ -347,19 +346,6 @@ export default function WeighingRefillPage() {
 
           <WeighingRefillSummaryCards totalItems={totalItems} totalQty={totalQty} />
 
-          <WeighingRefillFiltersCard
-            searchTerm={searchTerm}
-            onSearchTermChange={setSearchTerm}
-            onSearchTermEnter={handleSearch}
-            dateFrom={dateFrom}
-            onDateFromChange={setDateFrom}
-            dateTo={dateTo}
-            onDateToChange={setDateTo}
-            loading={loading}
-            hasActiveFilters={hasActiveFilters}
-            onSearch={handleSearch}
-            onClear={handleClear}
-          />
           <WeighingRefillTableCard
             tableMode={tableMode}
             loading={loading}
@@ -376,6 +362,15 @@ export default function WeighingRefillPage() {
             onDownloadPdf={handleDownloadPdf}
             cabinetDisplayFallback={cabinetDisplayFallback}
             emptyHint={listEmptyHint}
+            searchTerm={searchTerm}
+            onSearchTermChange={setSearchTerm}
+            dateFrom={dateFrom}
+            onDateFromChange={setDateFrom}
+            dateTo={dateTo}
+            onDateToChange={setDateTo}
+            hasActiveFilters={hasActiveFilters}
+            onSearch={handleSearch}
+            onClear={handleClear}
           />
         </div>
       </AppLayout>

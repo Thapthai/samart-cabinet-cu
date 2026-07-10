@@ -1,15 +1,22 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { loginSchema, type LoginFormData } from '@/lib/validations';
+import {
+  clearLoginCredentials,
+  isLoginRememberEnabled,
+  loadSavedLoginCredentials,
+  saveLoginCredentials,
+} from '@/lib/login-remember';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
@@ -31,6 +38,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [show2FAModal, setShow2FAModal] = useState(false);
+  const [rememberPassword, setRememberPassword] = useState(false);
   const [tempToken, setTempToken] = useState<string>('');
   const [twoFactorLoading, setTwoFactorLoading] = useState(false);
   const router = useRouter();
@@ -50,10 +58,27 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
+
+  useEffect(() => {
+    const saved = loadSavedLoginCredentials();
+    if (!saved) return;
+    setRememberPassword(isLoginRememberEnabled());
+    if (saved.email) setValue('email', saved.email);
+    if (saved.password) setValue('password', saved.password);
+  }, [setValue]);
+
+  const applyRememberPreference = useCallback((data: LoginFormData) => {
+    if (rememberPassword) {
+      saveLoginCredentials(data.email, data.password);
+    } else {
+      clearLoginCredentials();
+    }
+  }, [rememberPassword]);
 
   // Email/Password Login
   const onSubmit = async (data: LoginFormData) => {
@@ -76,6 +101,7 @@ export default function LoginPage() {
           try {
             const loginResponse = await authApi.login(data);
             if ((loginResponse as any).requiresTwoFactor && loginResponse.data?.tempToken) {
+              applyRememberPreference(data);
               setTempToken(loginResponse.data.tempToken);
               setShow2FAModal(true);
               return;
@@ -107,6 +133,7 @@ export default function LoginPage() {
           toast.error(errorMessage);
         }
       } else {
+        applyRememberPreference(data);
         toast.success('เข้าสู่ระบบสำเร็จ');
         await completeSession();
       }
@@ -320,6 +347,17 @@ export default function LoginPage() {
                     <span>{passwordError}</span>
                   </p>
                 )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="remember-password"
+                  checked={rememberPassword}
+                  onCheckedChange={(checked) => setRememberPassword(checked === true)}
+                />
+                <Label htmlFor="remember-password" className="cursor-pointer text-sm font-normal text-gray-600">
+                  จดจำรหัสผ่าน
+                </Label>
               </div>
 
               {error && (

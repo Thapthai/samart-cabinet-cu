@@ -62,8 +62,8 @@ export default function WeighingRefillTableCard({
 }: WeighingRefillTableCardProps) {
   const tabDescription =
     tableMode === 'WEIGHING'
-      ? 'รายการเติมเข้าตู้ Weighing (รายละเอียด Slot, Sign = +)'
-      : 'รายการเติมเข้าตู้ RFID (IsStock ในตู้, มีรหัส RFID) ตามตู้ที่เลือก';
+      ? ''
+      : 'รายการเติมเข้าตู้ RFID ตามตู้ที่เลือก';
 
   return (
     <Card className="shadow-sm border-gray-200/80 overflow-hidden">
