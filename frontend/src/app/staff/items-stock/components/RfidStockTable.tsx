@@ -12,8 +12,8 @@ import { cn } from '@/lib/utils';
 import StockStatusChips, { type StockStatusChipDef } from './StockStatusChips';
 import ItemsStockFilterBar from './ItemsStockFilterBar';
 import RfidStockLowRowsTable from './RfidStockLowRowsTable';
-import RfidStockMobileCardList from './RfidStockMobileCardList';
-import { RfidTagLinesPanel } from './ItemsStockMobileCards';
+import RfidStockMobileCardList from '../../../admin/items-stock/components/RfidStockMobileCardList';
+import { RfidTagLinesPanel } from '../../../admin/items-stock/components/ItemsStockMobileCards';
 import type { ItemSlotInCabinetRow, RfidStockLine, StockStatusFilter } from '../items-stock-shared';
 import {
   earliestExpireRawFromStocks,
