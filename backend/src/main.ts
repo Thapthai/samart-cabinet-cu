@@ -5,7 +5,7 @@ import { AppModule } from './app.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api/smart-cabinet-cu/v1');
+  app.setGlobalPrefix('api/' + process.env.API_NAME + '/v1');
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -18,14 +18,16 @@ async function bootstrap() {
   const allowedOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
     : [
-        'http://localhost:3100',
-        'http://127.0.0.1:3100',
-        'http://localhost:4100',
-        'http://127.0.0.1:4100',
-        'http://10.11.9.84:3100',
-        'http://10.11.9.84:4100',  
-        'https://phc.dyndns.biz/smart-cabinet-cu',
-      ];
+      'http://localhost:3100',
+      'http://127.0.0.1:3100',
+      'http://localhost:4100',
+      'http://127.0.0.1:4100',
+      'http://10.11.9.84:3100',
+      'http://10.11.9.84:4100',
+      'https://phc.dyndns.biz',
+      'https://poseintelligence.co.th',
+      'https://www.poseintelligence.co.th',
+    ];
   app.enableCors({
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
