@@ -20,6 +20,7 @@ export interface GetCategoriesQuery {
 export interface Item {
   // Primary Key
   itemcode: string; // Primary key (changed from id)
+  itemcode2?: string | null;
   
   // Basic Information
   itemname?: string;
@@ -134,6 +135,7 @@ export interface ItemStockRow {
 export interface CreateItemDto {
   // Required
   itemcode: string; // Primary key, required
+  itemcode2?: string;
   
   // Basic Info
   itemname?: string;
@@ -183,6 +185,7 @@ export interface CreateItemDto {
 
 export interface UpdateItemDto {
   // All fields optional for update
+  itemcode2?: string;
   itemname?: string;
   Alternatename?: string;
   Barcode?: string;

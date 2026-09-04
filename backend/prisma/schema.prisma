@@ -54,6 +54,7 @@ model User {
   role               StaffRole?         @relation(fields: [role_id], references: [id])
   /// ผูกกับ employee.EmpCode — ว่างได้ถ้ายังไม่ map พนักงานในระบบ HR
   employee           Employee?          @relation(fields: [emp_code], references: [EmpCode])
+  prePrintStickers   PrePrintSticker[]
 
   @@index([role_id], name: "idx_user_role_id")
   @@index([email], name: "idx_user_email")
@@ -333,6 +334,7 @@ model Item {
   itemStocks              ItemStock[]
   itemSlotInCabinet       ItemSlotInCabinet[]
   itemSlotInCabinetDetail ItemSlotInCabinetDetail[] @relation("DetailToItem")
+  prePrintStickerDetails  PrePrintStickerDetail[]
 
   @@index([itemtypeID])
   @@map("item")
@@ -765,3 +767,46 @@ model Employee {
 
   @@map("employee")
 }
+
+/// เอกสารเตรียมพิมพ์สติ๊กเกอร์ (หัวเอกสาร)
+model PrePrintSticker {
+  id                 Int      @id @default(autoincrement())
+  doc_no             String   @unique @map("doc_no") @db.VarChar(32)
+  status             String   @default("PREPARED") @map("status") @db.VarChar(20)
+  remark             String?  @map("remark") @db.Text
+  total_lines        Int      @default(0) @map("total_lines")
+  total_sheets       Int      @default(0) @map("total_sheets")
+  created_by_user_id Int?     @map("created_by_user_id")
+  created_at         DateTime @default(now()) @map("created_at") @db.DateTime(3)
+  updated_at         DateTime @updatedAt @map("updated_at") @db.DateTime(3)
+
+  createdBy User?                   @relation(fields: [created_by_user_id], references: [id], onDelete: SetNull)
+  details   PrePrintStickerDetail[]
+
+  @@index([created_at(sort: Desc)])
+  @@index([status])
+  @@map("app_pre_print_stickers")
+}
+
+/// รายการในเอกสารเตรียมพิมพ์สติ๊กเกอร์
+model PrePrintStickerDetail {
+  id                   Int       @id @default(autoincrement())
+  pre_print_sticker_id Int       @map("pre_print_sticker_id")
+  line_order           Int       @default(0) @map("line_order")
+  itemcode             String    @map("itemcode") @db.VarChar(25)
+  item_name            String?   @map("item_name") @db.VarChar(255)
+  expire_date          DateTime? @map("expire_date") @db.Date
+  copies               Int       @default(1) @map("copies")
+  is_main              Boolean   @default(false) @map("is_main")
+  lot_no               String?   @map("lot_no") @db.VarChar(50)
+  created_at           DateTime  @default(now()) @map("created_at") @db.DateTime(3)
+  updated_at           DateTime  @updatedAt @map("updated_at") @db.DateTime(3)
+
+  document PrePrintSticker @relation(fields: [pre_print_sticker_id], references: [id], onDelete: Cascade)
+  item     Item?           @relation(fields: [itemcode], references: [itemcode], onDelete: Restrict)
+
+  @@index([pre_print_sticker_id])
+  @@index([itemcode])
+  @@map("app_pre_print_sticker_details")
+}
+

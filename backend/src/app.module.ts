@@ -15,6 +15,7 @@ import { DateTimeModule } from './utils/date-time/date-time.module';
 import { StaffModule } from './staff/staff.module';
 import { WeighingModule } from './weighing/weighing.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { StickerPrintModule } from './sticker-print/sticker-print.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     StaffModule,
     WeighingModule,
     DashboardModule,
+    StickerPrintModule,
   ],
   controllers: [AppController],
   providers: [AppService],

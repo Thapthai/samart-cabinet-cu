@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateItemDto } from './dto/create-item.dto';
+import { CreatePrePrintItemDto } from './dto/create-pre-print-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { UpdateItemMinMaxDto } from './dto/update-item-minmax.dto';
 import { ItemStockDto } from './dto/item-stock.dto';
@@ -56,6 +57,169 @@ export class ItemService {
         success: false,
         message: 'Failed to create item',
         error: error.message,
+      };
+    }
+  }
+
+  /** รหัสระบบถัดไป — UI + ตัวเลข 5 หลัก (UI00001, UI00002, ...) */
+  private async nextUiItemcode(): Promise<string> {
+    const rows = await this.prisma.item.findMany({
+      where: { itemcode: { startsWith: 'UI' } },
+      select: { itemcode: true },
+    });
+
+    let maxNum = 0;
+    for (const row of rows) {
+      const m = /^UI(\d+)$/i.exec(String(row.itemcode ?? '').trim());
+      if (!m) continue;
+      const n = parseInt(m[1], 10);
+      if (Number.isFinite(n) && n > maxNum) maxNum = n;
+    }
+
+    return `UI${String(maxNum + 1).padStart(5, '0')}`;
+  }
+
+  /**
+   * เพิ่มอุปกรณ์จากหน้าเตรียมพิมพ์สติ๊กเกอร์
+   * ผู้ใช้กรอก itemcode2 + ชื่อ — itemcode (PK) ระบบ gen เป็น UI00001, UI00002, ...
+   */
+  async createPrePrintItem(dto: CreatePrePrintItemDto) {
+    try {
+      const code2 = dto.itemcode2.trim();
+      const name = dto.itemname.trim();
+
+      const duplicate = await this.prisma.item.findFirst({
+        where: { OR: [{ itemcode2: code2 }, { itemcode: code2 }] },
+        select: { itemcode: true },
+      });
+
+      if (duplicate) {
+        return {
+          success: false,
+          message: `รหัสอุปกรณ์ ${code2} มีอยู่ในระบบแล้ว`,
+        };
+      }
+
+      const now = new Date();
+      let lastError: unknown;
+
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const itemcode = await this.nextUiItemcode();
+        try {
+          const item = await this.prisma.item.create({
+            data: {
+              itemcode,
+              itemcode2: code2,
+              itemname: name,
+              IsNormal: '1',
+              IsStock: true,
+              item_status: 0,
+              CreateDate: now,
+              ModiflyDate: now,
+            },
+            select: { itemcode: true, itemcode2: true, itemname: true },
+          });
+
+          return {
+            success: true,
+            message: 'Item created successfully',
+            data: {
+              itemcode: item.itemcode2 ?? item.itemcode,
+              itemname: item.itemname,
+              itemcode2: item.itemcode2,
+              itemcode_pk: item.itemcode,
+            },
+          };
+        } catch (error) {
+          lastError = error;
+          const code = (error as { code?: string })?.code;
+          if (code !== 'P2002') break;
+        }
+      }
+
+      const message = lastError instanceof Error ? lastError.message : 'Failed to create item';
+      return {
+        success: false,
+        message: 'Failed to create item',
+        error: message,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create item';
+      return {
+        success: false,
+        message: 'Failed to create item',
+        error: message,
+      };
+    }
+  }
+
+  /**
+   * รายการสำหรับเตรียมพิมพ์สติ๊กเกอร์ — เฉพาะที่มี itemcode2
+   * และใช้ itemcode2 เป็น itemcode ที่ส่งกลับ (รหัสที่หน้าจอแสดง)
+   */
+  async findPrePrintItems(page: number, limit: number, keyword?: string) {
+    try {
+      const take = Math.min(500, Math.max(1, limit));
+      const skip = (Math.max(1, page) - 1) * take;
+      const kw = keyword?.trim();
+
+      const where: Prisma.ItemWhereInput = {
+        item_status: 0,
+        AND: [{ itemcode2: { not: null } }, { NOT: { itemcode2: '' } }],
+      };
+
+      if (kw) {
+        where.OR = [
+          { itemcode2: { contains: kw } },
+          { itemname: { contains: kw } },
+          { itemcode: { contains: kw } },
+        ];
+      }
+
+      const [total, rows] = await Promise.all([
+        this.prisma.item.count({ where }),
+        this.prisma.item.findMany({
+          where,
+          skip,
+          take,
+          orderBy: { itemname: 'asc' },
+          select: {
+            itemcode: true,
+            itemcode2: true,
+            itemname: true,
+          },
+        }),
+      ]);
+
+      const data = rows
+        .map((row) => {
+          const displayCode = (row.itemcode2 ?? '').trim();
+          if (!displayCode) return null;
+          return {
+            itemcode: displayCode,
+            itemname: row.itemname,
+            itemcode2: displayCode,
+            itemcode_pk: row.itemcode,
+          };
+        })
+        .filter((row): row is NonNullable<typeof row> => row != null);
+
+      return {
+        success: true,
+        data,
+        total,
+        page: Math.max(1, page),
+        limit: take,
+        lastPage: Math.max(1, Math.ceil(total / take)),
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch pre-print items';
+      return {
+        success: false,
+        message: 'Failed to fetch pre-print items',
+        error: message,
+        data: [],
+        total: 0,
       };
     }
   }

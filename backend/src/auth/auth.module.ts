@@ -26,6 +26,6 @@ import { FirebaseService } from './services/firebase.service';
     EmailOTPService,
     FirebaseService,
   ],
-  exports: [AuthService, AuthGuard, ApiKeyStrategy, ClientCredentialStrategy],
+  exports: [AuthService, AuthGuard, ApiKeyStrategy, ClientCredentialStrategy, JwtModule],
 })
 export class AuthModule {}

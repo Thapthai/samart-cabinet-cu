@@ -81,6 +81,12 @@ export const staffMenuItems: StaffMenuItem[] = [
                 description: 'การเติมอุปกรณ์เข้าตู้ Weighing',
                 icon: FileBarChart,
             },
+            {
+                name: 'เตรียมพิมพ์สติ๊กเกอร์',
+                href: '/staff/pre-print-sticker',
+                description: 'เลือกอุปกรณ์ เตรียม lot และบันทึกเอกสารพิมพ์สติ๊กเกอร์',
+                icon: FileBarChart,
+            },
         ],
     },
     {

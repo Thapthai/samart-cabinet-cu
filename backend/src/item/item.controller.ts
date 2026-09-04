@@ -18,6 +18,7 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { ItemService } from './item.service';
 import { CreateItemDto } from './dto/create-item.dto';
+import { CreatePrePrintItemDto } from './dto/create-pre-print-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { UpdateItemMinMaxDto } from './dto/update-item-minmax.dto';
 
@@ -74,6 +75,22 @@ export class ItemController {
   @Get('by-user/:user_id')
   async findByUser(@Param('user_id', ParseIntPipe) user_id: number) {
     return this.itemService.findItemsByUser(user_id);
+  }
+
+  /** เพิ่มอุปกรณ์จากหน้าเตรียมพิมพ์สติ๊กเกอร์ — itemcode ระบบ gen เป็น UI00001 */
+  @Post('pre-print')
+  async createPrePrint(@Body() body: CreatePrePrintItemDto) {
+    return this.itemService.createPrePrintItem(body);
+  }
+
+  /** รายการสำหรับเตรียมพิมพ์สติ๊กเกอร์ — itemcode2 ไม่ว่าง และส่งกลับเป็น itemcode */
+  @Get('pre-print')
+  async findPrePrint(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(100), ParseIntPipe) limit: number,
+    @Query('keyword') keyword?: string,
+  ) {
+    return this.itemService.findPrePrintItems(page, limit, keyword);
   }
 
   @Get()

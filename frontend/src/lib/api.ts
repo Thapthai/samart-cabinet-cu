@@ -34,8 +34,9 @@ api.interceptors.request.use(async (config) => {
   if (typeof window !== 'undefined') {
     // Check if this is a staff API endpoint
     const isStaffEndpoint = config.url?.startsWith('/staff') || config.url?.startsWith('/staff-users');
+    const isStickerPrint = config.url?.includes('/sticker-print');
 
-    if (isStaffEndpoint) {
+    if (isStaffEndpoint || isStickerPrint) {
       const staffToken = localStorage.getItem('staff_token');
       const session = await getSession();
       const sessionToken = session && (session as { accessToken?: string }).accessToken;
@@ -228,6 +229,25 @@ export const itemsApi = {
 
   getAll: async (query?: GetItemsQuery): Promise<PaginatedResponse<Item>> => {
     const response = await api.get('/items', { params: query });
+    return response.data;
+  },
+
+  /** รายการเตรียมพิมพ์สติ๊กเกอร์ — itemcode ในผลลัพธ์คือ itemcode2 */
+  getPrePrintList: async (query?: {
+    page?: number;
+    limit?: number;
+    keyword?: string;
+  }): Promise<PaginatedResponse<Item>> => {
+    const response = await api.get('/items/pre-print', { params: query });
+    return response.data;
+  },
+
+  /** เพิ่มอุปกรณ์จากหน้าเตรียมพิมพ์สติ๊กเกอร์ — itemcode ระบบ gen เป็น UI00001 */
+  createPrePrintItem: async (data: {
+    itemcode2: string;
+    itemname: string;
+  }): Promise<ApiResponse<Item>> => {
+    const response = await api.post('/items/pre-print', data);
     return response.data;
   },
 
@@ -2025,6 +2045,155 @@ export const weighingApi = {
     const url =
       cabinetId != null ? `/weighing/${code}/minmax?cabinet_id=${cabinetId}` : `/weighing/${code}/minmax`;
     const response = await api.patch(url, data);
+    return response.data;
+  },
+};
+
+export type PrePrintStickerDetailRow = {
+  id: number;
+  line_order: number;
+  itemcode: string;
+  item_name: string | null;
+  expire_date: string | null;
+  copies: number;
+  is_main: boolean;
+  lot_no: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PrePrintStickerDocument = {
+  id: number;
+  doc_no: string;
+  status: string;
+  remark: string | null;
+  total_lines: number;
+  total_sheets: number;
+  created_by_user_id: number | null;
+  created_at: string;
+  updated_at: string;
+  createdBy?: {
+    id: number;
+    fname: string | null;
+    lname: string | null;
+    email: string | null;
+  } | null;
+  details?: PrePrintStickerDetailRow[];
+  _count?: { details: number };
+};
+
+export const stickerPrintApi = {
+  listPrePrintStickers: async (params?: {
+    page?: number;
+    limit?: number;
+    keyword?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<{
+    success: boolean;
+    data?: PrePrintStickerDocument[];
+    total?: number;
+    page?: number;
+    limit?: number;
+    lastPage?: number;
+    message?: string;
+  }> => {
+    const response = await api.get('/sticker-print/pre-print-stickers', { params });
+    return response.data;
+  },
+
+  getPrePrintSticker: async (
+    id: number,
+  ): Promise<{
+    success: boolean;
+    data?: PrePrintStickerDocument;
+    message?: string;
+  }> => {
+    const response = await api.get(`/sticker-print/pre-print-stickers/${id}`);
+    return response.data;
+  },
+
+  updatePrePrintSticker: async (
+    id: number,
+    body: {
+      remark?: string;
+      lines: Array<{
+        itemcode: string;
+        item_name?: string;
+        expire_date?: string;
+        copies: number;
+        is_main?: boolean;
+        lot_no?: string;
+      }>;
+    },
+  ): Promise<{
+    success: boolean;
+    data?: PrePrintStickerDocument;
+    message?: string;
+  }> => {
+    const response = await api.put(`/sticker-print/pre-print-stickers/${id}`, body);
+    return response.data;
+  },
+
+  deletePrePrintSticker: async (
+    id: number,
+  ): Promise<{
+    success: boolean;
+    message?: string;
+    data?: { id: number; doc_no: string };
+  }> => {
+    const response = await api.delete(`/sticker-print/pre-print-stickers/${id}`);
+    return response.data;
+  },
+
+  downloadPrePrintStickerPdf: async (id: number): Promise<void> => {
+    const response = await api.post(`/sticker-print/pre-print-stickers/${id}/export/pdf`);
+    const res = response.data as {
+      success?: boolean;
+      data?: { buffer?: string; filename?: string; contentType?: string };
+      error?: string;
+    };
+    if (!res?.success || !res?.data?.buffer) {
+      throw new Error(res?.error || 'ไม่สามารถสร้างไฟล์ PDF ได้');
+    }
+    const binary = atob(res.data.buffer);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], {
+      type: res.data.contentType || 'application/pdf',
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', res.data.filename || `pre_print_sticker_${id}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  createPrePrintSticker: async (body: {
+    remark?: string;
+    lines: Array<{
+      itemcode: string;
+      item_name?: string;
+      expire_date?: string;
+      copies: number;
+      is_main?: boolean;
+      lot_no?: string;
+    }>;
+  }): Promise<{
+    success: boolean;
+    data?: {
+      id: number;
+      doc_no: string;
+      status: string;
+      total_lines: number;
+      total_sheets: number;
+    };
+    message?: string;
+  }> => {
+    const response = await api.post('/sticker-print/pre-print-stickers', body);
     return response.data;
   },
 };

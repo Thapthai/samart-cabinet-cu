@@ -76,6 +76,12 @@ export const adminMenuItems: AdminMenuItem[] = [
                 description: 'การเติมอุปกรณ์เข้าตู้ Weighing',
                 icon: FileBarChart,
             },
+            {
+                name: 'เตรียมพิมพ์สติ๊กเกอร์',
+                href: '/admin/pre-print-sticker',
+                description: 'เลือกอุปกรณ์ เตรียม lot และบันทึกเอกสารพิมพ์สติ๊กเกอร์',
+                icon: FileBarChart,
+            },
         ],
     },
     {

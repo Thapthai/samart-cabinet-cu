@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsString, IsInt, IsBoolean, IsNumber, IsOptional, IsNotEmpty, IsDecimal } from 'class-validator';
+import { IsString, IsInt, IsBoolean, IsNumber, IsOptional, IsNotEmpty, IsDecimal, MaxLength } from 'class-validator';
 
 export class CreateItemDto {
   @IsString()
@@ -162,6 +162,7 @@ export class CreateItemDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   itemcode2?: string;
 
   @IsOptional()
