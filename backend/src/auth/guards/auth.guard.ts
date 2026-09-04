@@ -22,7 +22,7 @@ export class AuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const authResult = await this.tryAuthenticate(request);
     if (!authResult) {
-      throw new UnauthorizedException('Invalid or missing authentication');
+      throw new UnauthorizedException('กรุณาลงชื่อเข้าใช้งานก่อนใช้งานระบบ');
     }
     request.auth = authResult;
     return true;

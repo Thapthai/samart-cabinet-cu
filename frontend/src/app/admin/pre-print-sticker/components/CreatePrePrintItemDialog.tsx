@@ -107,7 +107,6 @@ export function CreatePrePrintItemDialog({
             </Label>
             <Input
               id="pre-print-new-itemname"
-              placeholder="เช่น สายสวนปัสสาวะ 2 ทาง"
               value={itemname}
               onChange={(e) => setItemname(e.target.value)}
               maxLength={255}

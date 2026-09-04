@@ -30,7 +30,7 @@ export class EmailOTPService {
         where: { id: user_id },
         select: { fname: true, lname: true, email: true },
       });
-      if (!user) return { success: false, message: 'User not found' };
+      if (!user) return { success: false, message: 'ไม่พบผู้ใช้งาน' };
 
       const result = await this.emailService.sendTemplateEmail({
         to: email,
@@ -46,7 +46,7 @@ export class EmailOTPService {
         },
       });
 
-      if (!result.success) return { success: false, message: 'Failed to send OTP email' };
+      if (!result.success) return { success: false, message: 'การส่งรหัส OTP ล้มเหลว' };
       return { success: true, message: 'OTP sent to your email', expiresIn: 5 };
     } catch (err) {
       console.error('Send Email OTP error:', err);
@@ -65,14 +65,14 @@ export class EmailOTPService {
           expires_at: { gt: new Date() },
         },
       });
-      if (!otpRecord) return { success: false, message: 'Invalid or expired OTP' };
+      if (!otpRecord) return { success: false, message: 'รหัส OTP ไม่ถูกต้องหรือหมดอายุ' };
       await this.prisma.twoFactorToken.update({
         where: { id: otpRecord.id },
         data: { isUsed: true },
       });
-      return { success: true, message: 'OTP verified successfully' };
+      return { success: true, message: 'ยืนยันรหัส OTP สำเร็จ' };
     } catch {
-      return { success: false, message: 'OTP verification failed' };
+      return { success: false, message: 'การยืนยันรหัส OTP ล้มเหลว' };
     }
   }
 }
