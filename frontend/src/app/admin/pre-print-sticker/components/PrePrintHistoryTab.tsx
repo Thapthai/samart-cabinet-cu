@@ -14,6 +14,15 @@ import {
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -22,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import {
   stickerPrintApi,
@@ -36,8 +46,16 @@ import { DeletePrePrintStickerDialog } from './DeletePrePrintStickerDialog';
 const ITEMS_PER_PAGE = 10;
 /** ซ่อนปุ่ม PDF รายแถวชั่วคราว — เปิดอีกครั้งเมื่อพร้อม */
 const SHOW_ROW_PDF = false;
-/** expand + ลำดับ + doc + date + lot + sheets + creator + actions (+ optional PDF) */
-const COLUMN_COUNT = SHOW_ROW_PDF ? 9 : 8;
+/** expand + สถานะพิมพ์ + ลำดับ + doc + date + lot + sheets + creator + actions (+ optional PDF) */
+const COLUMN_COUNT = SHOW_ROW_PDF ? 10 : 9;
+
+type HistoryStatusTab = 'all' | 'PREPARED' | 'PRINTED';
+
+const HISTORY_STATUS_TABS: { value: HistoryStatusTab; label: string }[] = [
+  { value: 'all', label: 'ทั้งหมด' },
+  { value: 'PREPARED', label: 'ยังไม่ได้พิมพ์' },
+  { value: 'PRINTED', label: 'พิมพ์แล้ว' },
+];
 
 function getTodayDate(): string {
   const today = new Date();
@@ -91,6 +109,7 @@ function creatorLabel(doc: PrePrintStickerDocument): string {
 
 function statusLabel(status: string): string {
   if (status === 'PREPARED') return 'เตรียมพิมพ์';
+  if (status === 'PRINTED') return 'พิมพ์แล้ว';
   return status;
 }
 
@@ -188,6 +207,12 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
   const [appliedFilters, setAppliedFilters] = useState<PrePrintHistoryFilters>(defaultFilters);
   // const [editDoc, setEditDoc] = useState<PrePrintStickerDocument | null>(null);
   const [deleteDoc, setDeleteDoc] = useState<PrePrintStickerDocument | null>(null);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<number | null>(null);
+  const [statusTab, setStatusTab] = useState<HistoryStatusTab>('all');
+  const [statusConfirm, setStatusConfirm] = useState<{
+    doc: PrePrintStickerDocument;
+    printed: boolean;
+  } | null>(null);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -198,6 +223,7 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
         keyword: appliedFilters.keyword.trim() || undefined,
         start_date: appliedFilters.startDate || undefined,
         end_date: appliedFilters.endDate || undefined,
+        status: statusTab === 'all' ? undefined : statusTab,
       });
       if (res.success) {
         setHistory(res.data ?? []);
@@ -209,7 +235,7 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
     } finally {
       setLoading(false);
     }
-  }, [page, appliedFilters]);
+  }, [page, appliedFilters, statusTab]);
 
   useEffect(() => {
     void loadHistory();
@@ -218,7 +244,7 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
   useEffect(() => {
     setExpandedIds(new Set());
     setDetailById(new Map());
-  }, [page, appliedFilters]);
+  }, [page, appliedFilters, statusTab]);
 
   const handleFilterChange = <K extends keyof PrePrintHistoryFilters>(
     key: K,
@@ -236,6 +262,12 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
     const next = defaultFilters();
     setFilters(next);
     setAppliedFilters(next);
+    setStatusTab('all');
+    setPage(1);
+  };
+
+  const handleStatusTabChange = (value: string) => {
+    setStatusTab(value as HistoryStatusTab);
     setPage(1);
   };
 
@@ -290,6 +322,43 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
     setDeleteDoc(doc);
   };
 
+  const handleTogglePrinted = async (doc: PrePrintStickerDocument, printed: boolean) => {
+    const nextStatus = printed ? 'PRINTED' : 'PREPARED';
+    if (doc.status === nextStatus) return;
+    try {
+      setStatusUpdatingId(doc.id);
+      const res = await stickerPrintApi.updatePrePrintStickerStatus(doc.id, nextStatus);
+      if (!res.success || !res.data) {
+        toast.error(res.message || 'อัปเดตสถานะไม่สำเร็จ');
+        return;
+      }
+      setHistory((prev) =>
+        prev.map((d) => (d.id === doc.id ? { ...d, status: res.data!.status } : d)),
+      );
+      setDetailById((prev) => {
+        if (!prev.has(doc.id)) return prev;
+        const next = new Map(prev);
+        next.set(doc.id, { ...prev.get(doc.id)!, status: res.data!.status });
+        return next;
+      });
+      toast.success(res.message || (printed ? 'บันทึกว่าพิมพ์แล้ว' : 'ยกเลิกสถานะพิมพ์แล้ว'));
+      setStatusConfirm(null);
+      if (statusTab !== 'all' && statusTab !== res.data.status) {
+        void loadHistory();
+      }
+    } catch {
+      toast.error('อัปเดตสถานะไม่สำเร็จ');
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
+  const openStatusConfirm = (doc: PrePrintStickerDocument, printed: boolean) => {
+    const nextStatus = printed ? 'PRINTED' : 'PREPARED';
+    if (doc.status === nextStatus) return;
+    setStatusConfirm({ doc, printed });
+  };
+
   // const handleEditSuccess = (updated: PrePrintStickerDocument) => {
   //   setHistory((prev) => prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
   //   setDetailById((prev) => {
@@ -314,6 +383,28 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
     });
     setTotal((t) => Math.max(0, t - 1));
     void loadHistory();
+  };
+
+  const printedCheckbox = (doc: PrePrintStickerDocument) => {
+    const isPrinted = doc.status === 'PRINTED';
+    const busy = statusUpdatingId === doc.id;
+    return (
+      <div
+        className="flex items-center justify-center gap-1.5"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <Checkbox
+          checked={isPrinted}
+          disabled={busy || statusUpdatingId !== null}
+          onCheckedChange={(checked) => {
+            openStatusConfirm(doc, checked === true);
+          }}
+          aria-label={isPrinted ? 'พิมพ์แล้ว' : 'ยังไม่พิมพ์'}
+        />
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : null}
+      </div>
+    );
   };
 
   const rowActions = (doc: PrePrintStickerDocument) => (
@@ -529,6 +620,20 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
         </CardHeader>
 
         <CardContent className="px-3 py-3 sm:px-4 sm:py-4">
+          <Tabs value={statusTab} onValueChange={handleStatusTabChange} className="mb-4 gap-0">
+            <TabsList className="grid h-auto w-full grid-cols-3 gap-1 p-1">
+              {HISTORY_STATUS_TABS.map((tab) => (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="px-2 py-2 text-xs sm:text-sm"
+                >
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+
           {loading && history.length === 0 ? (
             <div className="flex items-center justify-center py-10 sm:py-12">
               <div className="text-center">
@@ -539,7 +644,13 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
           ) : history.length === 0 ? (
             <div className="py-10 text-center sm:py-12">
               <FileText className="mx-auto mb-3 h-12 w-12 text-gray-300" />
-              <p className="text-gray-500">ไม่พบเอกสารเตรียมพิมพ์</p>
+              <p className="text-gray-500">
+                {statusTab === 'PREPARED'
+                  ? 'ไม่พบเอกสารที่ยังไม่ได้พิมพ์'
+                  : statusTab === 'PRINTED'
+                    ? 'ไม่พบเอกสารที่พิมพ์แล้ว'
+                    : 'ไม่พบเอกสารเตรียมพิมพ์'}
+              </p>
               <p className="mt-2 text-sm text-gray-400">ลองปรับเงื่อนไขค้นหาหรือช่วงวันที่</p>
             </div>
           ) : (
@@ -587,14 +698,27 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
                                   unit="lot"
                                 />
                                 <StatBadge value={doc.total_sheets} unit="แผ่น" tone="violet" />
-                                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-700">
+                                <span
+                                  className={cn(
+                                    'rounded-md px-1.5 py-0.5 text-[11px] font-medium',
+                                    doc.status === 'PRINTED'
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : 'bg-slate-100 text-slate-700',
+                                  )}
+                                >
                                   {statusLabel(doc.status)}
                                 </span>
                               </div>
                             </div>
                           </div>
                         </button>
-                        {rowActions(doc)}
+                        <div className="flex shrink-0 flex-col items-end gap-2">
+                          <div className="flex items-center gap-2 text-xs text-slate-600">
+                            <span>พิมพ์แล้ว</span>
+                            {printedCheckbox(doc)}
+                          </div>
+                          {rowActions(doc)}
+                        </div>
                       </div>
                       {isExpanded && (
                         <div className="border-t bg-gray-50 px-3 py-3">
@@ -612,6 +736,7 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12" />
+                      <TableHead className="w-[100px] text-center">สถานะพิมพ์</TableHead>
                       <TableHead className="w-[72px]">ลำดับ</TableHead>
                       <TableHead>เลขที่เอกสาร</TableHead>
                       <TableHead>วันที่บันทึก</TableHead>
@@ -647,6 +772,7 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
                                 )}
                               </button>
                             </TableCell>
+                            <TableCell className="text-center">{printedCheckbox(doc)}</TableCell>
                             <TableCell className="font-medium text-slate-700">{rowNum}</TableCell>
                             <TableCell>
                               <code className="rounded bg-gray-100 px-2 py-1 text-xs">
@@ -771,6 +897,67 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
         }}
         onSuccess={handleDeleteSuccess}
       />
+
+      <Dialog
+        open={statusConfirm != null}
+        onOpenChange={(open) => {
+          if (!open && statusUpdatingId === null) setStatusConfirm(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {statusConfirm?.printed ? 'ยืนยันว่าพิมพ์แล้ว' : 'ยืนยันยกเลิกสถานะพิมพ์แล้ว'}
+            </DialogTitle>
+            <DialogDescription>
+              {statusConfirm?.printed ? (
+                <>
+                  ต้องการทำเครื่องหมายเอกสาร{' '}
+                  <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">
+                    {statusConfirm.doc.doc_no}
+                  </code>{' '}
+                  ว่าพิมพ์แล้วหรือไม่?
+                </>
+              ) : (
+                <>
+                  ต้องการยกเลิกสถานะพิมพ์แล้วของเอกสาร{' '}
+                  <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">
+                    {statusConfirm?.doc.doc_no}
+                  </code>{' '}
+                  หรือไม่?
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setStatusConfirm(null)}
+              disabled={statusUpdatingId !== null}
+            >
+              ยกเลิก
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!statusConfirm) return;
+                void handleTogglePrinted(statusConfirm.doc, statusConfirm.printed);
+              }}
+              disabled={statusUpdatingId !== null || !statusConfirm}
+            >
+              {statusUpdatingId !== null ? (
+                <>
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  กำลังบันทึก…
+                </>
+              ) : (
+                'ยืนยัน'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

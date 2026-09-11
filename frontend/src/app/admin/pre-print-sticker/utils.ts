@@ -24,6 +24,21 @@ export function hasExpireDate(ymd: string | null | undefined): boolean {
   return (ymd ?? '').trim().length > 0;
 }
 
+export function getTodayYmd(): string {
+  const today = new Date();
+  const yy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+/** วันหมดอายุต้องไม่ต่ำกว่าวันนี้ (ค.ศ. YYYY-MM-DD) */
+export function isExpireDateValid(ymd: string | null | undefined): boolean {
+  const v = (ymd ?? '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  return v >= getTodayYmd();
+}
+
 export function maxCopiesPerItem(): number {
   return MAX_TOTAL_LABELS;
 }

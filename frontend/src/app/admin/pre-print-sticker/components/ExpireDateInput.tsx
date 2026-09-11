@@ -10,6 +10,8 @@ type ExpireDateInputProps = {
   value: string;
   onChange: (ymd: string) => void;
   className?: string;
+  /** วันต่ำสุดที่เลือกได้ YYYY-MM-DD (เช่น วันนี้ — ห้ามย้อนหลัง) */
+  minDate?: string;
 };
 
 const BE_OFFSET = 543;
@@ -71,12 +73,26 @@ function parseExpireInput(raw: string, strict: boolean): string | null {
   return toYmd(Number(m[1]), Number(m[2]), Number(m[3]));
 }
 
-export function ExpireDateInput({ id, value, onChange, className }: ExpireDateInputProps) {
+export function ExpireDateInput({ id, value, onChange, className, minDate }: ExpireDateInputProps) {
   const [text, setText] = useState(() => ymdToDmy(value));
+  const minYmd = (minDate ?? '').trim().slice(0, 10) || undefined;
+
+  const isAllowed = (ymd: string) => {
+    if (!minYmd) return true;
+    return ymd >= minYmd;
+  };
 
   useEffect(() => {
     setText(ymdToDmy(value));
   }, [value]);
+
+  const applyYmd = (ymd: string | null): boolean => {
+    if (!ymd) return false;
+    if (!isAllowed(ymd)) return false;
+    onChange(ymd);
+    setText(ymdToDmy(ymd));
+    return true;
+  };
 
   const commitText = (raw: string) => {
     if (!raw.trim()) {
@@ -84,12 +100,7 @@ export function ExpireDateInput({ id, value, onChange, className }: ExpireDateIn
       setText('');
       return;
     }
-    const ymd = parseExpireInput(raw, false);
-    if (ymd) {
-      onChange(ymd);
-      setText(ymdToDmy(ymd));
-      return;
-    }
+    if (applyYmd(parseExpireInput(raw, false))) return;
     setText(ymdToDmy(value));
   };
 
@@ -110,8 +121,7 @@ export function ExpireDateInput({ id, value, onChange, className }: ExpireDateIn
             onChange('');
             return;
           }
-          const ymd = parseExpireInput(next, true);
-          if (ymd) onChange(ymd);
+          applyYmd(parseExpireInput(next, true));
         }}
         onBlur={(e) => commitText(e.target.value)}
         onKeyDown={(e) => {
@@ -123,8 +133,12 @@ export function ExpireDateInput({ id, value, onChange, className }: ExpireDateIn
         type="date"
         tabIndex={-1}
         aria-hidden
+        min={minYmd}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          const next = e.target.value;
+          if (!next || isAllowed(next)) onChange(next);
+        }}
         className="absolute inset-y-0 right-0 w-8 cursor-pointer opacity-0"
       />
     </div>

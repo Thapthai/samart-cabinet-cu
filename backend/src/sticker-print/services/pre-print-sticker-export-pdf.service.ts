@@ -39,6 +39,7 @@ function formatThDate(value: Date | string | null | undefined): string {
 
 function statusLabel(status: string): string {
   if (status === 'PREPARED') return 'เตรียมพิมพ์';
+  if (status === 'PRINTED') return 'พิมพ์แล้ว';
   return status;
 }
 

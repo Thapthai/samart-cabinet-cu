@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreatePrePrintStickerDto } from './dto/create-pre-print-sticker.dto';
 import type { UpdatePrePrintStickerDto } from './dto/update-pre-print-sticker.dto';
+import type { UpdatePrePrintStickerStatusDto } from './dto/update-pre-print-sticker-status.dto';
 import { PrePrintStickerExportPdfService } from './services/pre-print-sticker-export-pdf.service';
 
 @Injectable()
@@ -199,6 +200,35 @@ export class StickerPrintService {
     };
   }
 
+  /** อัปเดตสถานะอย่างเดียว — PREPARED / PRINTED */
+  async updatePrePrintStickerStatus(id: number, dto: UpdatePrePrintStickerStatusDto) {
+    const existing = await this.prisma.prePrintSticker.findUnique({
+      where: { id },
+      select: { id: true, doc_no: true, status: true },
+    });
+    if (!existing) throw new NotFoundException('ไม่พบเอกสาร');
+
+    const updated = await this.prisma.prePrintSticker.update({
+      where: { id },
+      data: { status: dto.status },
+      include: {
+        _count: { select: { details: true } },
+        createdBy: {
+          select: { id: true, fname: true, lname: true, email: true },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      data: updated,
+      message:
+        dto.status === 'PRINTED'
+          ? `บันทึกว่าพิมพ์แล้ว (${existing.doc_no})`
+          : `ยกเลิกสถานะพิมพ์แล้ว (${existing.doc_no})`,
+    };
+  }
+
   async deletePrePrintSticker(id: number) {
     const existing = await this.prisma.prePrintSticker.findUnique({
       where: { id },
@@ -220,6 +250,7 @@ export class StickerPrintService {
     keyword?: string;
     start_date?: string;
     end_date?: string;
+    status?: string;
   }) {
     const page = Math.max(1, params.page ?? 1);
     const limit = Math.min(100, Math.max(1, params.limit ?? 20));
@@ -227,6 +258,7 @@ export class StickerPrintService {
     const keyword = params.keyword?.trim();
     const startDate = params.start_date?.trim();
     const endDate = params.end_date?.trim();
+    const status = params.status?.trim().toUpperCase();
 
     const and: Array<Record<string, unknown>> = [];
 
@@ -258,6 +290,10 @@ export class StickerPrintService {
       and.push({ created_at: createdAt });
     }
 
+    if (status === 'PREPARED' || status === 'PRINTED') {
+      and.push({ status });
+    }
+
     const where = and.length > 0 ? { AND: and } : {};
 
     const [total, data] = await Promise.all([
@@ -266,7 +302,7 @@ export class StickerPrintService {
         where,
         skip,
         take: limit,
-        orderBy: { created_at: 'desc' },
+        orderBy: [{ status: 'asc' }, { created_at: 'desc' }],
         include: {
           createdBy: {
             select: { id: true, fname: true, lname: true, email: true },

@@ -7,7 +7,7 @@ import type { Item } from '@/types/item';
 import { FETCH_BATCH_LIMIT, MAX_PRINT, MAX_TOTAL_LABELS, PAGE_SIZE } from './constants';
 import type { ItemDraft, SelectedLine } from './types';
 import { DEFAULT_ITEM_DRAFT } from './types';
-import { clampCopies, hasExpireDate, maxCopiesPerItem, resolveCopies } from './utils';
+import { clampCopies, hasExpireDate, isExpireDateValid, maxCopiesPerItem, resolveCopies } from './utils';
 
 function newLineId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -133,6 +133,7 @@ export function usePrePrintSticker() {
     const cap = maxCopiesPerItem();
     const toAdd: SelectedLine[] = [];
     let missingExpire = false;
+    let pastExpire = false;
 
     for (const [code, draft] of Object.entries(itemDrafts)) {
       const row = allItems.find((i) => i.itemcode === code);
@@ -141,6 +142,10 @@ export function usePrePrintSticker() {
       if (mainCopies <= 0) continue;
       if (!hasExpireDate(draft.expireDate)) {
         missingExpire = true;
+        continue;
+      }
+      if (!isExpireDateValid(draft.expireDate)) {
+        pastExpire = true;
         continue;
       }
       toAdd.push({
@@ -156,6 +161,10 @@ export function usePrePrintSticker() {
         missingExpire = true;
         continue;
       }
+      if (!isExpireDateValid(l.expireDate)) {
+        pastExpire = true;
+        continue;
+      }
       toAdd.push({
         ...l,
         lineId: newLineId(),
@@ -166,6 +175,10 @@ export function usePrePrintSticker() {
 
     if (missingExpire) {
       toast.error('กรุณากรอกวันหมดอายุให้ครบทุกรายการที่มีจำนวน');
+      return null;
+    }
+    if (pastExpire) {
+      toast.error('วันหมดอายุต้องไม่ต่ำกว่าวันที่ปัจจุบัน');
       return null;
     }
 
@@ -250,6 +263,10 @@ export function usePrePrintSticker() {
     const withQty = preparedOrderLines.filter((l) => resolveCopies(l.copies, l.refillCap) > 0);
     if (withQty.some((l) => !hasExpireDate(l.expireDate))) {
       toast.error('กรุณากรอกวันหมดอายุให้ครบทุกรายการที่มีจำนวน');
+      return false;
+    }
+    if (withQty.some((l) => !isExpireDateValid(l.expireDate))) {
+      toast.error('วันหมดอายุต้องไม่ต่ำกว่าวันที่ปัจจุบัน');
       return false;
     }
 

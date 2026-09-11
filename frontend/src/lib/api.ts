@@ -2089,6 +2089,7 @@ export const stickerPrintApi = {
     keyword?: string;
     start_date?: string;
     end_date?: string;
+    status?: 'PREPARED' | 'PRINTED';
   }): Promise<{
     success: boolean;
     data?: PrePrintStickerDocument[];
@@ -2132,6 +2133,20 @@ export const stickerPrintApi = {
     message?: string;
   }> => {
     const response = await api.put(`/sticker-print/pre-print-stickers/${id}`, body);
+    return response.data;
+  },
+
+  updatePrePrintStickerStatus: async (
+    id: number,
+    status: 'PREPARED' | 'PRINTED',
+  ): Promise<{
+    success: boolean;
+    data?: PrePrintStickerDocument;
+    message?: string;
+  }> => {
+    const response = await api.patch(`/sticker-print/pre-print-stickers/${id}/status`, {
+      status,
+    });
     return response.data;
   },
 

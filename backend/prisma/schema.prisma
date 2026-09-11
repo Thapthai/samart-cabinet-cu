@@ -769,6 +769,7 @@ model Employee {
 }
 
 /// เอกสารเตรียมพิมพ์สติ๊กเกอร์ (หัวเอกสาร)
+/// status: PREPARED = เตรียมพิมพ์, PRINTED = พิมพ์แล้ว
 model PrePrintSticker {
   id                 Int      @id @default(autoincrement())
   doc_no             String   @unique @map("doc_no") @db.VarChar(32)

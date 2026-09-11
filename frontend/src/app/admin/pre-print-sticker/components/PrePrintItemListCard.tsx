@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { generatePageNumbers, hasExpireDate, parseCopiesInput } from '../utils';
+import { generatePageNumbers, getTodayYmd, hasExpireDate, parseCopiesInput } from '../utils';
 import type { ItemDraft, SelectedLine } from '../types';
 import { DEFAULT_ITEM_DRAFT } from '../types';
 import PrePrintSubLineRow from './PrePrintSubLineRow';
@@ -91,6 +91,7 @@ function DraftControls({
           value={draft.expireDate}
           onChange={(v) => onDraftExpireChange(row.itemcode, v)}
           className={expireError ? 'border-red-500' : ''}
+          minDate={getTodayYmd()}
         />
       </div>
       <div className="w-[4.5rem] shrink-0">
@@ -324,6 +325,7 @@ export default function PrePrintItemListCard({
                               id={`draft-expire-d-${row.itemcode}`}
                               value={draft.expireDate}
                               onChange={(v) => onDraftExpireChange(row.itemcode, v)}
+                              minDate={getTodayYmd()}
                             />
                           </div>
                         </TableCell>

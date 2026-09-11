@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { SelectedLine } from '../types';
-import { resolveCopies, hasExpireDate, parseCopiesInput } from '../utils';
+import { resolveCopies, getTodayYmd, hasExpireDate, parseCopiesInput } from '../utils';
 import { cn } from '@/lib/utils';
 import { ExpireDateInput, ItemLabel } from './ExpireDateInput';
 
@@ -87,6 +87,7 @@ function LotControls({
           value={line.expireDate || ''}
           onChange={(v) => onExpireDateChange(line.lineId, v)}
           className={expireError ? 'border-red-500' : ''}
+          minDate={getTodayYmd()}
         />
       </div>
       <div className="w-[4.5rem] shrink-0">
@@ -247,6 +248,7 @@ export default function PrePrintOrderCard({
                                     id={`prepared-d-expire-${line.lineId}`}
                                     value={line.expireDate || ''}
                                     onChange={(v) => onExpireDateChange(line.lineId, v)}
+                                    minDate={getTodayYmd()}
                                   />
                                 </div>
                               </TableCell>

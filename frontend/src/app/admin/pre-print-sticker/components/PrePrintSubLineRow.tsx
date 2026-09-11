@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import type { SelectedLine } from '../types';
-import { parseCopiesInput } from '../utils';
+import { getTodayYmd, parseCopiesInput } from '../utils';
 import { ExpireDateInput } from './ExpireDateInput';
 
 type PrePrintSubLineRowProps = {
@@ -41,6 +41,7 @@ export default function PrePrintSubLineRow({
         id={`${idPrefix}-expire-${line.lineId}`}
         value={line.expireDate || ''}
         onChange={(v) => onExpireDateChange(line.lineId, v)}
+        minDate={getTodayYmd()}
       />
     </div>
   );
