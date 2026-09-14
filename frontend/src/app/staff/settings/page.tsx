@@ -10,8 +10,20 @@ import { User, Lock, Save, Eye, EyeOff } from 'lucide-react';
 import { staffUserApi } from '@/lib/api';
 import { getStaffUserIfSameApp, saveStaffUser } from '@/lib/appAuth';
 
+type StaffProfileUser = {
+  fname?: string;
+  lname?: string;
+  email?: string;
+  client_id?: string;
+  role?: string | { name?: string };
+};
+
+function asText(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
 export default function SettingsPage() {
-  const [staffUser, setStaffUser] = useState<any>(null);
+  const [staffUser, setStaffUser] = useState<StaffProfileUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -46,13 +58,13 @@ export default function SettingsPage() {
         });
       } else {
         // Fallback to localStorage if API fails
-        const parsedUser = getStaffUserIfSameApp();
+        const parsedUser = getStaffUserIfSameApp<StaffProfileUser>();
         if (parsedUser) {
           setStaffUser(parsedUser);
           setFormData({
-            fname: parsedUser.fname || '',
-            lname: parsedUser.lname || '',
-            email: parsedUser.email || '',
+            fname: asText(parsedUser.fname),
+            lname: asText(parsedUser.lname),
+            email: asText(parsedUser.email),
             currentPassword: '',
             newPassword: '',
             confirmPassword: '',
@@ -62,13 +74,13 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Failed to load profile:', error);
       // Fallback to localStorage
-      const parsedUser = getStaffUserIfSameApp();
+      const parsedUser = getStaffUserIfSameApp<StaffProfileUser>();
       if (parsedUser) {
         setStaffUser(parsedUser);
         setFormData({
-          fname: parsedUser.fname || '',
-          lname: parsedUser.lname || '',
-          email: parsedUser.email || '',
+          fname: asText(parsedUser.fname),
+          lname: asText(parsedUser.lname),
+          email: asText(parsedUser.email),
           currentPassword: '',
           newPassword: '',
           confirmPassword: '',
@@ -111,7 +123,13 @@ export default function SettingsPage() {
       }
 
       // Prepare update data
-      const updateData: any = {
+      const updateData: {
+        fname: string;
+        lname: string;
+        email: string;
+        currentPassword?: string;
+        newPassword?: string;
+      } = {
         fname: formData.fname,
         lname: formData.lname,
         email: formData.email,
