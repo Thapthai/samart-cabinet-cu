@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { getSession } from 'next-auth/react';
+import { getAppName, getStaffUserIfSameApp, hasStaffAuthForThisApp } from '@/lib/appAuth';
 
 // Create axios instance for staff API
 const staffApi = axios.create({
@@ -10,9 +12,22 @@ const staffApi = axios.create({
 
 
 // Request interceptor to add client_id and client_secret for staff endpoints
-staffApi.interceptors.request.use((config) => { 
-    // Attach staff_token
-    const staffToken = localStorage.getItem('staff_token');
+staffApi.interceptors.request.use(async (config) => {
+    let staffToken =
+      typeof window !== 'undefined' && hasStaffAuthForThisApp()
+        ? localStorage.getItem('staff_token')
+        : null;
+    if (!staffToken && typeof window !== 'undefined') {
+        const session = (await getSession()) as {
+          accessToken?: string;
+          appname?: string;
+          user?: { appname?: string };
+        } | null;
+        const sessionApp = session?.appname ?? session?.user?.appname;
+        if (session?.accessToken && sessionApp === getAppName()) {
+          staffToken = session.accessToken;
+        }
+    }
     if (staffToken) {
         config.headers.Authorization = `Bearer ${staffToken}`;
     }
@@ -21,11 +36,10 @@ staffApi.interceptors.request.use((config) => {
     let clientId = '';
     let clientSecret = '';
     try {
-        const staffUser = localStorage.getItem('staff_user');
-        if (staffUser) {
-            const parsed = JSON.parse(staffUser);
-            clientId = parsed.client_id || '';
-            clientSecret = parsed.client_secret || '';
+        const parsed = getStaffUserIfSameApp<{ client_id?: string; clientId?: string; client_secret?: string; clientSecret?: string }>();
+        if (parsed) {
+            clientId = parsed.client_id || parsed.clientId || '';
+            clientSecret = parsed.client_secret || parsed.clientSecret || '';
         }
     } catch {}
     // fallback (legacy)

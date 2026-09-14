@@ -24,11 +24,12 @@ import TwoFactorModal from '@/components/TwoFactorModal';
 import { authApi } from '@/lib/api';
 import { ASSETS } from '@/lib/assets';
 import { isAdminUser } from '@/lib/auth/roles';
+import { saveStaffUser } from '@/lib/appAuth';
 
 function persistStaffSession(token: string, user: object) {
   if (typeof window === 'undefined') return;
   localStorage.setItem('staff_token', token);
-  localStorage.setItem('staff_user', JSON.stringify(user));
+  saveStaffUser(user as Record<string, unknown>);
 }
 
 export default function LoginPage() {

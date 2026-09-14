@@ -586,37 +586,7 @@ export default function PrePrintHistoryTab({ refreshKey = 0 }: PrePrintHistoryTa
               <span className="hidden sm:inline">{descriptionText}</span>
             </CardDescription>
           </div>
-          {/* <div className="flex shrink-0 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={exportLoading !== null || loading || history.length === 0}
-              onClick={() => void handleExportReport('excel')}
-            >
-              {exportLoading === 'excel' ? (
-                <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
-              ) : (
-                <Download className="h-4 w-4 sm:mr-2" />
-              )}
-              <span className="hidden sm:inline">Excel</span>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={exportLoading !== null || loading || history.length === 0}
-              onClick={() => void handleExportReport('pdf')}
-            >
-              {exportLoading === 'pdf' ? (
-                <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
-              ) : (
-                <Download className="h-4 w-4 sm:mr-2" />
-              )}
-              <span className="hidden sm:inline">PDF</span>
-            </Button>
-     
-          </div> */}
+
         </CardHeader>
 
         <CardContent className="px-3 py-3 sm:px-4 sm:py-4">

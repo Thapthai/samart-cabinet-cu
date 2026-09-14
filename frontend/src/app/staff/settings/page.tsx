@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { User, Lock, Save, Eye, EyeOff } from 'lucide-react';
 import { staffUserApi } from '@/lib/api';
+import { getStaffUserIfSameApp, saveStaffUser } from '@/lib/appAuth';
 
 export default function SettingsPage() {
   const [staffUser, setStaffUser] = useState<any>(null);
@@ -45,9 +46,8 @@ export default function SettingsPage() {
         });
       } else {
         // Fallback to localStorage if API fails
-        const user = localStorage.getItem('staff_user');
-        if (user) {
-          const parsedUser = JSON.parse(user);
+        const parsedUser = getStaffUserIfSameApp();
+        if (parsedUser) {
           setStaffUser(parsedUser);
           setFormData({
             fname: parsedUser.fname || '',
@@ -62,9 +62,8 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Failed to load profile:', error);
       // Fallback to localStorage
-      const user = localStorage.getItem('staff_user');
-      if (user) {
-        const parsedUser = JSON.parse(user);
+      const parsedUser = getStaffUserIfSameApp();
+      if (parsedUser) {
         setStaffUser(parsedUser);
         setFormData({
           fname: parsedUser.fname || '',
@@ -133,7 +132,7 @@ export default function SettingsPage() {
           ...staffUser,
           ...response.data,
         };
-        localStorage.setItem('staff_user', JSON.stringify(updatedUser));
+        saveStaffUser(updatedUser);
         setStaffUser(updatedUser);
 
         alert('บันทึกข้อมูลเรียบร้อยแล้ว');

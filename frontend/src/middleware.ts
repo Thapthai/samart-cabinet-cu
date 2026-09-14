@@ -1,6 +1,7 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getAppName } from "@/lib/appAuth";
 
 function stripBasePath(pathname: string, basePath: string): string {
   if (!basePath) return pathname;
@@ -17,6 +18,12 @@ function isAdminToken(
   if (token.user?.is_admin === true) return true;
   if (token.user?.userType === "admin") return true;
   return false;
+}
+
+function isTokenForThisApp(token: { appname?: string } | null | undefined): boolean {
+  if (!token) return false;
+  // token เก่าที่ยังไม่มี appname → ไม่ยอมให้ใช้ (บังคับ login ใหม่)
+  return token.appname === getAppName();
 }
 
 export default withAuth(
@@ -64,11 +71,13 @@ export default withAuth(
           (p) => path === p || path.startsWith(`${p}/`),
         );
 
-        return needsAuth ? !!token : true;
+        if (!needsAuth) return true;
+        return isTokenForThisApp(token as { appname?: string } | null);
       },
     },
     pages: {
-      signIn: `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/auth/login`,
+      // อย่าใส่ NEXT_PUBLIC_BASE_PATH — Next.js/NextAuth เติม basePath ให้อยู่แล้ว
+      signIn: "/auth/login",
     },
   },
 );

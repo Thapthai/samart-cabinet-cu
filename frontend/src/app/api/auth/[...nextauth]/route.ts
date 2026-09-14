@@ -1,6 +1,7 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { authApi } from "@/lib/api";
+import { getAppName } from "@/lib/appAuth";
 
 const authOptions: NextAuthOptions = {
   providers: [
@@ -157,6 +158,8 @@ const authOptions: NextAuthOptions = {
         if (authUser?.is_admin != null) {
           token.is_admin = authUser.is_admin;
         }
+        // ติดชื่อแอปตอน login — กัน session ข้ามโปรเจกต์บนโดเมนเดียวกัน
+        token.appname = getAppName();
       }
 
       // Handle session update (when updateSession is called)
@@ -184,23 +187,30 @@ const authOptions: NextAuthOptions = {
 
       // Set user data
       if (token.user) {
-        (session as any).user = token.user;
+        (session as any).user = {
+          ...(token.user as object),
+          appname: token.appname,
+        };
       } else {
         // Fallback: construct user from token properties
         (session as any).user = {
           id: token.id,
           email: token.email,
           name: token.name,
+          appname: token.appname,
         };
       }
+
+      (session as any).appname = token.appname;
 
       return session;
     }
   },
 
   pages: {
-    signIn: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/auth/login`,
-    error: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/auth/login`,
+    // อย่าใส่ basePath ซ้ำ — Next.js config.basePath จัดการให้แล้ว
+    signIn: '/auth/login',
+    error: '/auth/login',
   },
 
   session: {

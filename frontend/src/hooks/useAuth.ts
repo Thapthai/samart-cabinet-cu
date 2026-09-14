@@ -1,11 +1,12 @@
 import { useSession } from 'next-auth/react';
 import { useMemo } from 'react';
+import { isSessionForThisApp } from '@/lib/appAuth';
 
 export function useAuth() {
   const { data: session, status } = useSession();
   
   const user = useMemo(() => {
-    if (session && (session as any).user) {
+    if (session && (session as any).user && isSessionForThisApp(session as { appname?: string; user?: { appname?: string } })) {
       const userData = (session as any).user;
       // Ensure user has required properties
       return {

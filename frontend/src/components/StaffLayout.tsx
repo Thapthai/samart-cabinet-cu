@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { User, Settings, LogOut, ChevronDown, ZoomIn, ZoomOut } from 'lucide-react';
 import { isAdminUser } from '@/lib/auth/roles';
+import { clearStaffLocalAuth, getAppName, getStaffUserIfSameApp, saveStaffUser } from '@/lib/appAuth';
 import ScrollToTopButton from './ScrollToTopButton';
 
 interface StaffLayoutProps {
@@ -137,37 +138,52 @@ export default function StaffLayout({ children }: StaffLayoutProps) {
       return;
     }
 
-    // Check if admin is logged in (next-auth session)
-    if (isAdminAuth && adminUser && isAdminUser(adminUser)) {
-      setIsAdmin(true);
+    if (isAdminAuth && adminUser) {
+      const sessionApp = (adminUser as { appname?: string }).appname;
+      if (sessionApp && sessionApp !== getAppName()) {
+        clearStaffLocalAuth();
+        router.push('/auth/login');
+        return;
+      }
+      if (typeof window !== 'undefined') {
+        const u = adminUser as Record<string, unknown>;
+        const token = u.accessToken as string | undefined;
+        if (token) localStorage.setItem('staff_token', token);
+        const uid = u.id ?? u.staff_user_id ?? u.user_id;
+        if (uid != null && Number.isFinite(Number(uid))) {
+          saveStaffUser({
+            id: Number(uid),
+            email: u.email,
+            fname: u.fname,
+            lname: u.lname,
+            name: u.name,
+            role: (u.role as string) || '',
+            client_id: (u.client_id as string) || '',
+            client_secret: (u.client_secret as string) || '',
+          });
+        }
+      }
+      setIsAdmin(isAdminUser(adminUser));
       setStaffUser(adminUser);
       setLoading(false);
       return;
     }
 
-    if (isAdminAuth && adminUser && !isAdminUser(adminUser)) {
-      setIsAdmin(false);
-      setStaffUser(adminUser);
-      setLoading(false);
-      return;
-    }
-
-    // Check if staff is logged in (localStorage)
     const token = localStorage.getItem('staff_token');
-    const user = localStorage.getItem('staff_user');
+    const user = getStaffUserIfSameApp();
 
     if (!token || !user) {
-      // Next.js automatically handles basePath, so we don't need to include it
+      clearStaffLocalAuth();
       router.push('/auth/login');
       return;
     }
 
     try {
       setIsAdmin(false);
-      setStaffUser(JSON.parse(user));
+      setStaffUser(user);
     } catch (error) {
       console.error('Error parsing staff user:', error);
-      // Next.js automatically handles basePath, so we don't need to include it
+      clearStaffLocalAuth();
       router.push('/auth/login');
     } finally {
       setLoading(false);
@@ -180,8 +196,7 @@ export default function StaffLayout({ children }: StaffLayoutProps) {
       router.push('/auth/logout');
     } else {
       // Staff logout
-      localStorage.removeItem('staff_token');
-      localStorage.removeItem('staff_user');
+      clearStaffLocalAuth();
       router.push('/auth/login');
     }
   };

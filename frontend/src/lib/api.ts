@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getSession } from 'next-auth/react';
+import { clearStaffLocalAuth, getAppName, hasStaffAuthForThisApp, isSessionForThisApp } from '@/lib/appAuth';
 import type { ApiResponse, PaginatedResponse, ItemsStats } from '@/types/common';
 import type {
   AdminJwtUserRow,
@@ -37,19 +38,27 @@ api.interceptors.request.use(async (config) => {
     const isStickerPrint = config.url?.includes('/sticker-print');
 
     if (isStaffEndpoint || isStickerPrint) {
-      const staffToken = localStorage.getItem('staff_token');
-      const session = await getSession();
-      const sessionToken = session && (session as { accessToken?: string }).accessToken;
-      const bearer = staffToken || sessionToken;
-      if (bearer) {
-        config.headers.Authorization = `Bearer ${bearer}`;
+      const session = (await getSession()) as {
+        accessToken?: string;
+        appname?: string;
+        user?: { appname?: string };
+      } | null;
+      if (session?.accessToken && isSessionForThisApp(session)) {
+        config.headers.Authorization = `Bearer ${session.accessToken}`;
+      } else {
+        const staffToken = hasStaffAuthForThisApp() ? localStorage.getItem('staff_token') : null;
+        if (staffToken) {
+          config.headers.Authorization = `Bearer ${staffToken}`;
+        }
       }
     } else {
-      // Use NextAuth session token for regular endpoints
-      const session = await getSession();
-      if (session && (session as any).accessToken) {
-        const token = (session as any).accessToken;
-        config.headers.Authorization = `Bearer ${token}`;
+      const session = (await getSession()) as {
+        accessToken?: string;
+        appname?: string;
+        user?: { appname?: string };
+      } | null;
+      if (session?.accessToken && isSessionForThisApp(session)) {
+        config.headers.Authorization = `Bearer ${session.accessToken}`;
       } else {
         console.warn('⚠️ No access token found in session');
       }
@@ -69,8 +78,7 @@ api.interceptors.response.use(
       if (isStaffEndpoint) {
         // Only redirect staff routes to staff login
         // Clear staff tokens
-        localStorage.removeItem('staff_token');
-        localStorage.removeItem('staff_user');
+        clearStaffLocalAuth();
 
         // Use Next.js router if available, otherwise use window.location
         const currentPath = window.location.pathname;
