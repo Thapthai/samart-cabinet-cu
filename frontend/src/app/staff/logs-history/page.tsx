@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 export default function LogsPage() {
 
@@ -237,19 +238,17 @@ export default function LogsPage() {
               </div>
               <div>
                 <Label>วันที่เริ่ม</Label>
-                <Input
-                  type="date"
+                <ExpireDateInput
                   value={formFilters.startDate}
-                  onChange={(e) => setFormFilters((p) => ({ ...p, startDate: e.target.value }))}
+                  onChange={(ymd) => setFormFilters((p) => ({ ...p, startDate: ymd }))}
                   className="mt-1"
                 />
               </div>
               <div>
                 <Label>วันที่สิ้นสุด</Label>
-                <Input
-                  type="date"
+                <ExpireDateInput
                   value={formFilters.endDate}
-                  onChange={(e) => setFormFilters((p) => ({ ...p, endDate: e.target.value }))}
+                  onChange={(ymd) => setFormFilters((p) => ({ ...p, endDate: ymd }))}
                   className="mt-1"
                 />
               </div>

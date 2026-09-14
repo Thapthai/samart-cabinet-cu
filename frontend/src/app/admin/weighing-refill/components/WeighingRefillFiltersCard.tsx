@@ -5,6 +5,7 @@ import { Download, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 interface WeighingRefillFiltersToolbarProps {
   searchTerm: string;
@@ -47,11 +48,10 @@ export default function WeighingRefillFiltersToolbar({
             <label htmlFor="weighing-refill-date-from" className="text-[11px] font-medium text-slate-500">
               วันที่เริ่ม
             </label>
-            <Input
+            <ExpireDateInput
               id="weighing-refill-date-from"
-              type="date"
               value={dateFrom}
-              onChange={(e) => onDateFromChange(e.target.value)}
+              onChange={(ymd) => onDateFromChange(ymd)}
               className="h-9 border-slate-200 bg-white text-sm"
             />
           </div>
@@ -59,11 +59,10 @@ export default function WeighingRefillFiltersToolbar({
             <label htmlFor="weighing-refill-date-to" className="text-[11px] font-medium text-slate-500">
               วันที่สิ้นสุด
             </label>
-            <Input
+            <ExpireDateInput
               id="weighing-refill-date-to"
-              type="date"
               value={dateTo}
-              onChange={(e) => onDateToChange(e.target.value)}
+              onChange={(ymd) => onDateToChange(ymd)}
               className="h-9 border-slate-200 bg-white text-sm"
             />
           </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { medicalSuppliesApi } from '@/lib/api';
 import { staffVendingReportsApi } from '@/lib/staffApi/vendingReportsApi';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 import { toast } from 'sonner';
 import { History, Search, RefreshCw } from 'lucide-react';
@@ -259,21 +260,19 @@ export default function MedicalSuppliesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="startDate">วันที่เริ่มต้น</Label>
-              <Input
+              <ExpireDateInput
                 id="startDate"
-                type="date"
                 value={filters.startDate}
-                onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                onChange={(ymd) => setFilters({ ...filters, startDate: ymd })}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="endDate">วันที่สิ้นสุด</Label>
-              <Input
+              <ExpireDateInput
                 id="endDate"
-                type="date"
                 value={filters.endDate}
-                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                onChange={(ymd) => setFilters({ ...filters, endDate: ymd })}
               />
             </div>
 

@@ -7,13 +7,13 @@ import AppLayout from '@/components/AppLayout';
 import { RotateCcw, Search, RefreshCw, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { medicalSuppliesApi, vendingReportsApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 export default function ReturnReportPage() {
   const { user } = useAuth();
@@ -134,20 +134,18 @@ export default function ReturnReportPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="history-date-from">วันที่เริ่มต้น</Label>
-                  <Input
+                  <ExpireDateInput
                     id="history-date-from"
-                    type="date"
                     value={returnHistoryDateFrom}
-                    onChange={(e) => setReturnHistoryDateFrom(e.target.value)}
+                    onChange={(ymd) => setReturnHistoryDateFrom(ymd)}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="history-date-to">วันที่สิ้นสุด</Label>
-                  <Input
+                  <ExpireDateInput
                     id="history-date-to"
-                    type="date"
                     value={returnHistoryDateTo}
-                    onChange={(e) => setReturnHistoryDateTo(e.target.value)}
+                    onChange={(ymd) => setReturnHistoryDateTo(ymd)}
                   />
                 </div>
                 <div className="space-y-2">

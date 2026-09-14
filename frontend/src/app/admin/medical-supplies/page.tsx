@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChevronDown } from 'lucide-react';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 export default function MedicalSuppliesPage() {
   const { user } = useAuth();
@@ -331,21 +332,19 @@ export default function MedicalSuppliesPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="startDate">วันที่เริ่มต้น</Label>
-                <Input
+                <ExpireDateInput
                   id="startDate"
-                  type="date"
                   value={formFilters.startDate}
-                  onChange={(e) => setFormFilters({ ...formFilters, startDate: e.target.value })}
+                  onChange={(ymd) => setFormFilters({ ...formFilters, startDate: ymd })}
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="endDate">วันที่สิ้นสุด</Label>
-                <Input
+                <ExpireDateInput
                   id="endDate"
-                  type="date"
                   value={formFilters.endDate}
-                  onChange={(e) => setFormFilters({ ...formFilters, endDate: e.target.value })}
+                  onChange={(ymd) => setFormFilters({ ...formFilters, endDate: ymd })}
                 />
               </div>
 
@@ -442,11 +441,10 @@ export default function MedicalSuppliesPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="printDate">วันที่พิมพ์บิล</Label>
-                <Input
+                <ExpireDateInput
                   id="printDate"
-                  type="date"
                   value={formFilters.printDate}
-                  onChange={(e) => setFormFilters({ ...formFilters, printDate: e.target.value })}
+                  onChange={(ymd) => setFormFilters({ ...formFilters, printDate: ymd })}
                 />
               </div>
 

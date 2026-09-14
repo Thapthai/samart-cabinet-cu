@@ -7,12 +7,12 @@ import AppLayout from '@/components/AppLayout';
 import { Receipt, Search, RefreshCw, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { vendingReportsApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 export default function CancelBillReportPage() {
   const { user } = useAuth();
@@ -107,20 +107,18 @@ export default function CancelBillReportPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="start-date">วันที่เริ่มต้น</Label>
-                  <Input
+                  <ExpireDateInput
                     id="start-date"
-                    type="date"
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    onChange={(ymd) => setStartDate(ymd)}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="end-date">วันที่สิ้นสุด</Label>
-                  <Input
+                  <ExpireDateInput
                     id="end-date"
-                    type="date"
                     value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                    onChange={(ymd) => setEndDate(ymd)}
                   />
                 </div>
               </div>

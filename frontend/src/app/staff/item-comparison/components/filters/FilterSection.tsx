@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useState } from 'react';
 import type { FilterState } from '../../types';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 interface FilterSectionProps {
   filters: FilterState;
@@ -148,11 +149,10 @@ export function FilterSection({
         {/* Row 2: Single Date */}
         <div className="space-y-2">
           <Label>วันที่</Label>
-          <Input
-            type="date"
+          <ExpireDateInput
             value={filters.startDate}
-            onChange={(e) => {
-              const selectedDate = e.target.value;
+            onChange={(ymd) => {
+              const selectedDate = ymd;
               onFilterChange('startDate', selectedDate);
               onFilterChange('endDate', selectedDate);
             }}

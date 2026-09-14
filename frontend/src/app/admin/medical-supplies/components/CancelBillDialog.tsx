@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { medicalSuppliesApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 interface CancelItem {
   assession_no: string;
@@ -201,20 +202,18 @@ export default function CancelBillDialog({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="old-print-date">วันที่ Print เดิม *</Label>
-                <Input
+                <ExpireDateInput
                   id="old-print-date"
-                  type="date"
                   value={oldPrintDate}
-                  onChange={(e) => setOldPrintDate(e.target.value)}
+                  onChange={(ymd) => setOldPrintDate(ymd)}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-print-date">วันที่ Print ใหม่ *</Label>
-                <Input
+                <ExpireDateInput
                   id="new-print-date"
-                  type="date"
                   value={newPrintDate}
-                  onChange={(e) => setNewPrintDate(e.target.value)}
+                  onChange={(ymd) => setNewPrintDate(ymd)}
                 />
               </div>
             </div>

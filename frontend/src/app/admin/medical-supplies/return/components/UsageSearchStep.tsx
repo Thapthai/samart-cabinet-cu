@@ -13,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { Usage } from '../types';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 interface UsageSearchStepProps {
   startDate: string;
@@ -67,21 +68,19 @@ export default function UsageSearchStep({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-2">
           <Label htmlFor="start-date" className="text-slate-600 font-medium">วันที่เริ่มต้น</Label>
-          <Input
+          <ExpireDateInput
             id="start-date"
-            type="date"
             value={startDate}
-            onChange={(e) => onStartDateChange(e.target.value)}
+            onChange={(ymd) => onStartDateChange(ymd)}
             className="rounded-lg border-slate-200"
           />
         </div>
         <div className="space-y-2">
           <Label htmlFor="end-date" className="text-slate-600 font-medium">วันที่สิ้นสุด</Label>
-          <Input
+          <ExpireDateInput
             id="end-date"
-            type="date"
             value={endDate}
-            onChange={(e) => onEndDateChange(e.target.value)}
+            onChange={(ymd) => onEndDateChange(ymd)}
             className="rounded-lg border-slate-200"
           />
         </div>

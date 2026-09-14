@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import TransactionsTable from './components/TransactionsTable';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 export default function TransactionsPage() {
   const { user } = useAuth();
@@ -188,11 +189,10 @@ export default function TransactionsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="visitDate">วันที่คนไข้เข้ารับบริการ</Label>
-                <Input
+                <ExpireDateInput
                   id="visitDate"
-                  type="date"
                   value={filters.visitDate}
-                  onChange={(e) => setFilters({ ...filters, visitDate: e.target.value })}
+                  onChange={(ymd) => setFilters({ ...filters, visitDate: ymd })}
                 />
               </div>
 

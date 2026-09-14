@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 interface UsageItem {
   en?: string;
@@ -224,21 +225,19 @@ export default function EquipmentUsageReportPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="dateFrom">วันที่เริ่มต้น</Label>
-                  <Input
+                  <ExpireDateInput
                     id="dateFrom"
-                    type="date"
                     value={filters.dateFrom}
-                    onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                    onChange={(ymd) => setFilters({ ...filters, dateFrom: ymd })}
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="dateTo">วันที่สิ้นสุด</Label>
-                  <Input
+                  <ExpireDateInput
                     id="dateTo"
-                    type="date"
                     value={filters.dateTo}
-                    onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                    onChange={(ymd) => setFilters({ ...filters, dateTo: ymd })}
                   />
                 </div>
 

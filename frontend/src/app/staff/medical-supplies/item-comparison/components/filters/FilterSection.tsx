@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useState, useRef, useEffect } from 'react';
 import type { FilterState } from '../../types';
 import type { ComparisonItem } from '../../types';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 interface FilterSectionProps {
   filters: FilterState;
@@ -148,11 +149,10 @@ export function FilterSection({
         {/* Row 2: Single Date */}
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">วันที่</label>
-          <Input
-            type="date"
+          <ExpireDateInput
             value={filters.startDate}
-            onChange={(e) => {
-              const selectedDate = e.target.value;
+            onChange={(ymd) => {
+              const selectedDate = ymd;
               // Set both startDate and endDate to the same value
               onFilterChange('startDate', selectedDate);
               onFilterChange('endDate', selectedDate);

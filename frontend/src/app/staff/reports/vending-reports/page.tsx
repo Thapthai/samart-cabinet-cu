@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { FileBarChart, Download, RefreshCw, TrendingUp, AlertCircle, XCircle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { staffVendingReportsApi } from '@/lib/staffApi/vendingReportsApi';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 export default function VendingReportsPage() {
   const { user } = useAuth();
@@ -247,12 +247,11 @@ export default function VendingReportsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="mapping-print-date">วันที่ Print Receipt/Invoice</Label>
-                    <Input
+                    <ExpireDateInput
                       id="mapping-print-date"
-                      type="date"
                       value={mappingPrintDate}
-                      onChange={(e) => {
-                        setMappingPrintDate(e.target.value);
+                      onChange={(ymd) => {
+                        setMappingPrintDate(ymd);
                         setMappingStartDate('');
                         setMappingEndDate('');
                       }}
@@ -262,12 +261,11 @@ export default function VendingReportsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="mapping-start-date">วันที่เริ่มต้น</Label>
-                    <Input
+                    <ExpireDateInput
                       id="mapping-start-date"
-                      type="date"
                       value={mappingStartDate}
-                      onChange={(e) => {
-                        setMappingStartDate(e.target.value);
+                      onChange={(ymd) => {
+                        setMappingStartDate(ymd);
                         setMappingPrintDate('');
                       }}
                       disabled={!!mappingPrintDate}
@@ -275,12 +273,11 @@ export default function VendingReportsPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="mapping-end-date">วันที่สิ้นสุด</Label>
-                    <Input
+                    <ExpireDateInput
                       id="mapping-end-date"
-                      type="date"
                       value={mappingEndDate}
-                      onChange={(e) => {
-                        setMappingEndDate(e.target.value);
+                      onChange={(ymd) => {
+                        setMappingEndDate(ymd);
                         setMappingPrintDate('');
                       }}
                       disabled={!!mappingPrintDate}
@@ -462,20 +459,18 @@ export default function VendingReportsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="unmapped-start-date">วันที่เริ่มต้น</Label>
-                    <Input
+                    <ExpireDateInput
                       id="unmapped-start-date"
-                      type="date"
                       value={unmappedStartDate}
-                      onChange={(e) => setUnmappedStartDate(e.target.value)}
+                      onChange={(ymd) => setUnmappedStartDate(ymd)}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="unmapped-end-date">วันที่สิ้นสุด</Label>
-                    <Input
+                    <ExpireDateInput
                       id="unmapped-end-date"
-                      type="date"
                       value={unmappedEndDate}
-                      onChange={(e) => setUnmappedEndDate(e.target.value)}
+                      onChange={(ymd) => setUnmappedEndDate(ymd)}
                     />
                   </div>
                   <div className="space-y-2">
@@ -626,11 +621,10 @@ export default function VendingReportsPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="unused-date">วันที่ที่ต้องการตรวจสอบ</Label>
-                  <Input
+                  <ExpireDateInput
                     id="unused-date"
-                    type="date"
                     value={unusedDate}
-                    onChange={(e) => setUnusedDate(e.target.value)}
+                    onChange={(ymd) => setUnusedDate(ymd)}
                     placeholder="ถ้าไม่ระบุจะใช้วันปัจจุบัน"
                   />
                   <p className="text-xs text-gray-500">ถ้าไม่ระบุจะใช้วันปัจจุบัน</p>

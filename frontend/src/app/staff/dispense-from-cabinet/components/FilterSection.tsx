@@ -10,6 +10,7 @@ import SearchableSelect from '@/app/admin/items/components/SearchableSelect';
 import { staffCabinetApi } from '@/lib/staffApi/cabinetApi';
 import { staffDepartmentApi } from '@/lib/staffApi/departmentApi';
 import { staffCabinetDepartmentApi } from '@/lib/staffApi/cabinetApi';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 interface Department {
   ID: number;
@@ -172,18 +173,16 @@ export default function FilterSection({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">วันที่เริ่มต้น</label>
-              <Input
-                type="date"
+              <ExpireDateInput
                 value={filters.startDate}
-                onChange={(e) => onFilterChange('startDate', e.target.value)}
+                onChange={(ymd) => onFilterChange('startDate', ymd)}
               />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">วันที่สิ้นสุด</label>
-              <Input
-                type="date"
+              <ExpireDateInput
                 value={filters.endDate}
-                onChange={(e) => onFilterChange('endDate', e.target.value)}
+                onChange={(ymd) => onFilterChange('endDate', ymd)}
               />
             </div>
           </div>

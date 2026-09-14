@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { FileBarChart, Download, RefreshCw, TrendingUp, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { vendingReportsApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
@@ -145,12 +145,11 @@ export function MappingVendingTab() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="mapping-print-date">วันที่ Print Receipt/Invoice</Label>
-              <Input
+              <ExpireDateInput
                 id="mapping-print-date"
-                type="date"
                 value={mappingPrintDate}
-                onChange={(e) => {
-                  setMappingPrintDate(e.target.value);
+                onChange={(ymd) => {
+                  setMappingPrintDate(ymd);
                   setMappingStartDate('');
                   setMappingEndDate('');
                 }}
@@ -160,12 +159,11 @@ export function MappingVendingTab() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="mapping-start-date">วันที่เริ่มต้น</Label>
-              <Input
+              <ExpireDateInput
                 id="mapping-start-date"
-                type="date"
                 value={mappingStartDate}
-                onChange={(e) => {
-                  setMappingStartDate(e.target.value);
+                onChange={(ymd) => {
+                  setMappingStartDate(ymd);
                   setMappingPrintDate('');
                 }}
                 disabled={!!mappingPrintDate}
@@ -173,12 +171,11 @@ export function MappingVendingTab() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="mapping-end-date">วันที่สิ้นสุด</Label>
-              <Input
+              <ExpireDateInput
                 id="mapping-end-date"
-                type="date"
                 value={mappingEndDate}
-                onChange={(e) => {
-                  setMappingEndDate(e.target.value);
+                onChange={(ymd) => {
+                  setMappingEndDate(ymd);
                   setMappingPrintDate('');
                 }}
                 disabled={!!mappingPrintDate}

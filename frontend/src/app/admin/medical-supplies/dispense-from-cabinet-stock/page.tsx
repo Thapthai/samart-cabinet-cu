@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { medicalSuppliesApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 interface ItemStock {
   RowID: number;
@@ -176,20 +177,18 @@ export default function DispenseFromCabinetStockPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="startDate">วันที่เริ่มต้น</Label>
-                  <Input
+                  <ExpireDateInput
                     id="startDate"
-                    type="date"
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    onChange={(ymd) => setStartDate(ymd)}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="endDate">วันที่สิ้นสุด</Label>
-                  <Input
+                  <ExpireDateInput
                     id="endDate"
-                    type="date"
                     value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                    onChange={(ymd) => setEndDate(ymd)}
                   />
                 </div>
               </div>

@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useState } from 'react';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 interface ReturnHistoryFilterProps {
   dateFrom: string;
@@ -75,11 +76,10 @@ export default function ReturnHistoryFilter({
             <Label htmlFor="history-date-from" className="text-slate-600 font-medium">
               วันที่เริ่มต้น
             </Label>
-            <Input
+            <ExpireDateInput
               id="history-date-from"
-              type="date"
               value={dateFrom}
-              onChange={(e) => onDateFromChange(e.target.value)}
+              onChange={(ymd) => onDateFromChange(ymd)}
               className="rounded-lg border-slate-200"
             />
           </div>
@@ -87,11 +87,10 @@ export default function ReturnHistoryFilter({
             <Label htmlFor="history-date-to" className="text-slate-600 font-medium">
               วันที่สิ้นสุด
             </Label>
-            <Input
+            <ExpireDateInput
               id="history-date-to"
-              type="date"
               value={dateTo}
-              onChange={(e) => onDateToChange(e.target.value)}
+              onChange={(ymd) => onDateToChange(ymd)}
               className="rounded-lg border-slate-200"
             />
           </div>

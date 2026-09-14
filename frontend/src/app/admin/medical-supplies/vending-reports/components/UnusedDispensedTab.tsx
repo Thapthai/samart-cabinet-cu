@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { Download, RefreshCw, XCircle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { vendingReportsApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
@@ -131,11 +131,10 @@ export function UnusedDispensedTab() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="unused-date">วันที่ที่ต้องการตรวจสอบ</Label>
-            <Input
+            <ExpireDateInput
               id="unused-date"
-              type="date"
               value={unusedDate}
-              onChange={(e) => setUnusedDate(e.target.value)}
+              onChange={(ymd) => setUnusedDate(ymd)}
               placeholder="ถ้าไม่ระบุจะใช้วันปัจจุบัน"
             />
             <p className="text-xs text-gray-500">ถ้าไม่ระบุจะใช้วันปัจจุบัน</p>

@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { Download, RefreshCw, AlertCircle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { vendingReportsApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { ExpireDateInput } from '@/components/ExpireDateInput';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
 
@@ -138,20 +138,18 @@ export function UnmappedDispensedTab() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="unmapped-start-date">วันที่เริ่มต้น</Label>
-              <Input
+              <ExpireDateInput
                 id="unmapped-start-date"
-                type="date"
                 value={unmappedStartDate}
-                onChange={(e) => setUnmappedStartDate(e.target.value)}
+                onChange={(ymd) => setUnmappedStartDate(ymd)}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="unmapped-end-date">วันที่สิ้นสุด</Label>
-              <Input
+              <ExpireDateInput
                 id="unmapped-end-date"
-                type="date"
                 value={unmappedEndDate}
-                onChange={(e) => setUnmappedEndDate(e.target.value)}
+                onChange={(ymd) => setUnmappedEndDate(ymd)}
               />
             </div>
             <div className="space-y-2">
